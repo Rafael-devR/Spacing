@@ -91,3 +91,15 @@ foi descoberto, na perspectiva e no tamanho da tela do jogo, os nomes, que o ast
 o mapa e que fechar devolve o mundo. Leva o astronauta 70 blocos adiante e confere que o mapa descobre o trecho
 novo (captura do mapa afastado e girado). Depois minera blocos em sequência com a broca de cristal e confere que o
 tremor não passa do nível de um golpe (`tablet-*.png`).
+
+## Teste do benchmark
+
+```bash
+node bench.mjs http://localhost:5173/ /tmp/shots
+```
+
+Abre o menu de pausa, roda o teste de desempenho abreviado (14% do tempo) e confere que ele mede de verdade (FPS, etapas,
+chunks, triângulos), que guarda o resultado, que compara com o anterior, que **o salvamento do jogo não muda** (nem ao
+terminar nem ao cancelar) e que voltar ao jogo recarrega no progresso de antes (`bench-*.png`). Os números dali não valem
+como desempenho: o WebGL roda por software.
+

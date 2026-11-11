@@ -18,6 +18,10 @@ export interface PauseMenuHandlers {
   onOrientation(o: OrientationPref): void;
   onControls(): void;
   onNewGame(): void;
+  /** iniciar o teste de desempenho */
+  onBenchmark(): void;
+  /** ver o último resultado do teste */
+  onBenchmarkResult(): void;
 }
 
 export class PauseMenu {
@@ -31,6 +35,12 @@ export class PauseMenu {
     el('#pause-version').textContent = t('pause.version', { version });
     el('#pause-resume').addEventListener('click', () => h.onResume());
     el('#pause-controls').addEventListener('click', () => h.onControls());
+    el('#pause-bench-title').textContent = t('pause.bench');
+    el('#pause-bench-hint').textContent = t('pause.benchHint');
+    el('#pause-bench').textContent = t('pause.benchStart');
+    el('#pause-bench-last').textContent = t('pause.benchLast');
+    el('#pause-bench').addEventListener('click', () => h.onBenchmark());
+    el('#pause-bench-last').addEventListener('click', () => h.onBenchmarkResult());
     this.root.addEventListener('pointerdown', (e) => {
       if (e.target === this.root) h.onResume();
     });
@@ -82,6 +92,11 @@ export class PauseMenu {
 
   get open(): boolean {
     return !this.root.hidden;
+  }
+
+  /** mostra o botão do último resultado só se houver um guardado */
+  setBenchmarkResult(has: boolean): void {
+    el('#pause-bench-last').hidden = !has;
   }
 
   show(prefs: Prefs): void {

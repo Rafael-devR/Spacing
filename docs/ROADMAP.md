@@ -67,6 +67,7 @@ Detalhes em [design/SOBREVIVENCIA.md](design/SOBREVIVENCIA.md) e [design/GAME_JU
 
 ## v0.7: Desempenho e distribuição
 
+- [x] Teste de desempenho no menu de pausa, com resultado guardado para comparar ([design/DESEMPENHO.md](design/DESEMPENHO.md)).
 - [ ] Geração e malha de chunks em Web Worker.
 - [ ] PWA instalável com funcionamento offline.
 - [ ] Teste em aparelhos reais e ajuste do orçamento de desempenho.

@@ -7,6 +7,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Adicionado
 
+- **Teste de desempenho** ([design/DESEMPENHO.md](docs/design/DESEMPENHO.md)): botão no menu de pausa, logo abaixo de
+  Continuar. Roda sozinho por cerca de 51 segundos e reproduz o que mais pesa: muitos blocos quebrados rápido com
+  destroços, partículas, itens voando e som, meteoros, e uma caminhada a quase 6 vezes a velocidade normal que força a
+  geração de chunks. Mede FPS médio, mínimo e dos 1% piores, os piores quadros, o tempo de gerar e malhar chunks (novos e
+  refeitos ao quebrar bloco), triângulos, chamadas de desenho e objetos, resolução e qualidade. Mostra o resultado numa
+  tela clara e guarda o último e o anterior para comparar antes e depois de otimizar. O progresso do jogo não muda: o
+  salvamento fica travado durante o teste e o jogo recarrega no fim.
+- Teste `tools/visual-check/bench.mjs`.
+
 - **Brocas** ([design/BROCAS.md](docs/design/BROCAS.md)): a ferramenta de mineração evolui. A broca do traje
   ganha duas irmãs fabricadas na bancada, a **Broca de ferro** (1,7× mais rápida) e a **Broca de cristal**
   (2,6×). Cada uma tem velocidade, nível e gasto de bateria; blocos e minérios pedem um nível mínimo (basalto,

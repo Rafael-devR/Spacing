@@ -11,7 +11,8 @@ export interface Vec3Like {
   z: number;
 }
 
-export type GameState = 'loading' | 'menu' | 'playing' | 'paused' | 'dead';
+/** `benchmark`: o teste de desempenho está rodando (ou mostrando o resultado); o jogo não aceita comandos */
+export type GameState = 'loading' | 'menu' | 'playing' | 'paused' | 'dead' | 'benchmark';
 
 export type DeathCause = 'asphyxia' | 'meteor' | 'fall';
 
@@ -38,6 +39,8 @@ export interface GameEvents {
   'inventory:full': { item: ItemId; amount: number };
   /** o astronauta descobriu ladrilhos novos do mapa (chunks "cx,cz" que mudaram) */
   'map:revealed': { chunks: string[] };
+  /** o teste de desempenho terminou (resultado completo em `window.spacing.benchStore` e no armazenamento) */
+  'bench:finished': { avgFps: number; minFps: number };
   /** o mapa do tablet abriu ou começou a fechar */
   'map:toggled': { open: boolean };
   /** a mochila abriu ou fechou */

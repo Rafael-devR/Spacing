@@ -48,6 +48,9 @@ import { BaseModel } from '../render/baseModel';
 import { INTERIOR_LAYER, IndoorView, showIndoors } from '../render/indoors';
 import { Exploration } from '../systems/Exploration';
 import { MapDirector, TABLET_LAYER } from './MapDirector';
+import { Benchmark } from './Benchmark';
+import { BenchmarkUi } from '../ui/BenchmarkUi';
+import { loadBench, saveBench, type BenchStore } from '../core/benchStore';
 import { createEquipModel } from '../render/equipModels';
 import { Crafting } from '../systems/Crafting';
 import { Equipment } from '../systems/Equipment';
@@ -60,6 +63,13 @@ export class Game {
   readonly events: GameBus = createBus();
 
   private readonly store = defaultStore();
+  /** teste de desempenho (app/Benchmark.ts) e suas telas */
+  readonly bench: Benchmark;
+  private readonly benchUi = new BenchmarkUi();
+  /** último resultado do teste e o anterior (para comparar) */
+  benchStore: BenchStore = loadBench(defaultStore());
+  /** durante o teste nada é salvo: ele altera o mundo, e o jogo recarrega no fim para voltar ao progresso de antes */
+  private persistLocked = false;
   private readonly prefs: Prefs;
   private readonly save: SaveData | null;
 
@@ -282,9 +292,12 @@ export class Game {
         },
         onControls: () => (el('#help').hidden = false),
         onNewGame: () => this.newGame(),
+        onBenchmark: () => this.startBenchmark(),
+        onBenchmarkResult: () => this.showBenchResult(),
       },
       VERSION,
     );
+    this.pauseMenu.setBenchmarkResult(!!this.benchStore.last);
 
     this.director = new SurvivalDirector({
       events, hud: this.hud, sfx: this.sfx, haptics: this.haptics, rig: this.rig, post: this.post,
@@ -330,6 +343,27 @@ export class Game {
       canOpen: () =>
         this.state === 'playing' && this.equipment.has('map') && !this.bag.open && !this.craftPanel.open && !this.base.busy,
     });
+
+    this.bench = new Benchmark({
+      renderer, scene, world: this.world, player: this.player, rig: this.rig, interaction: this.interaction,
+      meteors: this.meteors, debris: this.debris, particles: this.particles, drops: this.drops, loot: this.loot,
+      quality: () => ({ name: this.qualityName, auto: !this.prefs.quality, preset: QUALITY[this.qualityName] }),
+      muted: () => this.prefs.muted,
+      version: VERSION,
+    });
+    this.bench.onProgress = (p) => this.benchUi.progress(p);
+    this.bench.onFinish = (r) => {
+      this.benchStore = saveBench(this.store, r);
+      this.pauseMenu.setBenchmarkResult(true);
+      this.sfx.setPaused(true);
+      this.events.emit('bench:finished', { avgFps: r.overall.avgFps, minFps: r.overall.minFps });
+      this.benchUi.showResult(this.benchStore, true);
+    };
+    this.benchUi.onCancel = () => this.cancelBenchmark();
+    this.benchUi.onClose = (after) => {
+      if (after) location.reload(); // volta ao progresso salvo: o teste alterou o mundo na memória
+      else this.pauseMenu.show(this.prefs);
+    };
 
     this.wireEvents();
     this.wireControls();
@@ -450,6 +484,14 @@ export class Game {
       help.hidden = true;
       return;
     }
+    if (this.benchUi.open) {
+      this.benchUi.dismiss();
+      return;
+    }
+    if (this.state === 'benchmark') {
+      if (this.bench.running) this.cancelBenchmark();
+      return;
+    }
     if (this.bag.open) {
       this.bag.close();
       return;
@@ -464,6 +506,39 @@ export class Game {
     }
     if (this.state === 'playing') this.pause();
     else if (this.state === 'paused') this.resume();
+  }
+
+  // ---------- teste de desempenho ----------
+
+  /** Começa o teste: grava o jogo como está, trava o salvamento e entrega o controle ao roteiro (app/Benchmark.ts). */
+  private startBenchmark(): void {
+    if (this.state !== 'paused') return;
+    this.persist(); // o que vale é o que está salvo agora; daqui em diante nada é salvo até recarregar
+    this.persistLocked = true;
+    this.pauseMenu.hide();
+    el('#help').hidden = true;
+    this.haptics.enabled = false; // 30 blocos por segundo não precisam vibrar o aparelho
+    this.base.leaveInstant();
+    this.sfx.setPaused(false);
+    this.fixed.reset();
+    this.last = performance.now();
+    this.setState('benchmark');
+    this.benchUi.showRunning();
+    this.bench.start();
+  }
+
+  /** Cancela o teste: o resultado é descartado e o jogo recarrega (o mundo foi alterado na memória). */
+  private cancelBenchmark(): void {
+    if (!this.bench.running) return;
+    this.bench.cancel();
+    this.benchUi.hideRunning();
+    location.reload();
+  }
+
+  /** Mostra o último resultado guardado, a partir do menu de pausa. */
+  private showBenchResult(): void {
+    this.pauseMenu.hide();
+    this.benchUi.showResult(this.benchStore, false);
   }
 
   private newGame(): void {
@@ -717,6 +792,11 @@ export class Game {
     });
     addEventListener('visibilitychange', () => {
       if (!document.hidden) return;
+      // o teste só vale com o jogo na tela (o navegador segura os quadros de uma aba escondida)
+      if (this.state === 'benchmark') {
+        if (this.bench.running) this.cancelBenchmark();
+        return;
+      }
       this.persist();
       this.pause();
     });
@@ -786,7 +866,7 @@ export class Game {
   // ---------- salvar ----------
 
   private persist(): void {
-    if (this.resetting || this.state === 'loading' || this.state === 'menu') return;
+    if (this.resetting || this.persistLocked || this.state === 'loading' || this.state === 'menu') return;
     const p = this.player.pos;
     writeSave(this.store, {
       seed: SEED,
@@ -839,13 +919,19 @@ export class Game {
 
   private readonly frame = (now: number): void => {
     requestAnimationFrame(this.frame);
-    const realDt = Math.min(0.05, (now - this.last) / 1000);
+    const t0 = performance.now();
+    const rawMs = now - this.last;
+    const realDt = Math.min(0.05, rawMs / 1000);
     this.last = now;
-    // na pausa o canvas mantém o último quadro
+    // na pausa o canvas mantém o último quadro; depois do teste, também (a tela de resultado está por cima)
     if (this.state === 'loading' || this.state === 'paused') return;
+    if (this.state === 'benchmark' && this.bench.finished) return;
     const state = this.state;
     const playing = state === 'playing';
     const dead = state === 'dead';
+    const benching = state === 'benchmark';
+    // o teste usa tudo o que o jogo simula, menos o que depende de comandos e da sobrevivência
+    const live = playing || benching;
     const { input, rig, player, world, interaction, hud } = this;
 
     // escala de tempo: pausa de impacto e câmera lenta (juice)
@@ -859,6 +945,7 @@ export class Game {
     }
     this.time += dt;
     const time = this.time;
+    if (benching) this.bench.frameBegin(rawMs);
 
     input.update();
     if (!playing || this.map.active) {
@@ -881,10 +968,10 @@ export class Game {
     player.animate(dt, this.fixed.alpha);
 
     this.drops.update(dt, player);
-    this.loot.update(dt, time, player, playing);
+    this.loot.update(dt, time, player, live);
     this.blockFx.update(dt);
     this.footprints.update(dt);
-    if (playing || dead) this.meteors.update(dt, time);
+    if (live || dead) this.meteors.update(dt, time);
     if (playing) this.missions.update(dt);
     // o mapa vai sendo descoberto conforme o astronauta anda
     this.revealT -= dt;
@@ -960,5 +1047,6 @@ export class Game {
     if (playing) this.perfTick(realDt);
     this.map.render();
     this.post.render(time);
+    if (benching) this.bench.frameEnd(performance.now() - t0);
   };
 }
