@@ -103,7 +103,7 @@ export class LootPiles {
   }
 
   private add(item: ItemId, amount: number, pile: number, pos: THREE.Vector3, vel: THREE.Vector3, resting: boolean): void {
-    const mesh = this.models.create(item);
+    const mesh = this.models.createOutlined(item);
     mesh.scale.setScalar(this.models.dropScale(item) * 1.15);
     mesh.position.copy(pos);
     mesh.castShadow = true;

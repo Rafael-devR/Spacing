@@ -29,7 +29,7 @@ export class ItemDrops {
 
   spawn(item: ItemId, at: THREE.Vector3, n: number): void {
     for (let i = 0; i < n; i++) {
-      const obj = this.models.create(item);
+      const obj = this.models.createOutlined(item);
       obj.scale.setScalar(this.models.dropScale(item));
       obj.position.copy(at);
       obj.castShadow = true;
@@ -41,7 +41,7 @@ export class ItemDrops {
 
   /** Um item que já está no chão sai voando até o jogador e entrega `amount` unidades. */
   fly(item: ItemId, from: THREE.Vector3, amount: number): void {
-    const obj = this.models.create(item);
+    const obj = this.models.createOutlined(item);
     obj.scale.setScalar(this.models.dropScale(item));
     obj.position.copy(from);
     obj.castShadow = true;

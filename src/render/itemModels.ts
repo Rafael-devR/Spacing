@@ -9,6 +9,8 @@ import type { PropFactory } from './models';
 export class ItemModels {
   private readonly blockGeos = new Map<BlockId, THREE.BufferGeometry>();
   private readonly propGeos = new Map<ItemId, THREE.BufferGeometry>();
+  /** contorno branco dos itens soltos no mundo (casco invertido: a cópia aumentada só mostra o verso) */
+  private readonly outlineMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.BackSide, toneMapped: false });
 
   constructor(
     private readonly materials: Materials,
@@ -48,6 +50,18 @@ export class ItemModels {
     const block = itemBlock(item);
     if (block !== undefined) return new THREE.Mesh(this.blockGeo(block), this.materials.terrain);
     return new THREE.Mesh(this.propGeo(item), this.materials.props);
+  }
+
+  /** Item solto no mundo: a malha do item com contorno branco, para ser visto de longe. */
+  createOutlined(item: ItemId): THREE.Mesh {
+    const m = this.create(item);
+    const o = new THREE.Mesh(m.geometry, this.outlineMat);
+    // blocos são cubos (contorno mais fino basta); minérios são irregulares e precisam de mais
+    o.scale.setScalar(itemBlock(item) !== undefined ? 1.2 : 1.28);
+    o.castShadow = false;
+    o.renderOrder = -1;
+    m.add(o);
+    return m;
   }
 
   /** Malha de um bloco inteiro, centrada (efeitos de quebrar e colocar). */
