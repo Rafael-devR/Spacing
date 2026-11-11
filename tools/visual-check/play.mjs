@@ -1,5 +1,6 @@
 // Teste jogado: começa o jogo, minera um bloco ao lado do astronauta, confere o inventário,
-// abre a pausa e confere o salvamento. Usa o acesso de depuração `window.spacing` (só em `npm run dev`).
+// abre a pausa, confere o salvamento, morre sem oxigênio, renasce e recolhe os itens caídos.
+// Usa o acesso de depuração `window.spacing` (só em `npm run dev`).
 // Uso: node play.mjs <url> <pasta-de-saída>
 import chromium from '@sparticuz/chromium';
 import { chromium as pw } from 'playwright-core';
@@ -61,12 +62,90 @@ check('menu de pausa visível', await page.isVisible('#pause'));
 await page.screenshot({ path: `${out}/play-2-pausa.png` });
 
 const save = await page.evaluate(() => JSON.parse(localStorage.getItem('spacing.save') || 'null'));
-check('salvou ao pausar', !!save && save.version === 2, save ? `versão ${save.version}` : 'sem salvamento');
+check('salvou ao pausar', !!save && save.version === 3, save ? `versão ${save.version}` : 'sem salvamento');
 check('inventário no salvamento', !!save && Object.keys(save.inventory).length > 0);
 
 await page.click('#pause-resume');
 await page.waitForTimeout(300);
 check('Continuar volta ao jogo', (await page.evaluate(() => window.spacing.state)) === 'playing');
+
+// ---- sobrevivência: morrer sem oxigênio, itens no chão, renascer, recolher ----
+const before = await page.evaluate(() => window.spacing.inventory.serialize());
+// dentro da área pressurizada o módulo recarrega o traje: primeiro confere isso
+await page.evaluate(() => (window.spacing.survival.o2 = 40));
+const refilled = await page
+  .waitForFunction(() => window.spacing.survival.o2 > 60, null, { timeout: 30000, polling: 200 })
+  .then(() => true, () => false);
+check('perto do módulo o oxigênio recarrega', refilled);
+// depois sai da área pressurizada (12 blocos para o leste)
+await page.evaluate(() => {
+  const g = window.spacing;
+  const x = g.player.pos.x + 12, z = g.player.pos.z;
+  g.world.update(x, z, 99, 0);
+  g.player.pos.set(x, g.world.topY(Math.floor(x), Math.floor(z)) + 1.05, z);
+  g.player.prevPos.copy(g.player.pos);
+  g.player.vel.set(0, 0, 0);
+});
+await page.waitForTimeout(500);
+await page.evaluate(() => (window.spacing.survival.o2 = 12));
+const warned = await page.waitForSelector('#meter-o2.crit', { timeout: 30000 }).then(() => true, () => false);
+check('oxigênio crítico pisca em vermelho', warned);
+await page.waitForTimeout(1500);
+await page.screenshot({ path: `${out}/play-2b-oxigenio-critico.png` });
+await page.evaluate(() => {
+  const s = window.spacing.survival;
+  s.o2 = 0;
+  s.integrity = 3;
+});
+const died = await page
+  .waitForFunction(() => window.spacing.state === 'dead', null, { timeout: 60000, polling: 200 })
+  .then(() => true, () => false);
+check('sem oxigênio, o astronauta morre', died);
+const afterDeath = await page.evaluate(() => ({ inv: window.spacing.inventory.serialize(), loot: window.spacing.loot.totals() }));
+check('inventário esvaziou na morte', Object.keys(afterDeath.inv).length === 0, JSON.stringify(afterDeath.inv));
+check('itens caíram no chão', JSON.stringify(afterDeath.loot) === JSON.stringify(before), `chão ${JSON.stringify(afterDeath.loot)}`);
+const card = await page.waitForSelector('#death:not([hidden])', { timeout: 30000 }).then(() => true, () => false);
+check('tela de morte aparece', card);
+if (!card) {
+  const st = await page.evaluate(() => ({ state: window.spacing.state, loot: window.spacing.loot.count }));
+  check('diagnóstico', false, JSON.stringify(st) + ' | erros: ' + errors.slice(0, 5).join(' | '));
+  console.log(results.join('\n'));
+  await browser.close();
+  process.exit(1);
+}
+await page.screenshot({ path: `${out}/play-3-morte.png` });
+
+await page.click('#btn-respawn');
+await page.waitForTimeout(400);
+const re = await page.evaluate(() => {
+  const g = window.spacing;
+  const p = g.player.pos, l = g.lander.group.position;
+  return { state: g.state, o2: g.survival.o2, hp: g.survival.integrity, dist: Math.hypot(p.x - l.x, p.z - l.z), loot: g.loot.count };
+});
+check('renasce jogando', re.state === 'playing');
+check('traje cheio ao renascer', re.o2 === 100 && re.hp === 100, `O2 ${re.o2}, integridade ${re.hp}`);
+check('renasce dentro da área pressurizada', re.dist < 4.5, `${re.dist.toFixed(1)} blocos do módulo`);
+check('itens continuam no chão', re.loot > 0);
+const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('spacing.save') || 'null'));
+check('itens caídos estão no salvamento', !!saved && saved.version === 3 && saved.loot.length > 0);
+await page.screenshot({ path: `${out}/play-4-renasceu.png` });
+
+// leva o astronauta até os itens
+await page.evaluate(() => {
+  const g = window.spacing;
+  const t = g.loot.latest();
+  g.player.pos.set(t.x, g.world.topY(Math.floor(t.x), Math.floor(t.z)) + 1.05, t.z);
+  g.player.prevPos.copy(g.player.pos);
+  g.player.vel.set(0, 0, 0);
+});
+const recovered = await page
+  .waitForFunction(() => window.spacing.loot.count === 0, null, { timeout: 90000, polling: 250 })
+  .then(() => true, () => false);
+check('passar por cima recolhe os itens', recovered);
+const backInInv = await page
+  .waitForFunction((b) => JSON.stringify(window.spacing.inventory.serialize()) === JSON.stringify(b), before, { timeout: 90000, polling: 250 })
+  .then(() => true, () => false);
+check('inventário voltou ao que era', backInInv, JSON.stringify(await page.evaluate(() => window.spacing.inventory.serialize())));
 
 check('sem erros no console', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(results.join('\n'));
