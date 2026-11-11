@@ -1,0 +1,14 @@
+{
+  "name": "spacing-visual-check",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Captura telas do jogo em um Chromium headless (WebGL por software). Ferramenta de desenvolvimento, fora do pacote do jogo.",
+  "scripts": {
+    "shot": "node shot.mjs"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "153.0.0",
+    "playwright-core": "1.65.0"
+  }
+}
