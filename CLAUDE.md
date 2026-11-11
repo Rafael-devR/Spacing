@@ -46,6 +46,8 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). Leia o [README]
   ferramenta à parte, com `package.json` próprio). Rode o `play.mjs` depois de mudar jogabilidade.
 - Depuração em `npm run dev`: `window.spacing` é o objeto do jogo; `?eventos` no endereço mostra os eventos.
 - Decisões: `docs/adr/`. Referências de arte: `docs/art/reference/`.
+- Sobrevivência: números em `src/data/survival.ts`, regras em `src/systems/Survival.ts`, resposta
+  (avisos, sons, efeitos, morte) em `src/app/SurvivalDirector.ts`.
 - Salvamento: `localStorage`, chave `spacing.save` (com versão e migração em `src/core/save.ts`) e
   `spacing.prefs.v1`. Mudou o formato? Nova versão, migração e teste.
 - Semente do mundo: `SEED` em `src/app/config.ts`. Mudar o gerador em `src/world/terrain.ts` invalida saves.

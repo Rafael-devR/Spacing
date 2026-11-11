@@ -20,12 +20,13 @@ do `MeshLambertMaterial` (`src/render/materials.ts`). Atualizar exige revisar es
 ```
 src/
   main.ts            ponto de entrada: cria o renderizador e o Game
-  app/               Game (laço, estados, ligação dos sistemas), eventos do jogo, configuração, passo fixo
+  app/               Game (laço, estados, ligação dos sistemas), SurvivalDirector (resposta à sobrevivência),
+                     eventos do jogo, configuração, passo fixo
   core/              barramento de eventos, entrada, salvamento, preferências, ruído, cor, vibração
   data/              conteúdo como dados: blocos, itens, objetos, missões
   world/             terreno, chunks (World), mesher, registro de blocos
-  entities/          jogador, destroços, meteoros, itens soltos
-  systems/           interação (minerar/construir), inventário, missões
+  entities/          jogador, destroços, meteoros, itens soltos, itens caídos na morte (LootPiles)
+  systems/           interação (minerar/construir), inventário, missões, sobrevivência (Survival)
   render/            materiais e shaders, céu, luzes, pós-processamento, partículas, modelos, câmera, ícones
   ui/                HUD, menu de pausa, estilos
   audio/             sons sintetizados
@@ -63,12 +64,13 @@ no console, abra o jogo com `?eventos` no endereço.
 
 ## Laço principal e estados
 
-Estados (`app/Game.ts`): `loading` → `menu` → `playing` ⇄ `paused`.
+Estados (`app/Game.ts`): `loading` → `menu` → `playing` ⇄ `paused`, e `playing` → `dead` → `playing` ao renascer.
 
 A cada quadro, em `playing`:
 
 1. Entrada.
-2. **Simulação em passo fixo de 1/60 s** (`FixedStep`): caminhada automática, física do jogador e dos destroços.
+2. **Simulação em passo fixo de 1/60 s** (`FixedStep`): caminhada automática, física do jogador, medidores do
+   traje (`Survival`) e destroços. Pausa de impacto e câmera lenta escalam esse tempo (game juice).
    No máximo 5 passos por quadro; se o aparelho atrasar mais que isso, o jogo desacelera em vez de travar.
 3. Animação do jogador, **interpolada** entre os dois últimos passos (sem tremor em telas de 90/120 Hz).
 4. Itens soltos, pegadas, meteoros, missões.
@@ -99,17 +101,20 @@ a aba, o jogo salva e pausa sozinho.
 
 ## Salvamento
 
-Chave `spacing.save` no `localStorage`, em JSON, formato **versão 2** (`src/core/save.ts`):
+Chave `spacing.save` no `localStorage`, em JSON, formato **versão 3** (`src/core/save.ts`):
 
 ```
 { version: 2, seed, savedAt,
   world: { edits: { "cx,cz": [[índice, bloco], ...] }, removedProps: [...], extraProps: [...] },
   inventory: { item: quantidade },
   player: { x, y, z },
-  missions: { step, count } }
+  missions: { step, count },
+  suit: { suit, o2, battery, integrity },
+  loot: [{ item, amount, x, y, z, pile }] }
 ```
 
 - O salvamento da v0.1 (chave `spacing.save.v1`, sem versão) é migrado na primeira carga e apagado.
+- Da versão 2 para a 3: o traje começa cheio e não há itens no chão.
 - Dados inválidos são limpos (itens desconhecidos, quantidades negativas); versões futuras são recusadas.
 - Salva a cada 5 segundos jogando, ao pausar, ao esconder a aba e ao sair.
 - Preferências (qualidade, som, tremor, vibração) ficam em `spacing.prefs.v1`.
@@ -124,7 +129,8 @@ Chave `spacing.save` no `localStorage`, em JSON, formato **versão 2** (`src/cor
 | `tests/core.test.ts`          | Eventos, passo fixo, inventário                                     |
 | `tests/save.test.ts`          | Migração da v0.1, limpeza de dados, gravar e ler                    |
 | `tests/data.test.ts`          | Consistência do conteúdo e dos textos                               |
-| `tools/visual-check/play.mjs` | Jogo real no navegador: começar, minerar, coletar, pausar, salvar   |
+| `tests/survival.test.ts`      | Gasto e recarga do traje, avisos, dano, morte, itens caídos         |
+| `tools/visual-check/play.mjs` | Jogo real no navegador: começar, minerar, coletar, pausar, salvar, recarregar, morrer, renascer, recolher os itens |
 
 ## Dívidas técnicas conhecidas
 

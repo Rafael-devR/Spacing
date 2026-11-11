@@ -43,16 +43,27 @@ Escala de 0 a 100. Valores do traje básico.
 2. **Todos os itens caem**: o inventário inteiro e os equipamentos equipados. Eles saem do astronauta com
    física, se espalham em volta e param no chão, flutuando de leve, girando e brilhando para serem vistos de
    longe.
-3. O astronauta **renasce no módulo de pouso** com o traje de emergência básico, medidores cheios e
-   3 segundos de invulnerabilidade.
+3. O astronauta **renasce no módulo de pouso**, dentro da área pressurizada, com o traje de emergência
+   básico, medidores cheios e 3 segundos de invulnerabilidade (o astronauta pisca).
 4. Um marcador mostra a direção e a distância até **"Seus itens"**.
 5. Passar a até 1,2 bloco de um item o puxa para o inventário (ímã), com o mesmo retorno de qualquer coleta.
 
 Regras:
 
+- Para não encher a cena, cada tipo de item vira no máximo 4 pedaços; a soma é exata.
 - Os itens caídos **não somem** e ficam no salvamento.
 - Morrer de novo antes de recolher cria uma segunda pilha. A primeira continua onde estava.
 - O progresso das missões não se perde.
+
+## Onde está no código
+
+| Parte | Arquivo |
+| ----- | ------- |
+| Números (esta página) | `src/data/survival.ts` |
+| Regras: gasto, recarga, dano, morte | `src/systems/Survival.ts` |
+| Itens caídos | `src/entities/LootPiles.ts` |
+| Avisos, sons, efeitos de tela, morte e renascimento | `src/app/SurvivalDirector.ts` |
+| Testes | `tests/survival.test.ts` e o teste jogado `tools/visual-check/play.mjs` |
 
 ## O que vem da ciência real
 

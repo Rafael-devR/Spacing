@@ -24,16 +24,17 @@ Organizar antes de crescer. Sem mecânica nova, mas com menu de pausa.
 - [x] Inventário como sistema próprio (base para perder os itens na morte).
 - [x] Teste jogado automático no navegador (`tools/visual-check/play.mjs`).
 
-## v0.3: Sobrevivência I
+## v0.3: Sobrevivência I (em revisão)
 
 Detalhes em [design/SOBREVIVENCIA.md](design/SOBREVIVENCIA.md) e [design/GAME_JUICE.md](design/GAME_JUICE.md).
 
-- [ ] Oxigênio, bateria e integridade, com HUD dos medidores.
-- [ ] Recarga na área pressurizada do módulo de pouso.
-- [ ] Avisos de oxigênio baixo e asfixia.
-- [ ] Dano por meteoro, queda e falta de ar.
-- [ ] Morte: todos os itens caem no chão, renascimento no módulo, marcador "Seus itens".
-- [ ] Game juice de todos esses eventos, mais pausa de impacto, vibração e animações de bloco.
+- [x] Oxigênio, bateria e integridade, com HUD dos medidores.
+- [x] Recarga na área pressurizada do módulo de pouso.
+- [x] Avisos de oxigênio baixo e asfixia, com mensagens da IA do traje.
+- [x] Dano por meteoro, queda e falta de ar.
+- [x] Morte: todos os itens caem no chão, renascimento no módulo, marcador "Seus itens".
+- [x] Game juice de todos esses eventos, mais pausa de impacto, vibração e animações de bloco.
+- [ ] Ajuste dos números (duração do oxigênio, danos) depois de jogar no celular.
 
 ## v0.4: Sobrevivência II
 

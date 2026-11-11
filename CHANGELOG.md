@@ -12,11 +12,21 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - Design da sobrevivência (`docs/design/SOBREVIVENCIA.md`): oxigênio, bateria, integridade, morte com
   perda de todos os itens e Gerador de Domo.
 - Catálogo de game juice (`docs/design/GAME_JUICE.md`).
+- **Sobrevivência I (v0.3):** oxigênio, bateria e integridade do traje, com medidores no HUD.
+  - A área pressurizada do módulo de pouso recarrega tudo.
+  - A IA do traje avisa com 30% e 15% de oxigênio e quando ele acaba (asfixia).
+  - Sem bateria, a furadeira fica três vezes mais lenta.
+  - Dano por meteoro, queda forte e falta de ar, com número de dano e traje piscando.
+  - Morte: todos os itens caem no chão flutuando, o astronauta renasce no módulo e um marcador laranja
+    mostra "Seus itens". Passar por cima recolhe.
+  - Game juice: câmera lenta e som abafado na morte, feixe ao renascer, respiração e batimento em ciclo,
+    pausa de impacto e bloco que encolhe ao quebrar, bloco que estica ao ser colocado, astronauta que
+    achata ao pousar e tom de coleta subindo em sequência.
 - Menu de pausa (Esc, P ou botão Pausa) com configurações de gráficos, som, tremor de tela e vibração.
 - Vibração no celular ao quebrar blocos, em impactos de meteoro e ao concluir objetivos.
 - O jogo salva e pausa sozinho ao trocar de aplicativo ou esconder a aba.
 - Teste jogado automático no navegador (`tools/visual-check/play.mjs`) e testes de eventos, salvamento,
-  passo fixo, inventário e consistência dos dados (33 testes no total).
+  passo fixo, inventário, consistência dos dados e sobrevivência (47 testes no total).
 
 ### Corrigido
 
@@ -33,7 +43,9 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - Sistemas conversam por um barramento de eventos tipado; som, tremor, vibração e HUD reagem a eventos.
 - Blocos, itens, objetos e missões viraram dados em `src/data/`.
 - Física em passo fixo de 1/60 s, com a animação do astronauta interpolada.
-- Salvamento com versão (chave `spacing.save`); o salvamento da v0.1 é migrado automaticamente.
+- Salvamento com versão (chave `spacing.save`, formato 3 com traje e itens caídos); os salvamentos
+  anteriores são migrados automaticamente.
+- O astronauta começa e renasce dentro da área pressurizada do módulo.
 - Os botões de gráficos, som e controles do topo foram para o menu de pausa.
 - Estilos em `src/ui/styles.css` e textos da interface em `src/i18n/`.
 

@@ -13,6 +13,8 @@ no fim, um foguete capaz de levá-lo a um mundo melhor.
 
 - Mundo de **blocos** gerado por **chunks**, infinito em todas as direções, com crateras e planícies de basalto.
 - Mineração satisfatória: destroços com física, faíscas, tremor de câmera e itens que voam até você.
+- Sobrevivência: oxigênio, bateria e integridade do traje. Morrer custa todos os itens, que ficam no chão
+  esperando você voltar para buscá-los.
 - Construção livre com blocos.
 - Visual com **shaders próprios**: sombras suaves, oclusão ambiente nos cantos, névoa nas crateras,
   brilho nos cristais e correção de cor.
