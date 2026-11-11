@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { BENCH_EFFECTS, BENCH_SCENARIOS, BENCH_TARGETS, CRYSTAL_BREAK_RATE, MATRIX_SCENARIO, RESOLUTION_SCALES, THERMAL_MINUTES, plannedSeconds } from '../src/data/bench';
 import {
   bucketSeries, budgetOf, compare, detectRefreshRate, fpsEffective, fpsPresented, frameStats, framesLost, highestSustained,
   histogram, histogramLabels, jitter, longestOffTarget, mean, median, pacing, percentile, slope, sorted, stddev, targetFluidity,
@@ -311,5 +312,74 @@ describe('tendência (aquecimento) e comparação', () => {
     expect(highestSustained([0.5, 0.75, 1, 1.25], [true, true, true, false])).toBe(1);
     expect(highestSustained([0.5, 0.75, 1], [true, false, true])).toBe(0.5);
     expect(highestSustained([0.5, 0.75], [false, false])).toBeNull();
+  });
+});
+
+// ---------- cenários como dados ----------
+
+describe('cenários do teste (dados)', () => {
+  it('têm os cinco cenários do teste anterior e os novos pedidos', () => {
+    const ids = BENCH_SCENARIOS.map((s) => s.id);
+    for (const id of ['prepare', 'mining', 'meteors', 'walk', 'everything', 'idle', 'spin', 'zoom', 'circle', 'crystal', 'explosion', 'map', 'base', 'items', 'worst']) {
+      expect(ids).toContain(id);
+    }
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('o modo rápido dura cerca de 2 minutos e o completo cerca de 15 (com os 10 do aquecimento)', () => {
+    const quick = plannedSeconds('quick');
+    const full = plannedSeconds('full');
+    expect(quick).toBeGreaterThan(100);
+    expect(quick).toBeLessThan(150);
+    expect(full).toBeGreaterThan(14 * 60);
+    expect(full).toBeLessThan(17 * 60);
+    expect(THERMAL_MINUTES).toBe(10);
+  });
+
+  it('o escalonamento do tempo encurta tudo na mesma proporção', () => {
+    expect(plannedSeconds('quick', 0.5)).toBeCloseTo(plannedSeconds('quick') / 2, 6);
+  });
+
+  it('cada cenário descarta 2 s de aquecimento, menos o que mede o carregamento da região', () => {
+    for (const s of BENCH_SCENARIOS) expect(s.warmup ?? 2).toBe(s.id === 'prepare' ? 0 : 2);
+  });
+
+  it('a broca de diamante quebra sem parar por 30 s no modo completo, na velocidade da broca de cristal', () => {
+    const c = BENCH_SCENARIOS.find((s) => s.id === 'crystal')!;
+    expect(c.seconds.full).toBe(30);
+    expect(c.actions.breakRate).toBeCloseTo(CRYSTAL_BREAK_RATE, 10);
+    expect(CRYSTAL_BREAK_RATE).toBeGreaterThan(5); // bem mais rápido que a broca do traje (2,9 blocos/s)
+    expect(CRYSTAL_BREAK_RATE).toBeLessThan(10);
+  });
+
+  it('o pior caso dura 60 s no modo completo e junta tudo', () => {
+    const w = BENCH_SCENARIOS.find((s) => s.id === 'worst')!;
+    expect(w.seconds.full).toBe(60);
+    const a = w.actions;
+    expect(a.walk).toBeGreaterThan(0);
+    expect(a.breakRate).toBeGreaterThan(0);
+    expect(a.meteorEvery).toBeGreaterThan(0);
+    expect(a.items?.count).toBeGreaterThan(0);
+  });
+
+  it('a câmera gira 360° em 5 s e o cenário da base começa na porta', () => {
+    expect(BENCH_SCENARIOS.find((s) => s.id === 'spin')!.actions.spin).toBe(5);
+    expect(BENCH_SCENARIOS.find((s) => s.id === 'base')!.origin).toBe('base');
+  });
+
+  it('o alvo principal é 120 Hz e o secundário 60 Hz', () => {
+    expect([...BENCH_TARGETS]).toEqual([120, 60]);
+  });
+
+  it('mede os nove efeitos pedidos e as seis escalas de resolução', () => {
+    expect(BENCH_EFFECTS.map((e) => e.id)).toEqual(['bloom', 'msaa', 'shadow', 'chromatic', 'vignette', 'noise', 'fog', 'glow', 'particles']);
+    expect([...RESOLUTION_SCALES]).toEqual([0.5, 0.75, 1, 1.25, 1.5, 2]);
+  });
+
+  it('a carga dos efeitos é fixa: parado, só com partículas', () => {
+    const a = MATRIX_SCENARIO.actions;
+    expect(a.emit).toBeGreaterThan(0);
+    expect(a.walk ?? 0).toBe(0);
+    expect(a.breakRate ?? 0).toBe(0);
   });
 });
