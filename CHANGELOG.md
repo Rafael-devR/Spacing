@@ -5,17 +5,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Não lançado]
 
-### Adicionado
-
-- Estrutura do projeto: Vite, TypeScript, Vitest, ESLint, Prettier e CI no GitHub Actions.
-- Documentação: design, história, arte, arquitetura, roadmap e registros de decisão (ADRs).
-- Testes do gerador de terreno, do mundo e do mesher.
-- Imagens de referência de arte em `docs/art/reference/`.
-
-### Alterado
-
-- O Three.js passou a vir do npm (versão `0.160.0` fixada) em vez de uma CDN.
-- `index.html` virou um documento completo para o Vite.
+Nada ainda.
 
 ## [0.1.0] - 2026-11-11
 
@@ -35,3 +25,8 @@ Primeiro protótipo jogável.
 - Cadeia de seis missões provisórias terminando no reparo do módulo de pouso.
 - Qualidade gráfica em três níveis, com ajuste automático por desempenho.
 - Sons sintetizados e salvamento no navegador.
+- Estrutura do projeto: Vite, TypeScript, Vitest, ESLint, Prettier e CI no GitHub Actions.
+- O Three.js vem do npm, na versão `0.160.0` fixada.
+- Testes do gerador de terreno, do mundo e do mesher.
+- Documentação: design, história, arte, arquitetura, roadmap e registros de decisão (ADRs), com as
+  imagens de referência de arte em `docs/art/reference/`.
