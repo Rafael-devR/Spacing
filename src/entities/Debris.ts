@@ -70,7 +70,7 @@ export class Debris {
   private readonly c = new THREE.Color();
   private readonly grid = new Map<number, DebrisItem[]>();
   /** sons pendentes do passo atual */
-  private readonly pending: { type: 'clink' | 'kick'; speed: number }[] = [];
+  private readonly pending: { type: 'clink' | 'kick'; speed: number; x: number; y: number; z: number }[] = [];
   private soundCooldown = 0;
 
   constructor(
@@ -247,7 +247,7 @@ export class Debris {
         it.pos.x = pp.x + nx * (0.35 + it.r);
         it.pos.z = pp.z + nz * (0.35 + it.r);
         if (this.solid(it.pos.x, it.pos.y, it.pos.z, it.r)) { it.pos.x = ox; it.pos.z = oz; }
-        if (it.sleep || it.still > 0) this.pending.push({ type: 'kick', speed: push });
+        if (it.sleep || it.still > 0) this.pending.push({ type: 'kick', speed: push, x: it.pos.x, y: it.pos.y, z: it.pos.z });
         this.wake(it);
       }
 
@@ -277,7 +277,7 @@ export class Debris {
             it.vel.y = -vy * 0.3;
             it.ax = it.ax * 0.6 + it.vel.z * 4;
             it.az = it.az * 0.6 - it.vel.x * 4;
-            if (vy < -5) this.pending.push({ type: 'clink', speed: -vy });
+            if (vy < -5) this.pending.push({ type: 'clink', speed: -vy, x: it.pos.x, y: it.pos.y, z: it.pos.z });
           } else it.vel.y = 0;
         } else it.vel.y = 0;
       }
@@ -330,7 +330,7 @@ export class Debris {
 
     // limita sons
     if (this.pending.length && this.soundCooldown <= 0) {
-      for (const ev of this.pending) this.events?.emit(ev.type === 'kick' ? 'debris:kick' : 'debris:clink', { speed: ev.speed });
+      for (const ev of this.pending) this.events?.emit(ev.type === 'kick' ? 'debris:kick' : 'debris:clink', { speed: ev.speed, x: ev.x, y: ev.y, z: ev.z });
       this.soundCooldown = 0.07;
     }
     this.pending.length = 0;

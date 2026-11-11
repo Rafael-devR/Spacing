@@ -1,7 +1,7 @@
 // O jogo: cria os sistemas, liga tudo pelo barramento de eventos e roda o laço principal.
 // Estados: carregando → menu → jogando ⇄ pausa.
 import * as THREE from 'three';
-import { Sfx } from '../audio/Sfx';
+import { Sfx, type Voice } from '../audio/Sfx';
 import { Haptics } from '../core/haptics';
 import { Input } from '../core/Input';
 import { SHAKE_SCALE, loadPrefs, savePrefs, type Prefs } from '../core/prefs';
@@ -35,7 +35,7 @@ import { PauseMenu } from '../ui/PauseMenu';
 import { LANDER, SPAWN } from '../world/terrain';
 import { World } from '../world/World';
 import { AUTOSAVE_MS, FIXED_STEP, MAX_STEPS_PER_FRAME, SEED, VERSION } from './config';
-import { createBus, type GameBus, type GameState } from './events';
+import { createBus, type GameBus, type GameState, type Vec3Like } from './events';
 import { FixedStep } from './FixedStep';
 import { SurvivalDirector } from './SurvivalDirector';
 
@@ -80,6 +80,8 @@ export class Game {
   private readonly pauseMenu: PauseMenu;
   private readonly sfx = new Sfx();
   private readonly haptics = new Haptics();
+  /** som de cada meteoro em voo, que acompanha a posição dele */
+  private readonly meteorVoices = new Map<number, Voice>();
 
   private readonly fixed = new FixedStep(FIXED_STEP, MAX_STEPS_PER_FRAME);
   private readonly focus = new THREE.Vector3();
@@ -239,6 +241,9 @@ export class Game {
     world.radius = 3;
     world.update(0, 0, 999, 0);
     lander.group.position.set(LANDER.x + 0.5, world.topY(LANDER.x, LANDER.z) + 1, LANDER.z + 0.5);
+    // zumbido do módulo: começa quando o áudio liberar (primeiro toque) e ajuda a achar o caminho de volta
+    const lp = lander.group.position;
+    this.sfx.onReady = () => this.sfx.hum({ x: lp.x, y: lp.y + 1.2, z: lp.z });
     const saved = this.save?.player;
     if (saved) {
       player.pos.set(saved.x, saved.y + 0.05, saved.z);
@@ -337,43 +342,43 @@ export class Game {
   private wireEvents(): void {
     const { events: e, sfx, particles, rig, hud, haptics, inventory, footprints, debris, missions, lander } = this;
     e.on('player:step', (p) => {
-      sfx.play('step');
+      sfx.play('step', 1, p);
       particles.dust(p.x, p.y, p.z, 2);
       this.footstep(false);
     });
     e.on('player:land', (p) => {
-      sfx.play('land');
+      sfx.play('land', 1, p);
       particles.dust(p.x, p.y, p.z, 10, 0.4);
       this.footstep(true);
       rig.shake(0.12);
     });
     e.on('player:jump', (p) => {
-      sfx.play('jump');
+      sfx.play('jump', 1, p);
       particles.dust(p.x, p.y, p.z, 4);
     });
-    e.on('debris:clink', () => sfx.play('clink'));
-    e.on('debris:kick', () => sfx.play('kick'));
-    e.on('mine:hit', () => {
-      sfx.play('hit');
+    e.on('debris:clink', (p) => sfx.play('clink', 1, p));
+    e.on('debris:kick', (p) => sfx.play('kick', 1, p));
+    e.on('mine:hit', (p) => {
+      sfx.play('hit', 1, p);
       rig.shake(0.1);
       if (this.input.touch) haptics.play('tick');
     });
-    const broke = (): void => {
-      sfx.play('break');
+    const broke = (p: Vec3Like): void => {
+      sfx.play('break', 1, p);
       rig.shake(0.18);
       haptics.play('tap');
     };
     e.on('block:broken', (b) => {
-      broke();
+      broke({ x: b.x + 0.5, y: b.y + 0.5, z: b.z + 0.5 });
       this.blockFx.broke(b.x, b.y, b.z, b.id);
       this.hitStop = 0.045;
     });
-    e.on('prop:broken', () => {
-      broke();
+    e.on('prop:broken', (p) => {
+      broke(p);
       this.hitStop = 0.06;
     });
     e.on('block:placed', (b) => {
-      sfx.play('place');
+      sfx.play('place', 1, { x: b.x + 0.5, y: b.y + 0.5, z: b.z + 0.5 });
       this.blockFx.placed(b.x, b.y, b.z, b.id);
       rig.shake(0.05);
     });
@@ -402,9 +407,13 @@ export class Game {
       footprints.clearAt(x, y, z);
       debris.disturb(x, y, z);
     });
-    e.on('meteor:incoming', () => sfx.play('whoosh'));
-    e.on('meteor:impact', ({ distance }) => {
-      sfx.play('boom');
+    e.on('meteor:incoming', (m) => {
+      const v = sfx.play('whoosh', 1, m);
+      if (v) this.meteorVoices.set(m.id, v);
+    });
+    e.on('meteor:impact', ({ id, x, y, z, distance }) => {
+      this.meteorVoices.delete(id);
+      sfx.play('boom', 1, { x, y, z });
       rig.shake(Math.max(0.15, 1.1 - distance / 30));
       if (distance < 30) haptics.play('heavy');
     });
@@ -612,10 +621,16 @@ export class Game {
     this.waypoint.update(time);
     this.lootMarker.update(time);
     this.lander.update(time);
+    for (const [id, v] of this.meteorVoices) {
+      const h = this.meteors.headOf(id);
+      if (h) v.at(h.x, h.y, h.z);
+      else this.meteorVoices.delete(id);
+    }
 
     const rp = player.model.root.position;
     this.focus.set(rp.x, rp.y + 0.8, rp.z);
     rig.update(dt, this.focus);
+    this.sfx.setListener(player.model.root.position, rig.forward());
 
     world.radius = THREE.MathUtils.clamp(Math.ceil((1.05 * rig.distTarget + 10) / 16), 2, 5);
     world.update(player.pos.x, player.pos.z, 2, dt);

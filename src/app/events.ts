@@ -42,11 +42,11 @@ export interface GameEvents {
   'player:step': Vec3Like;
   'player:jump': Vec3Like;
   'player:land': Vec3Like & { speed: number };
-  'debris:clink': { speed: number };
-  'debris:kick': { speed: number };
-  /** um meteoro começou a cair */
-  'meteor:incoming': Vec3Like;
-  'meteor:impact': Vec3Like & { distance: number; meteorite: boolean };
+  'debris:clink': Vec3Like & { speed: number };
+  'debris:kick': Vec3Like & { speed: number };
+  /** um meteoro começou a cair; x, y, z = de onde ele vem; `id` serve para achar a posição dele em voo */
+  'meteor:incoming': Vec3Like & { id: number };
+  'meteor:impact': Vec3Like & { id: number; distance: number; meteorite: boolean };
   'mission:started': { id: string; hint?: string };
   /** o painel da missão precisa ser redesenhado */
   'mission:updated': { step: number };

@@ -91,9 +91,9 @@ describe('Survival', () => {
 
   it('meteoro perto machuca conforme a distância, longe não', () => {
     const { s, events } = setup();
-    events.emit('meteor:impact', { x: 0, y: 0, z: 0, distance: 20, meteorite: false });
+    events.emit('meteor:impact', { id: 0, x: 0, y: 0, z: 0, distance: 20, meteorite: false });
     expect(s.integrity).toBe(100);
-    events.emit('meteor:impact', { x: 0, y: 0, z: 0, distance: 3.5, meteorite: false });
+    events.emit('meteor:impact', { id: 0, x: 0, y: 0, z: 0, distance: 3.5, meteorite: false });
     expect(s.integrity).toBeCloseTo(100 - SURVIVAL.meteorMaxDamage * 0.5);
   });
 
@@ -111,10 +111,10 @@ describe('Survival', () => {
     expect(s.dead).toBe(true);
     s.respawn();
     expect([s.o2, s.battery, s.integrity, s.dead]).toEqual([100, 100, 100, false]);
-    events.emit('meteor:impact', { x: 0, y: 0, z: 0, distance: 0, meteorite: false });
+    events.emit('meteor:impact', { id: 0, x: 0, y: 0, z: 0, distance: 0, meteorite: false });
     expect(s.integrity).toBe(100);
     run(SURVIVAL.respawnInvulnerable + 0.1);
-    events.emit('meteor:impact', { x: 0, y: 0, z: 0, distance: 0, meteorite: false });
+    events.emit('meteor:impact', { id: 0, x: 0, y: 0, z: 0, distance: 0, meteorite: false });
     expect(s.integrity).toBeLessThan(100);
   });
 });

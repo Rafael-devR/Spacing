@@ -34,6 +34,7 @@ Detalhes em [design/SOBREVIVENCIA.md](design/SOBREVIVENCIA.md) e [design/GAME_JU
 - [x] Dano por meteoro, queda e falta de ar.
 - [x] Morte: todos os itens caem no chão, renascimento no módulo, marcador "Seus itens".
 - [x] Game juice de todos esses eventos, mais pausa de impacto, vibração e animações de bloco.
+- [x] Áudio posicional: direção, distância e eco da cratera ([design/AUDIO.md](design/AUDIO.md)).
 - [ ] Ajuste dos números (duração do oxigênio, danos) depois de jogar no celular.
 
 ## v0.4: Sobrevivência II

@@ -34,6 +34,16 @@ Começa um jogo novo, minera o bloco ao lado do astronauta, espera o item chegar
 confere o salvamento e volta ao jogo. Imprime cada verificação com OK ou FALHOU e sai com erro se alguma
 falhar. Precisa do servidor de desenvolvimento (`npm run dev`), porque usa o acesso `window.spacing`.
 
+## Teste do áudio
+
+```bash
+node audio.mjs http://localhost:5173/
+```
+
+Toca explosões à direita e à esquerda do astronauta e mede o volume de cada canal; confere também que longe
+soa mais baixo, que o zumbido do módulo some de longe e que o meteoro toca sem erro. Rode depois de mexer em
+`src/audio/`.
+
 ## Opções do `shot.mjs`
 
 - `qualidade`: `baixo`, `medio` ou `alto`.

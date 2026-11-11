@@ -16,6 +16,7 @@ const FLIGHT = 1.7;
 const WARN = 1.6;
 
 interface ActiveMeteor {
+  id: number;
   target: THREE.Vector3;
   start: THREE.Vector3;
   head: THREE.Mesh;
@@ -47,6 +48,7 @@ export interface MeteorsDeps {
 
 export class Meteors {
   readonly active: ActiveMeteor[] = [];
+  private nextId = 1;
   /** segundos até o próximo meteoro aleatório */
   private timer = 100 + Math.random() * 60;
   private flash = 0;
@@ -101,9 +103,15 @@ export class Meteors {
     ring.position.copy(target).add(new THREE.Vector3(0, 0.06, 0));
     head.visible = trail.visible = false;
     this.d.scene.add(head, trail, ring);
-    const m: ActiveMeteor = { target, start, head, trail, ring, ringMat, t: -delay - WARN, radius, meteorite, announced: false };
+    const m: ActiveMeteor = { id: this.nextId++, target, start, head, trail, ring, ringMat, t: -delay - WARN, radius, meteorite, announced: false };
     this.active.push(m);
     return m;
+  }
+
+  /** posição atual de um meteoro em voo (null se já caiu) */
+  headOf(id: number): THREE.Vector3 | null {
+    const m = this.active.find((a) => a.id === id);
+    return m ? m.head.position : null;
   }
 
   update(dt: number, t: number): void {
@@ -126,7 +134,7 @@ export class Meteors {
       if (m.t < 0) continue;
       if (!m.announced) {
         m.announced = true;
-        this.d.events.emit('meteor:incoming', { x: m.target.x, y: m.target.y, z: m.target.z });
+        this.d.events.emit('meteor:incoming', { id: m.id, x: m.start.x, y: m.start.y, z: m.start.z });
       }
       const k = Math.min(1, m.t / FLIGHT);
       const e = k * k * (0.4 + 0.6 * k);
@@ -214,6 +222,6 @@ export class Meteors {
         mesh.userData.fallTo = mesh.userData.prop.y;
       }
     }
-    this.d.events.emit('meteor:impact', { x: T.x, y: T.y, z: T.z, distance: dist, meteorite: m.meteorite });
+    this.d.events.emit('meteor:impact', { id: m.id, x: T.x, y: T.y, z: T.z, distance: dist, meteorite: m.meteorite });
   }
 }

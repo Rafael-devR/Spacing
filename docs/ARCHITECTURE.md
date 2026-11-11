@@ -29,7 +29,7 @@ src/
   systems/           interação (minerar/construir), inventário, missões, sobrevivência (Survival)
   render/            materiais e shaders, céu, luzes, pós-processamento, partículas, modelos, câmera, ícones
   ui/                HUD, menu de pausa, estilos
-  audio/             sons sintetizados
+  audio/             sons sintetizados e áudio posicional (design/AUDIO.md)
   i18n/              textos da interface (pt-BR)
 tests/               testes automatizados (Vitest)
 tools/visual-check/  capturas de tela e teste jogado em Chromium headless (package.json próprio)

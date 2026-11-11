@@ -8,6 +8,7 @@ Aqui ele é prioridade, não acabamento ([GAME_DESIGN](../GAME_DESIGN.md), pilar
 1. **Toda ação responde na hora.** Em menos de 100 ms aparece algo: som, partícula, movimento ou número.
 2. **Três canais, sempre que der:** imagem (partícula, cor, escala), câmera (tremor, zoom, pausa curta) e som.
    No celular, um quarto canal: vibração.
+   O som do mundo vem do lugar onde aconteceu, com direção e distância ([AUDIO.md](AUDIO.md)).
 3. **Antecipação, impacto, continuação.** A ação prepara (o braço puxa), acerta (pausa curta, faísca) e
    continua (detrito rolando, item voando).
 4. **Proporção.** A intensidade acompanha a importância: um passo é sutil, quebrar um bloco é firme, um
@@ -28,7 +29,7 @@ Legenda: **feito** já está no jogo; **v0.2**, **v0.3** e **v0.4** indicam em q
 | Bloco colocado        | Bloco surge esticando e assenta, poeira             | Tremor mínimo           | Batida                   |          | feito |
 | Passo / pulo / pouso  | Poeira, pegadas, astronauta achata ao pousar        | Tremor no pouso forte   | Passo, pulo, pouso       |          | feito |
 | Detrito chutado       | Destroço voa e gira                                 |                         | Tilintar                 |          | feito |
-| Meteoro               | Aviso no chão, rastro, clarão, cratera              | Tremor forte            | Assobio + explosão       | Longa    | feito (vibração na v0.2) |
+| Meteoro               | Aviso no chão, rastro, clarão, cratera              | Tremor forte            | Assobio que acompanha a queda + explosão com eco | Longa    | feito (vibração na v0.2) |
 | Oxigênio baixo        | Medidor pisca, borda vermelha pulsa, aviso da IA    |                         | Bip, alarme, respiração rápida | Curta | feito |
 | Dano                  | Borda vermelha, número de dano, traje pisca vermelho | Tremor proporcional    | Impacto + alarme do traje | Média   | feito |
 | Asfixia               | Tela perde cor, borda vermelha, som abafado         |                         | Batimento cardíaco       | Pulsada  | feito |

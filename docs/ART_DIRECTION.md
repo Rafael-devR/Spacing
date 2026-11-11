@@ -83,7 +83,9 @@ Vem com a sobrevivência ([design/SOBREVIVENCIA.md](design/SOBREVIVENCIA.md)).
 - **Sol baixo** no horizonte, como no polo sul real, com sombras longas.
 - **A Terra** visível perto do horizonte.
 - **Crateras escuras** de verdade, com gelo, onde só a lanterna ilumina.
-- **Som do vácuo**: fora do domo só se ouve o traje (respiração, passos pelo corpo). Dentro do domo, ar e vento.
+- **Som do vácuo**: fora do domo, o traje reconstrói o som a partir da vibração do chão: perto soa limpo, longe
+  soa grave e com eco, e cada som vem da direção certa ([design/AUDIO.md](design/AUDIO.md)). Dentro do domo,
+  ar e vento.
 - **Gerador de Domo**: esfera translúcida com padrão hexagonal, brilho de borda (fresnel) e ondulação.
 - **HUD do traje**: medidores de oxigênio, bateria e integridade que mudam de cor e pulsam.
 

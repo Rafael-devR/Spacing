@@ -22,11 +22,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
   - Game juice: câmera lenta e som abafado na morte, feixe ao renascer, respiração e batimento em ciclo,
     pausa de impacto e bloco que encolhe ao quebrar, bloco que estica ao ser colocado, astronauta que
     achata ao pousar e tom de coleta subindo em sequência.
+- **Áudio posicional** ([design/AUDIO.md](docs/design/AUDIO.md)): os sons do mundo (passos, mineração,
+  blocos, destroços, meteoros) vêm da posição deles, com direção que acompanha o giro da câmera, volume e
+  agudos que caem com a distância e eco da cratera. O meteoro leva o som junto enquanto cai. O módulo de
+  pouso zumbe e ajuda a achar o caminho de volta. Sons do capacete (IA, alarmes, respiração) continuam no
+  centro. Teste `tools/visual-check/audio.mjs` mede os canais esquerdo e direito.
 - Menu de pausa (Esc, P ou botão Pausa) com configurações de gráficos, som, tremor de tela e vibração.
 - Vibração no celular ao quebrar blocos, em impactos de meteoro e ao concluir objetivos.
 - O jogo salva e pausa sozinho ao trocar de aplicativo ou esconder a aba.
 - Teste jogado automático no navegador (`tools/visual-check/play.mjs`) e testes de eventos, salvamento,
-  passo fixo, inventário, consistência dos dados e sobrevivência (47 testes no total).
+  passo fixo, inventário, consistência dos dados e sobrevivência e áudio posicional (51 testes no total).
 
 ### Corrigido
 
