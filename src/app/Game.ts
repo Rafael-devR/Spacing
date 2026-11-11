@@ -22,7 +22,7 @@ import { IsoRig } from '../render/IsoRig';
 import { ItemModels } from '../render/itemModels';
 import { Lights } from '../render/lights';
 import { U, createMaterials } from '../render/materials';
-import { PropFactory, createLander, createWaypoint, type Lander, type Waypoint } from '../render/models';
+import { PropFactory, createLander, createWaypoint, setDrillLook, type Lander, type Waypoint } from '../render/models';
 import { Particles, createMotes, type Motes } from '../render/particles';
 import { Post, QUALITY, type QualityName } from '../render/post';
 import { createBackdrop } from '../render/sky';
@@ -42,7 +42,8 @@ import { FixedStep } from './FixedStep';
 import { SurvivalDirector } from './SurvivalDirector';
 import { BaseDirector } from './BaseDirector';
 import { HAB_MODULE } from '../data/base';
-import { EQUIP_SLOTS, type EquipId } from '../data/equipment';
+import { EQUIPMENT, type EquipId } from '../data/equipment';
+import { drillForTier } from '../data/drills';
 import { BaseModel } from '../render/baseModel';
 import { IndoorView, showIndoors } from '../render/indoors';
 import { createEquipModel } from '../render/equipModels';
@@ -174,7 +175,8 @@ export class Game {
     this.interaction = new Interaction({
       scene, camera: this.camera, canvas: renderer.domElement, world: this.world, player: this.player, rig: this.rig,
       particles: this.particles, debris: this.debris, drops: this.drops, inventory: this.inventory, events,
-      drillRate: () => this.survival.drillRate(),
+      drillRate: () => this.survival.drillRate() * this.equipment.drill.speed,
+      drillTier: () => this.equipment.drill.tier,
     });
     this.meteors = new Meteors({ scene, world: this.world, debris: this.debris, particles: this.particles, player: this.player, events });
     this.waypoint = createWaypoint();
@@ -200,6 +202,7 @@ export class Game {
         mining: () => this.player.mining,
         pressureCenter: () => this.lander.group.position,
         sheltered: () => this.base.inside,
+        drillDrain: () => this.equipment.drill.drain,
       },
       this.save?.suit,
     );
@@ -333,12 +336,13 @@ export class Game {
     this.loot.load(this.save?.loot ?? []);
     this.rig.snap(new THREE.Vector3(player.pos.x, player.pos.y + 0.8, player.pos.z));
 
+    this.applyDrillLook();
     const icons = {} as Record<ItemId, string>;
     for (const k of ITEM_ORDER) icons[k] = renderIcon(this.renderer, this.itemModels.create(k));
     this.hud.buildHotbar(icons, this.inventory);
     this.bag.setIcons(icons);
     const equipIcons = {} as Record<EquipId, string>;
-    for (const slot of EQUIP_SLOTS) equipIcons[slot] = renderIcon(this.renderer, createEquipModel(slot));
+    for (const id of Object.keys(EQUIPMENT) as EquipId[]) equipIcons[id] = renderIcon(this.renderer, createEquipModel(id));
     this.bag.setEquipment(this.equipment, equipIcons);
     this.craftPanel.setIcons(icons, equipIcons);
     this.hud.setMission(this.missions.view());
@@ -499,7 +503,15 @@ export class Game {
       this.bag.close();
       this.craftPanel.close();
     });
-    e.on('equipment:changed', () => this.bag.render());
+    e.on('equipment:changed', () => {
+      this.bag.render();
+      this.applyDrillLook();
+    });
+    e.on('drill:weak', ({ tier, target }) => {
+      sfx.play('deny');
+      haptics.play('tap');
+      hud.toast(t('drill.weak', { target, drill: drillForTier(tier).name.toLowerCase() }), true);
+    });
     e.on('inventory:full', ({ item }) => {
       if (this.time - this.fullWarnT < 2.5) return;
       this.fullWarnT = this.time;
@@ -652,6 +664,11 @@ export class Game {
       this.pause();
     });
     addEventListener('pagehide', () => this.persist());
+  }
+
+  /** a ponta da broca no astronauta acompanha a broca equipada */
+  private applyDrillLook(): void {
+    setDrillLook(this.player.model, this.equipment.drill);
   }
 
   // ---------- dentro e fora da base ----------

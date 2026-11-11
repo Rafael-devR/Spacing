@@ -51,7 +51,7 @@ export class Crafting {
 
   check(r: Recipe): RecipeCheck {
     const inv = this.d.inventory;
-    const owned = r.output.kind === 'equip' && this.d.equipment.has(r.output.equip);
+    const owned = r.output.kind === 'equip' && this.d.equipment.covers(r.output.equip);
     const missing = (Object.entries(r.inputs) as [ItemId, number][])
       .filter(([item, n]) => !inv.has(item, n))
       .map(([item, n]) => ({ item, missing: n - inv.count(item) }));

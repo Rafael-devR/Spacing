@@ -48,6 +48,7 @@ Detalhes em [design/SOBREVIVENCIA.md](design/SOBREVIVENCIA.md) e [design/GAME_JU
 - [ ] Gerador de Domo (esfera de atmosfera, ficção).
 - [ ] Painéis solares e eletrolisador (gelo vira O₂ e H₂).
 - [ ] Escuridão e frio nas crateras; lanterna e aquecimento.
+- [x] Brocas evolutivas: de ferro e de cristal, com nível e velocidade ([design/BROCAS.md](design/BROCAS.md)).
 - [ ] Trajes e equipamentos, visíveis no astronauta.
 - [ ] Kit de reparo e tempestade solar.
 

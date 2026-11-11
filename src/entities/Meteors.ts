@@ -189,7 +189,7 @@ export class Meteors {
       if (pm.position.distanceTo(T) < R + 1.2) {
         const pal = PROP_DEBRIS[pm.userData.prop.type] ?? PROP_DEBRIS.boulder;
         world.removeProp(pm);
-        debris.burst(pm.position.clone().add(new THREE.Vector3(0, 0.4, 0)), 8, pal, { power: 5, up: 7 });
+        debris.burst(pm.position.clone().add(new THREE.Vector3(0, 0.4, 0)), 8, pal, { power: 3, up: 2.6 });
       }
     }
     // destroços voando
@@ -198,8 +198,8 @@ export class Meteors {
     for (const [x, y, z, id] of pieces.slice(0, 26)) {
       const def = blockDef(id);
       p.set(x + 0.5, y + 0.5, z + 0.5);
-      v.subVectors(p, c).normalize().multiplyScalar(4 + Math.random() * 4);
-      v.y = Math.abs(v.y) + 5 + Math.random() * 5;
+      v.subVectors(p, c).normalize().multiplyScalar(2 + Math.random() * 2.5);
+      v.y = Math.abs(v.y) + 2.2 + Math.random() * 2.2;
       const col: RGB = def.oreL && Math.random() < 0.5 ? def.oreL : Math.random() < 0.3 ? def.topL : def.sideL;
       debris.spawn(p, v, 0.16 + Math.random() * 0.2, col, Math.random() < 0.5 ? 1 : 0);
     }

@@ -1,6 +1,7 @@
 // Modelos dos equipamentos (ícone na mochila e peça impressa na bancada).
 import * as THREE from 'three';
-import type { EquipId } from '../data/equipment';
+import { DRILLS } from '../data/drills';
+import { EQUIPMENT, type EquipId } from '../data/equipment';
 
 const lam = (
   hex: THREE.ColorRepresentation,
@@ -73,6 +74,36 @@ export function createEquipModel(id: EquipId): THREE.Group {
       0.04,
       -0.17,
     );
+  }
+  const drillId = EQUIPMENT[id].drill;
+  if (drillId) {
+    // broca de mão: cabo, motor e ponta em cone (a cor e o brilho vêm de data/drills.ts), deitada apontando para +z
+    const d = DRILLS[drillId];
+    const body = new THREE.Group();
+    g.add(body);
+    const add = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number): THREE.Mesh => {
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(x, y, z);
+      m.castShadow = true;
+      body.add(m);
+      return m;
+    };
+    add(new THREE.BoxGeometry(0.2, 0.22, 0.5), lam('#283157'), 0, 0, -0.1);
+    add(new THREE.BoxGeometry(0.22, 0.05, 0.3), lam('#ff7a2f'), 0, 0.13, -0.08);
+    add(new THREE.BoxGeometry(0.1, 0.3, 0.12), lam('#4b4f60'), 0, -0.24, -0.2);
+    add(new THREE.CylinderGeometry(0.075, 0.09, 0.18, 8), lam('#8c90a0'), 0, 0, 0.24).rotation.x = Math.PI / 2;
+    const bit = add(
+      new THREE.ConeGeometry(0.09, 0.5, d.tier >= 2 ? 5 : 6),
+      lam(d.bit, d.glow ? { emissive: new THREE.Color(d.glow) } : {}),
+      0, 0, 0.58,
+    );
+    bit.rotation.x = Math.PI / 2;
+    // anéis na ponta: mais brocas, mais anéis
+    for (let k = 0; k < d.tier; k++) {
+      const ring = add(new THREE.TorusGeometry(0.085 - k * 0.02, 0.012, 5, 10), lam('#ff7a2f'), 0, 0, 0.4 + k * 0.1);
+      ring.castShadow = false;
+    }
+    body.rotation.y = -0.6;
   }
   return g;
 }

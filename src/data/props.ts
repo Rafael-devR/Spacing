@@ -8,8 +8,10 @@ export const PROP_TYPES: PropType[] = ['boulder', 'ilmenite', 'gold', 'crystal',
 
 export interface PropData {
   name: string;
-  /** segundos para minerar com a ferramenta inicial */
+  /** segundos para minerar com a broca inicial */
   hardness: number;
+  /** nível mínimo da broca (data/drills.ts); ausente = 0, qualquer broca */
+  tier?: number;
   drop: ItemId;
   amount: number;
   /** itens extras além do principal */
@@ -18,9 +20,9 @@ export interface PropData {
 
 export const PROPS: Record<PropType, PropData> = {
   boulder: { name: 'Pedregulho', hardness: 0.9, drop: 'rock', amount: 2 },
-  ilmenite: { name: 'Ilmenita', hardness: 1.3, drop: 'ilmenite', amount: 2 },
-  gold: { name: 'Ouro', hardness: 1.6, drop: 'gold', amount: 1 },
-  crystal: { name: 'Cristal lunar', hardness: 1.2, drop: 'crystal', amount: 2 },
+  ilmenite: { name: 'Ilmenita', hardness: 1.3, tier: 1, drop: 'ilmenite', amount: 2 },
+  gold: { name: 'Ouro', hardness: 1.6, tier: 2, drop: 'gold', amount: 1 },
+  crystal: { name: 'Cristal lunar', hardness: 1.2, tier: 1, drop: 'crystal', amount: 2 },
   meteorite: { name: 'Meteorito', hardness: 2.2, drop: 'crystal', amount: 3, bonus: { gold: 2, iron: 2 } },
 };
 

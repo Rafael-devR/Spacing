@@ -241,6 +241,14 @@ export function createAstronaut(): AstronautModel {
   return { root, body, head, legL, legR, armL, armR, bit, beacon, suitMat: suit };
 }
 
+/** Ponta da broca do astronauta: cor, brilho e tamanho da broca em uso (data/drills.ts). */
+export function setDrillLook(model: AstronautModel, look: { bit: string; glow?: string; bitScale: number }): void {
+  const mat = model.bit.material as THREE.MeshLambertMaterial;
+  mat.color.set(look.bit);
+  mat.emissive.set(look.glow ?? '#000000');
+  model.bit.scale.set(look.bitScale, look.bitScale, look.bitScale);
+}
+
 // ---------------- Marcador de objetivo ----------------
 export interface Waypoint {
   group: THREE.Group;

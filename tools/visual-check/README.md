@@ -69,3 +69,13 @@ soa mais baixo, que o zumbido do módulo some de longe e que o meteoro toca sem 
 - `qualidade`: `baixo`, `medio` ou `alto`.
 - `mobile`: ativa toque e tela de celular (mostra joystick e botões).
 - Saída: `<prefixo>1-inicio.png` e `<prefixo>2-jogo.png`, além dos erros e avisos do console.
+
+## Teste das brocas
+
+```bash
+node drill.mjs http://localhost:5173/ /tmp/shots
+```
+
+Põe um bloco de basalto ao lado do astronauta: a broca do traje não o quebra e a IA avisa; equipa a broca de
+ferro e ele quebra; confere que os pedaços seguem flutuando 1,5 s depois (microgravidade); abre a mochila e a
+bancada e fabrica a broca de cristal (`drill-*.png`).

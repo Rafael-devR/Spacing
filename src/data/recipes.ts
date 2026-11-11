@@ -25,4 +25,18 @@ export const RECIPES: Recipe[] = [
     output: { kind: 'equip', equip: 'map' },
     seconds: 3.6,
   },
+  {
+    id: 'drill_iron',
+    station: 'workbench',
+    inputs: { iron: 4, rock: 4 },
+    output: { kind: 'equip', equip: 'drill_iron' },
+    seconds: 4.2,
+  },
+  {
+    id: 'drill_crystal',
+    station: 'workbench',
+    inputs: { crystal: 4, iron: 4, basalt: 4 },
+    output: { kind: 'equip', equip: 'drill_crystal' },
+    seconds: 5.4,
+  },
 ];

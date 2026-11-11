@@ -1,6 +1,7 @@
 // Itens soltos: saltam do que foi minerado e voam até o jogador.
 import * as THREE from 'three';
 import type { ItemId } from '../data/items';
+import { MICROGRAVITY } from '../data/physics';
 import type { ItemModels } from '../render/itemModels';
 import type { Inventory } from '../systems/Inventory';
 import type { Player } from './Player';
@@ -35,7 +36,7 @@ export class ItemDrops {
       obj.castShadow = true;
       this.scene.add(obj);
       const a = Math.random() * Math.PI * 2;
-      this.drops.push({ obj, item, amount: 1, age: -i * 0.08, vel: new THREE.Vector3(Math.cos(a) * 1.4, 4 + Math.random(), Math.sin(a) * 1.4) });
+      this.drops.push({ obj, item, amount: 1, age: -i * 0.08, vel: new THREE.Vector3(Math.cos(a) * 0.9, 1.3 + Math.random() * 0.6, Math.sin(a) * 0.9) });
     }
   }
 
@@ -58,7 +59,7 @@ export class ItemDrops {
       if (d.age < 0) continue;
       const o = d.obj;
       if (d.age < 0.45) {
-        d.vel.y -= 12 * dt;
+        d.vel.y -= MICROGRAVITY * dt;
         o.position.addScaledVector(d.vel, dt);
       } else {
         const to = this.v.subVectors(target, o.position);

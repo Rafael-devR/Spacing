@@ -1,8 +1,10 @@
-// Destroços com física: caem, quicam, rolam, se empilham, ficam no chão
-// e são chutados quando o astronauta passa por cima.
+// Destroços com física de microgravidade (data/physics.ts, docs/design/FISICA.md): flutuam, descem devagar,
+// quicam, rolam, se empilham, ficam no chão e são chutados quando o astronauta passa por cima.
+// Sem ar: nada os freia no alto; só o chão os para.
 import * as THREE from 'three';
 import type { GameBus } from '../app/events';
 import type { RGB } from '../core/color';
+import { MICROGRAVITY } from '../data/physics';
 import type { World } from '../world/World';
 import type { Player } from './Player';
 
@@ -38,7 +40,7 @@ export interface BurstOptions {
 }
 
 const PER_MESH = 150;
-const GRAVITY = 16;
+const GRAVITY = MICROGRAVITY;
 const LIFE = 50;
 const HALF_PI = Math.PI / 2;
 
@@ -130,7 +132,7 @@ export class Debris {
     center: THREE.Vector3,
     count: number,
     palette: RGB[],
-    { power = 3, spread = 0.32, minSize = 0.12, maxSize = 0.3, up = 3 }: BurstOptions = {},
+    { power = 1.8, spread = 0.32, minSize = 0.12, maxSize = 0.3, up = 1.1 }: BurstOptions = {},
   ): void {
     const p = new THREE.Vector3(), v = new THREE.Vector3();
     for (let k = 0; k < count; k++) {
@@ -266,18 +268,19 @@ export class Debris {
       it.prev.copy(it.pos);
       it.vel.y -= GRAVITY * dt;
       if (it.vel.y < -25) it.vel.y = -25;
-      if (this.moveAxis(it, 'x', it.vel.x * dt)) { it.vel.x *= -0.35; it.az *= 0.5; }
-      if (this.moveAxis(it, 'z', it.vel.z * dt)) { it.vel.z *= -0.35; it.ax *= 0.5; }
+      if (this.moveAxis(it, 'x', it.vel.x * dt)) { it.vel.x *= -0.5; it.az *= 0.5; }
+      if (this.moveAxis(it, 'z', it.vel.z * dt)) { it.vel.z *= -0.5; it.ax *= 0.5; }
       it.ground = false;
       const vy = it.vel.y;
       if (this.moveAxis(it, 'y', vy * dt)) {
         if (vy < 0) {
           it.ground = true;
-          if (vy < -3) {
-            it.vel.y = -vy * 0.3;
+          // com pouca gravidade a queda é lenta: quica até em velocidades baixas, e o chão só faz barulho se bater
+          if (vy < -0.7) {
+            it.vel.y = -vy * 0.45;
             it.ax = it.ax * 0.6 + it.vel.z * 4;
             it.az = it.az * 0.6 - it.vel.x * 4;
-            if (vy < -5) this.pending.push({ type: 'clink', speed: -vy, x: it.pos.x, y: it.pos.y, z: it.pos.z });
+            if (vy < -2.5) this.pending.push({ type: 'clink', speed: -vy, x: it.pos.x, y: it.pos.y, z: it.pos.z });
           } else it.vel.y = 0;
         } else it.vel.y = 0;
       }

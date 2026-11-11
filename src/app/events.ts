@@ -40,6 +40,8 @@ export interface GameEvents {
   'bag:toggled': { open: boolean };
   /** um golpe da furadeira acertou o alvo */
   'mine:hit': Vec3Like & { target: 'block' | 'prop' };
+  /** a broca em uso é fraca demais para o alvo (`tier` = nível que ele pede, `target` = nome dele) */
+  'drill:weak': { tier: number; target: string };
   /** uma ação foi recusada (sem item, lugar ocupado, ...) */
   'action:denied': { reason: DenyReason; item?: ItemId };
   /** modo de construção ligado/desligado */

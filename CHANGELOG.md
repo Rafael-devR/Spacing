@@ -5,6 +5,21 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Não lançado]
 
+### Adicionado
+
+- **Brocas** ([design/BROCAS.md](docs/design/BROCAS.md)): a ferramenta de mineração evolui. A broca do traje
+  ganha duas irmãs fabricadas na bancada, a **Broca de ferro** (1,7× mais rápida) e a **Broca de cristal**
+  (2,6×). Cada uma tem velocidade, nível e gasto de bateria; blocos e minérios pedem um nível mínimo (basalto,
+  cristal e ilmenita pedem a de ferro; ouro pede a de cristal). Com a broca fraca o alvo não quebra e a IA do
+  traje avisa qual broca fabricar. A ponta no astronauta muda com a broca. Tudo em `data/drills.ts`.
+- Teste `tools/visual-check/drill.mjs`.
+
+### Alterado
+
+- **Microgravidade nos pedaços de bloco** ([design/FISICA.md](docs/design/FISICA.md)): pedaços, lascas e itens
+  que saem de um bloco quebrado agora flutuam e descem devagar (gravidade 0,45 em vez de 16, sem ar para
+  freá-los). O astronauta não muda.
+
 ## [0.3.0] - 2026-11-11
 
 Reúne a Fundação (v0.2) e a Sobrevivência I (v0.3), mais áudio posicional, interface do celular, inventário

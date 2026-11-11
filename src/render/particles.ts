@@ -1,6 +1,7 @@
 // Partículas sem colisão (faíscas, poeira, brasas) e poeira flutuando perto da câmera.
 import * as THREE from 'three';
 import type { RGB } from '../core/color';
+import { MICROGRAVITY } from '../data/physics';
 
 interface Particle {
   life: number;
@@ -65,8 +66,9 @@ export class Particles {
       const a = Math.random() * Math.PI * 2;
       const sp = (0.4 + Math.random()) * power;
       const shade = 0.8 + Math.random() * 0.35;
-      this.spawn(x, y, z, Math.cos(a) * sp, 1.5 + Math.random() * power, Math.sin(a) * sp,
-        0.09 + Math.random() * 0.12, [rgb[0] * shade, rgb[1] * shade, rgb[2] * shade], 0.9 + Math.random() * 0.7);
+      // lascas de bloco quebrado: flutuam e descem devagar (data/physics.ts)
+      this.spawn(x, y, z, Math.cos(a) * sp * 0.6, 0.4 + Math.random() * power * 0.35, Math.sin(a) * sp * 0.6,
+        0.09 + Math.random() * 0.12, [rgb[0] * shade, rgb[1] * shade, rgb[2] * shade], 1.2 + Math.random() * 1.2, MICROGRAVITY);
     }
   }
 

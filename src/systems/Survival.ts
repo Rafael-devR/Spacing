@@ -25,6 +25,8 @@ export interface SurvivalDeps {
   pressureCenter: () => Vec3Like;
   /** dentro da base: pressurizado e protegido de meteoros */
   sheltered?: () => boolean;
+  /** multiplicador do gasto de bateria da broca em uso (1 = broca inicial) */
+  drillDrain?: () => number;
 }
 
 const clamp = (v: number): number => Math.max(0, Math.min(100, v));
@@ -98,7 +100,7 @@ export class Survival {
       const mul = mining ? s.o2MineMul : d.moving() ? 1 : s.o2IdleMul;
       this.o2 = clamp(this.o2 - (100 / s.o2Seconds) * mul * dt);
     }
-    if (mining && this.battery > 0) this.battery = clamp(this.battery - this.suit.drillDrain * dt);
+    if (mining && this.battery > 0) this.battery = clamp(this.battery - this.suit.drillDrain * (d.drillDrain?.() ?? 1) * dt);
 
     if (NEEDS.energy.enabled) this.energy = clamp(this.energy - (NEEDS.energy.hungerPerMinute / 60) * dt);
 

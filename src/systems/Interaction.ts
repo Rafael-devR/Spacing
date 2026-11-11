@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import type { GameBus } from '../app/events';
 import type { RGB } from '../core/color';
 import type { Input, PointerState } from '../core/Input';
-import { AIR, HULL } from '../data/blocks';
+import { AIR, BLOCK_DATA, HULL } from '../data/blocks';
 import { ITEMS } from '../data/items';
 import { PROPS, PROP_DEBRIS } from '../data/props';
 import type { Debris } from '../entities/Debris';
@@ -59,7 +59,7 @@ export interface AimView {
   fingerY: number;
   x: number;
   y: number;
-  /** none = sem alvo; ok = ao alcance; far = longe (o astronauta vai até lá); hard = não dá para minerar */
+  /** none = sem alvo; ok = ao alcance; far = longe (o astronauta vai até lá); hard = não dá para minerar (ou a broca é fraca) */
   state: 'none' | 'ok' | 'far' | 'hard';
 }
 
@@ -75,8 +75,20 @@ export interface InteractionDeps {
   drops: ItemDrops;
   inventory: Inventory;
   events: GameBus;
-  /** velocidade da furadeira (1 = normal; cai sem bateria) */
+  /** velocidade da broca (1 = broca inicial; cai sem bateria) */
   drillRate?: () => number;
+  /** nível da broca em uso (data/drills.ts); ausente = 0 */
+  drillTier?: () => number;
+}
+
+/** nível mínimo de broca que o alvo pede */
+export function targetTier(t: Target): number {
+  return (t.kind === 'block' ? BLOCK_DATA[t.id]?.tier : PROPS[t.mesh.userData.prop.type].tier) ?? 0;
+}
+
+/** nome do alvo para mensagens */
+function targetName(t: Target): string {
+  return t.kind === 'block' ? BLOCK_DATA[t.id].name : PROPS[t.mesh.userData.prop.type].name;
 }
 
 export class Interaction {
@@ -94,6 +106,8 @@ export class Interaction {
   private walkGoal: WalkGoal | null = null;
   private readonly mine: { key: string | null; progress: number; tick: number } = { key: null, progress: 0, tick: 0 };
   private stuck = 0;
+  /** alvo para o qual já avisamos que a broca é fraca (avisa uma vez por alvo e toque) */
+  private weakKey: string | null = null;
   private readonly raycaster = new THREE.Raycaster();
   private readonly ndc = new THREE.Vector2();
   private readonly v = new THREE.Vector3();
@@ -222,7 +236,7 @@ export class Interaction {
       const def = blockDef(t.id);
       world.setBlock(t.x, t.y, t.z, AIR);
       const palette: RGB[] = def.oreL ? [def.sideL, def.oreL, def.sideL, def.topL] : [def.sideL, def.sideL, def.topL];
-      debris.burst(t.center, def.oreL ? 18 : 15, palette, { power: 2.4, up: 3.2 });
+      debris.burst(t.center, def.oreL ? 18 : 15, palette, { power: 1.6, up: 1.1 });
       particles.dust(t.center.x, t.center.y - 0.3, t.center.z, 6, 0.4);
       if (def.drop) drops.spawn(def.drop, t.center, 1);
       events.emit('block:broken', { x: t.x, y: t.y, z: t.z, id: t.id });
@@ -230,7 +244,7 @@ export class Interaction {
       const p = t.mesh.userData.prop;
       world.removeProp(t.mesh);
       const pal = PROP_DEBRIS[p.type] ?? PROP_DEBRIS.boulder;
-      debris.burst(t.center, p.type === 'meteorite' ? 26 : 16, pal, { power: 2.8, up: 3.6, spread: 0.4, maxSize: 0.26 });
+      debris.burst(t.center, p.type === 'meteorite' ? 26 : 16, pal, { power: 1.8, up: 1.2, spread: 0.4, maxSize: 0.26 });
       particles.dust(t.center.x, t.center.y - 0.3, t.center.z, 8, 0.5);
       const pd = PROPS[p.type];
       drops.spawn(pd.drop, t.center, pd.amount);
@@ -250,6 +264,8 @@ export class Interaction {
     if (t && t.kind === 'block' && t.id === HULL) t = null;
     this.target = t;
     const reach = this.inReach(t);
+    // a broca em uso não dá conta deste alvo (pede um nível maior)
+    const weak = !!t && t.hard !== Infinity && targetTier(t) > (this.d.drillTier?.() ?? 0);
 
     // destaque
     if (t) {
@@ -257,7 +273,7 @@ export class Interaction {
       this.highlight.position.copy(t.center);
       if (t.kind === 'block') this.highlight.scale.setScalar(1.03);
       else this.highlight.scale.copy(t.size).multiplyScalar(1.08);
-      this.lineMat.color.set(!reach ? '#ff8f7a' : this.buildMode ? '#7fe7ff' : '#ffffff');
+      this.lineMat.color.set(!reach || (weak && !this.buildMode) ? '#ff8f7a' : this.buildMode ? '#7fe7ff' : '#ffffff');
     } else this.highlight.visible = false;
 
     // fantasma do bloco a construir
@@ -267,7 +283,12 @@ export class Interaction {
     }
 
     // mineração (segurando)
-    const holding = p.down && p.button === 0 && !this.buildMode && !!t && t.hard !== Infinity;
+    const holding = p.down && p.button === 0 && !this.buildMode && !!t && t.hard !== Infinity && !weak;
+    if (!p.down) this.weakKey = null;
+    else if (weak && t && !this.buildMode && reach && this.weakKey !== t.key) {
+      this.weakKey = t.key;
+      events.emit('drill:weak', { tier: targetTier(t), target: targetName(t) });
+    }
     let mining = false;
     if (holding && t && reach) {
       if (this.mine.key !== t.key) {
@@ -287,8 +308,8 @@ export class Interaction {
         const hp = t.center.clone().add(n);
         particles.burst(hp.x, hp.y, hp.z, rgb, 2, 1.4);
         // lascas que ficam no chão
-        if (Math.random() < 0.5) debris.spawn(hp, n.clone().multiplyScalar(4).setY(2 + Math.random() * 2), 0.07 + Math.random() * 0.06, rgb, 1);
-        particles.spawn(hp.x, hp.y, hp.z, n.x * 3 + (Math.random() - 0.5) * 2, 2 + Math.random() * 2, n.z * 3 + (Math.random() - 0.5) * 2, 0.05, [2.4, 1.6, 0.6], 0.25, 6);
+        if (Math.random() < 0.5) debris.spawn(hp, n.clone().multiplyScalar(1.3).setY(0.5 + Math.random() * 0.9), 0.07 + Math.random() * 0.06, rgb, 1);
+        particles.spawn(hp.x, hp.y, hp.z, n.x * 3 + (Math.random() - 0.5) * 2, 1 + Math.random() * 1.5, n.z * 3 + (Math.random() - 0.5) * 2, 0.05, [2.4, 1.6, 0.6], 0.25, 6);
         events.emit('mine:hit', { x: hp.x, y: hp.y, z: hp.z, target: t.kind });
       }
       if (this.mine.progress >= 1) {
@@ -307,7 +328,7 @@ export class Interaction {
     player.mining = mining;
 
     this.aim = input.aiming && !this.buildMode
-      ? { fingerX: p.x, fingerY: p.y, x: p.aimX, y: p.aimY, state: !t ? 'none' : t.hard === Infinity ? 'hard' : reach ? 'ok' : 'far' }
+      ? { fingerX: p.x, fingerY: p.y, x: p.aimX, y: p.aimY, state: !t ? 'none' : t.hard === Infinity || weak ? 'hard' : reach ? 'ok' : 'far' }
       : null;
 
     if (mining && t && this.aim) {
