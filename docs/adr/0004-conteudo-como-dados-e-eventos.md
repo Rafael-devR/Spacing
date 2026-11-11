@@ -1,6 +1,6 @@
 # ADR 0004: Conteúdo como dados e sistemas ligados por eventos
 
-- **Status:** proposta (será aplicada na v0.2)
+- **Status:** aceita; aplicada na v0.2
 - **Data:** 2026-11-11
 
 ## Contexto
@@ -26,6 +26,13 @@ Cada missão nova exigiria mexer em código de sistema, e cada sistema novo exig
 | Manter callbacks em `main.js`          | A fiação cresce a cada sistema e `main.js` vira um nó impossível    |
 | ECS completo (entidades e componentes) | Complexidade grande para o ganho atual; pode ser avaliado mais tarde |
 | JSON puro, sem tipos                   | Perde a checagem do TypeScript; dados tipados em `.ts` dão autocompletar e erro cedo |
+
+## Como ficou
+
+- Barramento genérico em `src/core/events.ts`; catálogo de eventos do jogo em `src/app/events.ts`.
+- Conteúdo em `src/data/` (blocos, itens, objetos, missões); registro com cores lineares em `src/world/registry.ts`.
+- `src/app/Game.ts` assina os eventos e decide som, tremor, vibração e HUD.
+- Validação dos dados em `tests/data.test.ts`.
 
 ## Consequências
 

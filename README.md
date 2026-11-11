@@ -1,9 +1,9 @@
 # Spacing
 
 > Jogo de exploração espacial em mundo de blocos, em 3D isométrico, com visual low poly cartoon.
-> Minere, construa, crafte e escape da Lua rumo a um planeta com vida.
+> Sobreviva com oxigênio e bateria limitados, minere, construa, crafte e escape da Lua rumo a um planeta com vida.
 
-**Status:** protótipo jogável `v0.1.0`. Nome provisório. Veja o [roadmap](docs/ROADMAP.md).
+**Status:** protótipo jogável `v0.3.0`. Nome provisório. Veja o [roadmap](docs/ROADMAP.md).
 
 ## O jogo
 
@@ -13,6 +13,8 @@ no fim, um foguete capaz de levá-lo a um mundo melhor.
 
 - Mundo de **blocos** gerado por **chunks**, infinito em todas as direções, com crateras e planícies de basalto.
 - Mineração satisfatória: destroços com física, faíscas, tremor de câmera e itens que voam até você.
+- Sobrevivência: oxigênio, bateria e integridade do traje. Morrer custa todos os itens, que ficam no chão
+  esperando você voltar para buscá-los.
 - Construção livre com blocos.
 - Visual com **shaders próprios**: sombras suaves, oclusão ambiente nos cantos, névoa nas crateras,
   brilho nos cristais e correção de cor.
@@ -53,6 +55,7 @@ Outros comandos:
 | Girar a câmera (90°)      | Q / E               | Setas curvas                                |
 | Zoom                      | Roda do mouse       | Pinça ou botões + e −                       |
 | Escolher item             | 1 a 8               | Toque na barra de itens                     |
+| Pausar e configurações    | Esc ou P            | Botão Pausa                                 |
 
 ## Documentação
 
@@ -60,6 +63,8 @@ Outros comandos:
 | -------------------------------------------- | ---------------------------------------------------------- |
 | [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md)   | Visão, pilares, loop de jogo, sistemas e progressão        |
 | [docs/STORY.md](docs/STORY.md)               | História, personagens e como as missões são escritas       |
+| [docs/design/SOBREVIVENCIA.md](docs/design/SOBREVIVENCIA.md) | Oxigênio, bateria, integridade, morte e o Gerador de Domo |
+| [docs/design/GAME_JUICE.md](docs/design/GAME_JUICE.md) | Princípios e catálogo de retorno de cada ação             |
 | [docs/ART_DIRECTION.md](docs/ART_DIRECTION.md) | Direção de arte, paleta, shaders e referências           |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Arquitetura do código, módulos e estrutura alvo            |
 | [docs/ROADMAP.md](docs/ROADMAP.md)           | Marcos e próximas versões                                  |

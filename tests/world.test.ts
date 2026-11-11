@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { Scene, Vector3 } from 'three';
-import { World } from '../src/world.js';
-import { PropFactory } from '../src/models.js';
-import { createMaterials } from '../src/graphics.js';
-import { meshPadded, meshSingle } from '../src/mesher.js';
-import { AIR, IRON, REGOLITH } from '../src/blocks.js';
+import { World } from '../src/world/World';
+import { PropFactory } from '../src/render/models';
+import { createMaterials } from '../src/render/materials';
+import { meshPadded, meshSingle } from '../src/world/mesher';
+import { AIR, IRON, REGOLITH } from '../src/data/blocks';
+import type { WorldSave } from '../src/core/save';
 
-function makeWorld(saved?: unknown) {
+function makeWorld(saved?: WorldSave) {
   const mats = createMaterials();
   const world = new World(new Scene(), 20261111, mats.terrain, new PropFactory(mats.props));
   world.radius = 1;

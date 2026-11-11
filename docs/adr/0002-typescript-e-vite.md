@@ -1,6 +1,6 @@
 # ADR 0002: TypeScript, Vite e ferramentas de qualidade
 
-- **Status:** aceita
+- **Status:** aceita; migração concluída na v0.2
 - **Data:** 2026-11-11
 
 ## Contexto
@@ -31,5 +31,7 @@ testes. O projeto vai crescer muito e precisa de segurança para mudar código s
 - Há um passo de build, mas o `npm run dev` recarrega em milissegundos e o `npm run build` leva menos de um
   segundo hoje.
 - Durante a migração o projeto mistura `.js` e `.ts`. A regra é: arquivo tocado é arquivo convertido.
+- **Atualização (v0.2):** todo o `src/` foi migrado de uma vez na Fundação, junto com a reorganização em
+  pastas. O `allowJs` foi desligado e o modo estrito ganhou `noUnusedLocals` e `noUnusedParameters`.
 - O Prettier ainda não foi aplicado ao código do protótipo para não gerar um diff gigante; ele passa a valer
   para cada arquivo no momento da conversão.

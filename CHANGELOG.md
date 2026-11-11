@@ -5,10 +5,72 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Não lançado]
 
+## [0.3.0] - 2026-11-11
+
+Reúne a Fundação (v0.2) e a Sobrevivência I (v0.3), mais áudio posicional, interface do celular, inventário
+em espaços e a base lunar inicial.
+
 ### Adicionado
 
 - `tools/visual-check`: captura telas do jogo em um Chromium headless (WebGL por software), em tamanhos de
   computador e de celular, e mostra os erros do console.
+- Design da sobrevivência (`docs/design/SOBREVIVENCIA.md`): oxigênio, bateria, integridade, morte com
+  perda de todos os itens e Gerador de Domo.
+- Catálogo de game juice (`docs/design/GAME_JUICE.md`).
+- **Sobrevivência I (v0.3):** oxigênio, bateria e integridade do traje, com medidores no HUD.
+  - A área pressurizada do módulo de pouso recarrega tudo.
+  - A IA do traje avisa com 30% e 15% de oxigênio e quando ele acaba (asfixia).
+  - Sem bateria, a furadeira fica três vezes mais lenta.
+  - Dano por meteoro, queda forte e falta de ar, com número de dano e traje piscando.
+  - Morte: todos os itens caem no chão flutuando, o astronauta renasce no módulo e um marcador laranja
+    mostra "Seus itens". Passar por cima recolhe.
+  - Game juice: câmera lenta e som abafado na morte, feixe ao renascer, respiração e batimento em ciclo,
+    pausa de impacto e bloco que encolhe ao quebrar, bloco que estica ao ser colocado, astronauta que
+    achata ao pousar e tom de coleta subindo em sequência.
+- **Base lunar inicial** ([design/BASE.md](docs/design/BASE.md), [ADR 0005](docs/adr/0005-base-como-estrutura-sobre-os-voxels.md)):
+  - Habitat no platô ao lado do módulo de pouso, montado a partir de dados para crescer em módulos.
+  - Entrada pela câmara de pressurização: botão "Entrar na base", porta que corre, portas de bloqueio com
+    leitura de 0 a 100% e troca para a vista em corte (telhado some, paredes da frente abaixam, lado de fora
+    escurece). Saída pelo caminho inverso.
+  - Dentro: anda-se livremente, o traje recarrega e meteoros não alcançam.
+  - Beliche: descansar enche o traje e passa a ser o ponto de renascimento.
+  - Bancada de fabricação com receitas e impressão a laser (holograma, camada que sobe, dois lasers com
+    faíscas e som).
+  - Primeira receita: **Mapa**, um equipamento que fica no traje (fora do inventário) e é equipado ao ficar
+    pronto. O uso vem na próxima etapa.
+  - Estrutura para comida, fome e energia, ainda desligada.
+  - Salvamento versão 5 (equipamento e estado da base), com migração.
+  - Teste `tools/visual-check/base.mjs`.
+- **Interior da base como ambiente isolado** ([ADR 0006](docs/adr/0006-interior-da-base-como-camada-isolada.md)):
+  dentro, a câmera só vê a sala (terreno, céu e módulo somem), com fundo escuro, luz de dentro, nervuras,
+  luminárias e canos; o mundo de fora fica travado (sem minerar, construir ou mirar); aviso "Habitat 01 ·
+  Pressurizado" no lugar da bússola; ventilação no som e meteoros suspensos. A máscara escura do chão saiu.
+- Itens no chão com **contorno branco**.
+- **Inventário em espaços livres** ([design/INVENTARIO.md](docs/design/INVENTARIO.md)): barra de 8
+  espaços e mochila de 24, sem espaço preso a tipo de item. O item coletado completa uma pilha igual (até 64)
+  ou vai para o primeiro espaço vazio. Mochila (botão ao lado da barra, I ou Tab) com mover, juntar e trocar
+  por toque. Com a mochila cheia, o item fica no chão até ter espaço. Salvamento versão 4, com migração.
+- **Interface do celular** ([design/INTERFACE.md](docs/design/INTERFACE.md)):
+  - Mira deslocada: ao segurar o dedo, a mira aparece 80 px acima dele, então o bloco e o anel de progresso
+    ficam visíveis. Dá para trocar para "No dedo" no menu de pausa.
+  - Tela cheia ao tocar na tela (celular) e botão de tela cheia; em tela cheia a tela trava deitada (ou
+    "Livre", no menu). A tela inicial sugere deitar o celular quando ele está em pé.
+  - HUD reorganizado: traje e objetivo compacto no canto esquerdo, bússola e mensagens no topo, pausa, tela
+    cheia e câmera no canto direito, joystick, itens e ações (pular e minerar/construir) embaixo. O HUD some
+    no menu e na pausa; nome do lugar e coordenadas foram para o menu de pausa.
+  - Tela inicial mais compacta com o celular deitado.
+  - Teste `tools/visual-check/ui.mjs`: capturas do celular deitado e em pé, HUD dentro da tela e sem
+    sobreposição, mira acima do dedo minerando o bloco certo.
+- **Áudio posicional** ([design/AUDIO.md](docs/design/AUDIO.md)): os sons do mundo (passos, mineração,
+  blocos, destroços, meteoros) vêm da posição deles, com direção que acompanha o giro da câmera, volume e
+  agudos que caem com a distância e eco da cratera. O meteoro leva o som junto enquanto cai. O módulo de
+  pouso zumbe e ajuda a achar o caminho de volta. Sons do capacete (IA, alarmes, respiração) continuam no
+  centro. Teste `tools/visual-check/audio.mjs` mede os canais esquerdo e direito.
+- Menu de pausa (Esc, P ou botão Pausa) com configurações de gráficos, som, tremor de tela e vibração.
+- Vibração no celular ao quebrar blocos, em impactos de meteoro e ao concluir objetivos.
+- O jogo salva e pausa sozinho ao trocar de aplicativo ou esconder a aba.
+- Teste jogado automático no navegador (`tools/visual-check/play.mjs`) e testes de eventos, salvamento,
+  passo fixo, inventário, consistência dos dados e sobrevivência, áudio posicional, preferências, inventário e base (78 testes no total).
 
 ### Corrigido
 
@@ -17,7 +79,20 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Alterado
 
+- `GAME_DESIGN.md`, `ROADMAP.md`, `STORY.md` e `ART_DIRECTION.md` atualizados com as decisões de
+  sobrevivência, tom científico e game juice. O roadmap ganhou as etapas Sobrevivência I (v0.3) e II (v0.4).
 - `CLAUDE.md` descreve o ambiente atual (GitHub Codespace) e o uso do `visual-check`.
+- **Fundação (v0.2):** todo o código migrou para TypeScript estrito, organizado em `app/`, `core/`, `data/`,
+  `world/`, `entities/`, `systems/`, `render/`, `ui/`, `audio/` e `i18n/`.
+- Sistemas conversam por um barramento de eventos tipado; som, tremor, vibração e HUD reagem a eventos.
+- Blocos, itens, objetos e missões viraram dados em `src/data/`.
+- Física em passo fixo de 1/60 s, com a animação do astronauta interpolada.
+- Salvamento com versão (chave `spacing.save`, formato 3 com traje e itens caídos); os salvamentos
+  anteriores são migrados automaticamente.
+- O astronauta começa e renasce dentro da área pressurizada do módulo.
+- Os botões de gráficos, som e controles do topo foram para o menu de pausa.
+- Estilos em `src/ui/styles.css` e textos da interface em `src/i18n/`.
+- O CI usa `actions/checkout@v7` e `actions/setup-node@v7`, que rodam em Node 24 (as v4 estão sendo descontinuadas).
 
 ## [0.1.0] - 2026-11-11
 

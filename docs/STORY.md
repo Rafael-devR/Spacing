@@ -9,6 +9,11 @@ falta decidir e uma proposta inicial para discutir. **Nada abaixo da seção "Pr
 - O módulo de pouso está **avariado**.
 - O objetivo final é **sair do planeta e chegar a um mundo melhor, com vida**.
 - O tom é cartoon, simpático e visual, nada sombrio ou realista demais.
+- A base é **ciência real** do polo sul lunar. A ficção científica fica em poucos elementos: o Gerador de
+  Domo, o cristal lunar, os meteoritos com matéria exótica e uma **IA no traje** que fala com o jogador
+  ([design/SOBREVIVENCIA.md](design/SOBREVIVENCIA.md)).
+- O jogador sobrevive com oxigênio e bateria limitados. Isso dá motivo às missões: cada saída da base
+  é uma pequena expedição.
 
 ## Perguntas para decidir
 
@@ -16,7 +21,7 @@ falta decidir e uma proposta inicial para discutir. **Nada abaixo da seção "Pr
 2. Por que a Lua? Missão científica, fuga, acidente?
 3. Por que precisa ir embora? A Terra deixou de ser opção? O que aconteceu?
 4. O que é o "mundo melhor"? Já foi descoberto? Como o jogador sabe que ele existe?
-5. Há companhia: um robô, uma IA de bordo, um rádio com alguém na Terra?
+5. Além da IA do traje, há outra companhia: um robô, um rádio com alguém na Terra? Qual a personalidade da IA?
 6. Há antagonista, ou o desafio é só o ambiente?
 7. Qual o tamanho da campanha: quantos atos e quantas horas de jogo?
 8. Humor leve, emoção, mistério? Qual a mistura?
