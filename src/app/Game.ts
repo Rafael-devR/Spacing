@@ -36,7 +36,7 @@ import { Hud } from '../ui/Hud';
 import { PauseMenu } from '../ui/PauseMenu';
 import { LANDER, SPAWN } from '../world/terrain';
 import { World } from '../world/World';
-import { AUTOSAVE_MS, FIXED_STEP, MAX_STEPS_PER_FRAME, SEED, TOUCH_AIM_OFFSET, VERSION } from './config';
+import { AUTOSAVE_MS, FIXED_STEP, MAX_STEPS_PER_FRAME, MINE_SHAKE, SEED, TOUCH_AIM_OFFSET, VERSION } from './config';
 import { createBus, type GameBus, type GameState, type Vec3Like } from './events';
 import { FixedStep } from './FixedStep';
 import { SurvivalDirector } from './SurvivalDirector';
@@ -45,7 +45,8 @@ import { HAB_MODULE } from '../data/base';
 import { EQUIPMENT, type EquipId } from '../data/equipment';
 import { drillForTier } from '../data/drills';
 import { BaseModel } from '../render/baseModel';
-import { IndoorView, showIndoors } from '../render/indoors';
+import { INTERIOR_LAYER, IndoorView, showIndoors } from '../render/indoors';
+import { MapDirector, TABLET_LAYER } from './MapDirector';
 import { createEquipModel } from '../render/equipModels';
 import { Crafting } from '../systems/Crafting';
 import { Equipment } from '../systems/Equipment';
@@ -99,6 +100,10 @@ export class Game {
   readonly baseModel: BaseModel;
   /** ambiente de dentro da base: câmera, luz e fundo (render/indoors.ts) */
   private readonly indoors: IndoorView;
+  /** mapa do tablet (app/MapDirector.ts) */
+  private readonly map: MapDirector;
+  /** a câmera está vendo só o tablet (mapa em tela cheia) */
+  private tabletOnly = false;
   private readonly craftPanel: CraftPanel;
   private readonly baseHud = new BaseHud();
   /** último aviso de mochila cheia (para não repetir a cada item) */
@@ -120,6 +125,8 @@ export class Game {
   /** pausa de impacto (s reais) e câmera lenta */
   private hitStop = 0;
   private slowMo = { t: 0, scale: 1 };
+  /** quando quebrou o último bloco (para a pausa de impacto não repetir em sequência) */
+  private lastBreakT = -99;
   /** coletas em sequência sobem de tom */
   private popCombo = { t: 0, n: 0 };
   private readonly baseY: number;
@@ -299,6 +306,19 @@ export class Game {
     showIndoors(this.player.model.root);
     showIndoors(this.particles.mesh);
     this.indoors = new IndoorView(scene, this.camera, this.lights); // depois de todas as luzes existirem
+    const landerPos = this.lander.group.position;
+    this.map = new MapDirector({
+      events, scene, camera: this.camera, renderer, sfx: this.sfx, haptics: this.haptics,
+      heightAt: (x, z) => terrain.column(Math.floor(x), Math.floor(z)).h + 1,
+      player: () => ({ x: this.player.pos.x, y: this.player.pos.y, z: this.player.pos.z, facing: this.player.facing }),
+      lander: () => landerPos,
+      base: () => baseLayout.center,
+      goal: () => this.missions.target(),
+      loot: () => this.loot.piles(),
+      props: () => this.world.propMeshes.map((m) => ({ type: m.userData.prop.type, x: m.position.x, z: m.position.z })),
+      canOpen: () =>
+        this.state === 'playing' && this.equipment.has('map') && !this.bag.open && !this.craftPanel.open && !this.base.busy,
+    });
 
     this.wireEvents();
     this.wireControls();
@@ -336,7 +356,7 @@ export class Game {
     this.loot.load(this.save?.loot ?? []);
     this.rig.snap(new THREE.Vector3(player.pos.x, player.pos.y + 0.8, player.pos.z));
 
-    this.applyDrillLook();
+    this.applyEquipment();
     const icons = {} as Record<ItemId, string>;
     for (const k of ITEM_ORDER) icons[k] = renderIcon(this.renderer, this.itemModels.create(k));
     this.hud.buildHotbar(icons, this.inventory);
@@ -422,6 +442,10 @@ export class Game {
       this.bag.close();
       return;
     }
+    if (this.map.active) {
+      this.map.close();
+      return;
+    }
     if (this.craftPanel.open) {
       this.craftPanel.close();
       return;
@@ -459,18 +483,20 @@ export class Game {
     e.on('debris:kick', (p) => sfx.play('kick', 1, p));
     e.on('mine:hit', (p) => {
       sfx.play('hit', 1, p);
-      rig.shake(0.1);
+      rig.kick(MINE_SHAKE.hit);
       if (this.input.touch) haptics.play('tick');
     });
     const broke = (p: Vec3Like): void => {
       sfx.play('break', 1, p);
-      rig.shake(0.18);
+      rig.kick(MINE_SHAKE.break);
       haptics.play('tap');
     };
     e.on('block:broken', (b) => {
       broke({ x: b.x + 0.5, y: b.y + 0.5, z: b.z + 0.5 });
       this.blockFx.broke(b.x, b.y, b.z, b.id);
-      this.hitStop = 0.045;
+      // pausa de impacto só no primeiro bloco de uma sequência rápida (broca forte não trava a cada bloco)
+      if (this.time - this.lastBreakT > MINE_SHAKE.hitStopGap) this.hitStop = 0.045;
+      this.lastBreakT = this.time;
     });
     e.on('prop:broken', (p) => {
       broke(p);
@@ -500,12 +526,13 @@ export class Game {
       this.craftPanel.render();
     });
     e.on('player:died', () => {
+      this.map.close(true);
       this.bag.close();
       this.craftPanel.close();
     });
     e.on('equipment:changed', () => {
       this.bag.render();
-      this.applyDrillLook();
+      this.applyEquipment();
     });
     e.on('drill:weak', ({ tier, target }) => {
       sfx.play('deny');
@@ -587,6 +614,24 @@ export class Game {
     press('#btn-bag', () => {
       if (this.state === 'playing') this.bag.toggle();
     });
+    // mapa do tablet: botão ao lado da mochila (só com o Mapa equipado) e tecla M
+    const openMap = (): void => {
+      if (this.state !== 'playing') return;
+      if (!this.equipment.has('map')) {
+        this.hud.toast(t('map.needMap'), true);
+        sfx.play('deny');
+        return;
+      }
+      this.map.toggle();
+    };
+    press('#btn-map', openMap);
+    input.onMap = openMap;
+    this.events.on('map:toggled', () => {
+      input.reset();
+      interaction.cancel();
+      this.hud.setProgress(null);
+      this.hud.setAim(null);
+    });
     input.onBag = () => {
       if (this.state === 'playing') this.bag.toggle();
     };
@@ -666,9 +711,11 @@ export class Game {
     addEventListener('pagehide', () => this.persist());
   }
 
-  /** a ponta da broca no astronauta acompanha a broca equipada */
-  private applyDrillLook(): void {
+  /** o que o equipamento muda: a ponta da broca no astronauta e o botão do tablet (só com o Mapa) */
+  private applyEquipment(): void {
     setDrillLook(this.player.model, this.equipment.drill);
+    el('#btn-map').hidden = !this.equipment.has('map');
+    document.body.classList.toggle('has-map', this.equipment.has('map'));
   }
 
   // ---------- dentro e fora da base ----------
@@ -720,6 +767,7 @@ export class Game {
       : Math.min(50, THREE.MathUtils.radToDeg(2 * Math.atan((Math.tan(THREE.MathUtils.degToRad(15)) / aspect) * 0.72)));
     camera.updateProjectionMatrix();
     this.post.resize(w, h);
+    this.map.resize(w, h);
     if (this.state === 'paused') this.post.render(this.time);
   }
 
@@ -800,7 +848,7 @@ export class Game {
     const time = this.time;
 
     input.update();
-    if (!playing) {
+    if (!playing || this.map.active) {
       input.moveX = input.moveY = 0;
       input.jump = false;
     }
@@ -812,7 +860,7 @@ export class Game {
     // simulação em passo fixo
     const steps = this.fixed.advance(dt);
     for (let i = 0; i < steps; i++) {
-      if (playing && !this.base.busy) interaction.steer(input, FIXED_STEP);
+      if (playing && !this.base.busy && !this.map.active) interaction.steer(input, FIXED_STEP);
       player.step(FIXED_STEP, input, rig);
       if (playing) this.survival.step(FIXED_STEP);
       this.debris.update(FIXED_STEP, player);
@@ -841,13 +889,19 @@ export class Game {
     const rp = player.model.root.position;
     this.focus.set(rp.x, rp.y + 0.8, rp.z);
     rig.update(dt, this.focus);
+    this.map.update(realDt);
+    // mapa em tela cheia: a câmera só vê o tablet (o mundo não é desenhado); ao fechar, volta para fora ou dentro
+    if (this.map.full !== this.tabletOnly) {
+      this.tabletOnly = this.map.full;
+      this.camera.layers.set(this.tabletOnly ? TABLET_LAYER : this.indoors.on ? INTERIOR_LAYER : 0);
+    }
     this.sfx.setListener(player.model.root.position, rig.forward());
     this.baseModel.update(dt, time, this.camera.position);
 
     world.radius = THREE.MathUtils.clamp(Math.ceil((1.05 * rig.distTarget + 10) / 16), 2, 5);
     world.update(player.pos.x, player.pos.z, 2, dt);
 
-    if (playing && !this.base.busy) {
+    if (playing && !this.base.busy && !this.map.active) {
       interaction.update(dt, input);
       hud.setProgress(interaction.progress);
       hud.setAim(interaction.aim);
@@ -884,6 +938,7 @@ export class Game {
     }
     if (playing || dead) hud.drawWaypoint(this.camera, this.renderer.domElement.getBoundingClientRect(), player.pos);
     if (playing) this.perfTick(realDt);
+    this.map.render();
     this.post.render(time);
   };
 }

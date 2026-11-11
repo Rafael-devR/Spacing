@@ -161,6 +161,8 @@ body.in-base #compass, body.in-base #btn-build, body.in-base #mode-chip, body.in
 #selected-name { font-size: 12px; color: var(--ink-dim); letter-spacing: 0.04em; text-shadow: 0 1px 6px rgba(10, 8, 30, 0.7); }
 #hotbar { display: flex; gap: 5px; }
 .bar-row { display: flex; gap: 8px; align-items: center; }
+/* tablet e mochila: lado a lado; no celular em pé, um em cima do outro (a barra não cabe com os dois) */
+.bar-side { display: flex; gap: inherit; align-items: center; }
 .bag-btn { display: grid; place-items: center; color: var(--ink); }
 .bag-btn svg { width: 24px; height: 24px; }
 .slot img[hidden] { display: none; }
@@ -286,7 +288,10 @@ body.touch .actions.controls { display: block !important; }
   #bottom .slot { width: 38px; height: 38px; }
   #bottom .slot img { width: 30px; height: 30px; margin: 3px; }
   #hotbar { gap: 3px; }
-  .bar-row { gap: 5px; }
+  .bar-row { gap: 5px; align-items: flex-end; }
+  .bar-side { flex-direction: column-reverse; }
+  /* com o tablet, a coluna da direita fica mais alta: os botões de ação sobem junto */
+  body.touch.has-map .actions { bottom: calc(132px + env(safe-area-inset-bottom, 0px)); }
   .sys .chip .lbl { display: none; }
 }
 /* celular deitado */
@@ -615,3 +620,56 @@ body[data-state="dead"] #btn-use { display: none; }
 .equip-slot img { width: 38px; height: 38px; }
 .equip-slot img[hidden] { display: none; }
 .equip-slot.on { border-style: solid; border-color: rgba(127, 231, 255, 0.6); color: var(--ink); background: rgba(127, 231, 255, 0.08); }
+
+/* ---- mapa do tablet (docs/design/MAPA.md) ----
+   O holograma está na tela do tablet, desenhada pelo jogo no canvas; aqui só nomes, botões e legenda.
+   Enquanto o tablet sobe, a camada pega os toques (o astronauta fica parado) mas não mostra nada. */
+#map { position: fixed; inset: 0; z-index: 6; touch-action: none; user-select: none; -webkit-user-select: none; }
+#map .map-top, #map .map-tools, #map .map-legend, #map .map-north, #map-labels { opacity: 0; transition: opacity 0.25s; }
+#map.full .map-top, #map.full .map-tools, #map.full .map-legend, #map.full .map-north, #map.full #map-labels { opacity: 1; }
+#map:not(.full) button { pointer-events: none; }
+body.map-open #hud { opacity: 0; transition: opacity 0.2s; }
+body.map-open #hud * { pointer-events: none !important; }
+#hud { transition: opacity 0.25s; }
+
+.map-top {
+  position: absolute; left: calc(14px + env(safe-area-inset-left, 0px)); right: calc(14px + env(safe-area-inset-right, 0px));
+  top: calc(10px + env(safe-area-inset-top, 0px)); display: flex; align-items: center; justify-content: space-between;
+}
+.map-title { display: grid; gap: 1px; text-shadow: 0 0 10px rgba(127, 231, 255, 0.6); }
+.map-k { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ice); }
+.map-title strong { font-family: Fredoka, sans-serif; font-weight: 600; font-size: 18px; color: var(--ink); }
+.map-tools {
+  position: absolute; right: calc(14px + env(safe-area-inset-right, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  display: grid; gap: 8px;
+}
+.map-legend {
+  position: absolute; left: calc(14px + env(safe-area-inset-left, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  margin: 0; padding: 8px 12px; list-style: none; display: grid; grid-template-columns: repeat(3, auto); gap: 4px 14px;
+  font-size: 11px; color: var(--ink); background: rgba(2, 14, 28, 0.55); border: 1px solid rgba(127, 231, 255, 0.25); border-radius: 10px;
+}
+.map-legend li { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.map-legend i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); box-shadow: 0 0 6px var(--c); }
+.map-legend i.pin { width: 9px; height: 9px; outline: 2px solid color-mix(in srgb, var(--c) 40%, transparent); outline-offset: 1px; }
+.map-north {
+  position: absolute; left: 50%; top: calc(12px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
+  font: 600 13px Fredoka, sans-serif; color: var(--ice); text-shadow: 0 0 8px var(--ice);
+}
+.map-north::after { content: ''; display: block; width: 1px; height: 10px; margin: 2px auto 0; background: var(--ice); }
+#map-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.map-label {
+  position: absolute; left: 0; top: 0; padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--c); background: rgba(2, 14, 28, 0.6); border: 1px solid color-mix(in srgb, var(--c) 55%, transparent);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--c) 70%, transparent);
+}
+.map-label.k-player { color: #fff; background: rgba(255, 122, 47, 0.75); border-color: #ff7a2f; }
+@media (orientation: portrait) {
+  .map-legend { grid-template-columns: repeat(2, auto); right: 70px; }
+}
+
+/* celular estreito em pé (360 px): a barra de 8 espaços mais a mochila não cabia */
+@media (orientation: portrait) and (max-width: 372px) {
+  #bottom .slot { width: 34px; height: 34px; }
+  #bottom .slot img { width: 27px; height: 27px; margin: 3px; }
+}

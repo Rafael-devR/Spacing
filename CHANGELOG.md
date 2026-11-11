@@ -13,9 +13,17 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
   cristal e ilmenita pedem a de ferro; ouro pede a de cristal). Com a broca fraca o alvo não quebra e a IA do
   traje avisa qual broca fabricar. A ponta no astronauta muda com a broca. Tudo em `data/drills.ts`.
 - Teste `tools/visual-check/drill.mjs`.
+- **Mapa no tablet** ([design/MAPA.md](docs/design/MAPA.md)): com o Mapa equipado, o botão do tablet (ou M) traz
+  o tablet do pulso até a câmera até a tela dele ocupar a tela. Nela, um holograma embaçado do relevo visto de cima,
+  com você, a sonda, a base, o objetivo, seus itens, meteoritos e minérios. Arrastar move, pinçar dá zoom.
+- Teste `tools/visual-check/tablet.mjs`.
 
 ### Alterado
 
+- **Tremor da câmera ao minerar** mais leve e sem acumular: com a broca rápida, ele crescia sem parar. A pausa de
+  impacto só vale no primeiro bloco de uma sequência.
+- **Ícone do tablet** (Mapa): agora um tablet de verdade, com moldura, aro laranja, câmera frontal e a tela com o
+  mapa.
 - **Microgravidade nos pedaços de bloco** ([design/FISICA.md](docs/design/FISICA.md)): pedaços, lascas e itens
   que saem de um bloco quebrado agora flutuam e descem devagar (gravidade 0,45 em vez de 16, sem ar para
   freá-los). O astronauta não muda.

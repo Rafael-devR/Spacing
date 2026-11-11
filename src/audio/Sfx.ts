@@ -8,7 +8,7 @@ export type SoundName =
   | 'hit' | 'break' | 'pop' | 'step' | 'land' | 'jump' | 'place' | 'deny' | 'ui'
   | 'clink' | 'kick' | 'whoosh' | 'boom' | 'chime'
   | 'beep' | 'alarm' | 'breath' | 'heartbeat' | 'hurt' | 'death' | 'respawn' | 'charge' | 'powerDown' | 'pickupBig'
-  | 'door' | 'pressurize' | 'depressurize' | 'rest' | 'craftDone' | 'equip';
+  | 'door' | 'pressurize' | 'depressurize' | 'rest' | 'craftDone' | 'equip' | 'holoOpen' | 'holoClose';
 
 const MASTER = 0.55;
 /** volume do eco da cratera */
@@ -539,6 +539,16 @@ export class Sfx {
       case 'craftDone':
         N(0.35, 'bandpass', 2400, 0.25, 2, 0.3);
         T(1400, 700, 0.3, 0.08, 'triangle');
+        break;
+      case 'holoOpen':
+        // o tablet liga: varredura que sobe e um chiado de holograma
+        T(380, 1320, 0.32, 0.06);
+        N(0.4, 'bandpass', 2400, 0.05, 3, 1.8);
+        setTimeout(() => T(1320, 1320, 0.08, 0.04, 'triangle'), 300);
+        break;
+      case 'holoClose':
+        T(1100, 360, 0.24, 0.05);
+        N(0.18, 'bandpass', 1800, 0.035, 3, 0.5);
         break;
       case 'equip':
         [523.25, 783.99, 1046.5].forEach((f, i) => setTimeout(() => T(f, f * 1.01, 0.22, 0.08, 'triangle'), i * 70));

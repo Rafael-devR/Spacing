@@ -79,3 +79,13 @@ node drill.mjs http://localhost:5173/ /tmp/shots
 Põe um bloco de basalto ao lado do astronauta: a broca do traje não o quebra e a IA avisa; equipa a broca de
 ferro e ele quebra; confere que os pedaços seguem flutuando 1,5 s depois (microgravidade); abre a mochila e a
 bancada e fabrica a broca de cristal (`drill-*.png`).
+
+## Teste do tablet
+
+```bash
+node tablet.mjs http://localhost:5173/ /tmp/shots
+```
+
+Equipa o Mapa, abre pelo botão (captura do tablet subindo e do mapa), confere os nomes, que o astronauta não anda,
+que arrastar move o mapa e que fechar devolve o mundo. Depois minera blocos em sequência com a broca de cristal e
+confere que o tremor não passa do nível de um golpe (`tablet-*.png`).

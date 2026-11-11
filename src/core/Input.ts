@@ -35,6 +35,8 @@ export class Input implements MoveInput {
   onBuildToggle: (() => void) | null = null;
   onPause: (() => void) | null = null;
   onBag: (() => void) | null = null;
+  /** M: mapa do tablet */
+  onMap: (() => void) | null = null;
   /** botão de ação do lugar (porta, bancada, beliche) */
   onUse: (() => void) | null = null;
 
@@ -64,6 +66,7 @@ export class Input implements MoveInput {
       if (k === 'e') this.onRotate?.(1);
       if (k === 'b') this.onBuildToggle?.();
       if (k === 'f' || k === 'enter') this.onUse?.();
+      if (k === 'm') this.onMap?.();
       if (k === 'i' || k === 'tab') {
         e.preventDefault();
         this.onBag?.();

@@ -57,8 +57,22 @@ export class IsoRig {
     }
   }
 
+  /** Tremor que soma (pouso, meteoro, dano): golpes seguidos crescem até o máximo. */
   shake(amount: number): void {
     this.trauma = Math.min(1, this.trauma + amount);
+  }
+
+  /**
+   * Tremor que não soma: garante pelo menos este nível, sem passar dele. Para o que se repete rápido
+   * (golpes da broca, blocos quebrando em sequência), que com `shake` acumularia sem parar.
+   */
+  kick(level: number): void {
+    this.trauma = Math.max(this.trauma, Math.min(1, level));
+  }
+
+  /** nível atual do tremor (0..1) */
+  get shaking(): number {
+    return this.trauma;
   }
 
   forward(): THREE.Vector3 {

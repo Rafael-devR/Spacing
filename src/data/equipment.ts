@@ -20,7 +20,7 @@ export const EQUIPMENT: Record<EquipId, EquipData> = {
   map: {
     name: 'Mapa',
     slot: 'map',
-    description: 'Mapa da cratera no pulso do traje. Fica equipado; em breve abre o tablet de navegação.',
+    description: 'Tablet no pulso do traje: abre o mapa em holograma com a sonda, a base, o objetivo e os itens (botão do tablet ou M).',
   },
   drill_iron: { name: DRILLS.iron.name, slot: 'drill', description: DRILLS.iron.description, drill: 'iron' },
   drill_crystal: { name: DRILLS.crystal.name, slot: 'drill', description: DRILLS.crystal.description, drill: 'crystal' },

@@ -189,6 +189,18 @@ export class LootPiles {
     return c;
   }
 
+  /** centro de cada pilha que ainda tem itens (para o mapa) */
+  piles(): THREE.Vector3[] {
+    const by = new Map<number, { c: THREE.Vector3; n: number }>();
+    for (const p of this.pieces) {
+      let e = by.get(p.pile);
+      if (!e) by.set(p.pile, (e = { c: new THREE.Vector3(), n: 0 }));
+      e.c.add(p.pos);
+      e.n++;
+    }
+    return [...by.values()].map((e) => e.c.divideScalar(e.n));
+  }
+
   /** quantidade total de cada item no chão */
   totals(): Partial<Record<ItemId, number>> {
     const out: Partial<Record<ItemId, number>> = {};

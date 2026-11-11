@@ -23,8 +23,8 @@ Legenda: **feito** já está no jogo; **v0.2**, **v0.3** e **v0.4** indicam em q
 
 | Evento                | Imagem                                             | Câmera                  | Som                      | Vibração | Estado |
 | --------------------- | -------------------------------------------------- | ----------------------- | ------------------------ | -------- | ------ |
-| Golpe de mineração    | Faísca, lasca, anel de progresso                    | Tremor leve             | Clique                   | Curta    | feito |
-| Bloco quebrado        | 15+ destroços com física, poeira, bloco "encolhe"   | Tremor + pausa de 45 ms | Estalo grave             | Curta    | feito |
+| Golpe de mineração    | Faísca, lasca, anel de progresso                    | Tremor leve, sem somar  | Clique                   | Curta    | feito |
+| Bloco quebrado        | 15+ destroços com física, poeira, bloco "encolhe"   | Tremor leve sem somar + pausa de 45 ms (só no 1º de uma sequência) | Estalo grave             | Curta    | feito |
 | Item coletado         | Item voa, ícone pula, "+1"                          |                         | Pop com tom subindo em sequência | |  feito |
 | Bloco colocado        | Bloco surge esticando e assenta, poeira             | Tremor mínimo           | Batida                   |          | feito |
 | Passo / pulo / pouso  | Poeira, pegadas, astronauta achata ao pousar        | Tremor no pouso forte   | Passo, pulo, pouso       |          | feito |
@@ -46,3 +46,13 @@ Ficam no menu de pausa (feito na v0.2):
 - Tremor de tela: desligado, baixo, normal. Com `prefers-reduced-motion`, começa em baixo.
 - Vibração: ligada ou desligada (só aparece em aparelhos que vibram).
 - Gráficos (automática, baixa, média, alta) e som.
+
+## Tremor da câmera
+
+Dois jeitos de tremer (`render/IsoRig.ts`):
+
+- `shake(n)` **soma**: pouso forte, dano, meteoro. Vários seguidos crescem até o máximo, de propósito.
+- `kick(n)` **não soma**: só garante um nível. É o da mineração (`MINE_SHAKE` em `app/config.ts`: golpe 0,1,
+  bloco 0,2). Com uma broca rápida, golpes e blocos em sequência somavam e o tremor crescia sem parar; agora fica no
+  nível de um golpe. A pausa de impacto de 45 ms só vale para o primeiro bloco de uma sequência (0,5 s sem quebrar).
+

@@ -55,7 +55,8 @@ Detalhes em [design/SOBREVIVENCIA.md](design/SOBREVIVENCIA.md) e [design/GAME_JU
 ## v0.5: Veículos e exploração
 
 - [ ] Rover dirigível.
-- [ ] Mapa e marcadores.
+- [x] Mapa no tablet: holograma de cima com sonda, base, objetivo, itens e minérios ([design/MAPA.md](design/MAPA.md)).
+- [ ] Marcadores do jogador no mapa.
 - [ ] Novos minérios e regiões distantes.
 
 ## v0.6: História e missões

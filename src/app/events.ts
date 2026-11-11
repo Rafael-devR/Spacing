@@ -36,6 +36,8 @@ export interface GameEvents {
   'inventory:selected': { index: number; item: ItemId | null };
   /** não coube tudo no inventário; `amount` ficou de fora */
   'inventory:full': { item: ItemId; amount: number };
+  /** o mapa do tablet abriu ou começou a fechar */
+  'map:toggled': { open: boolean };
   /** a mochila abriu ou fechou */
   'bag:toggled': { open: boolean };
   /** um golpe da furadeira acertou o alvo */
