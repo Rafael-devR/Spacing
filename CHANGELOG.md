@@ -22,6 +22,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
   Salvamento versão 6, com migração.
 - Teste `tools/visual-check/tablet.mjs`.
 
+### Corrigido
+
+- **Mapa do tablet em áreas fundas:** o fundo com grade era um plano opaco acima do fundo das crateras e escondia o
+  chão delas (buraco preto com borda recortada, camadas se cruzando). Agora é só um pano de fundo, nunca cobre
+  terreno, e o chão e as paredes das crateras aparecem inteiros. Sombra, profundidade e contorno ajustados para o
+  terreno não piscar, e os trechos são montados por tempo, sem aparecer tarde.
+- **Tablet do mapa coberto pelo telhado da base:** o tablet agora é desenhado numa passada própria, por cima de tudo,
+  na animação de abrir e fechar e com o mapa aberto.
+
 ### Alterado
 
 - **Tremor da câmera ao minerar** mais leve e sem acumular: com a broca rápida, ele crescia sem parar. A pausa de

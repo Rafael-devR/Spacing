@@ -149,3 +149,85 @@ describe('blocos do mapa', () => {
     expect(Array.from(iron.array)).toEqual(Array.from(rock.array));
   });
 });
+
+describe('terreno do mapa em áreas fundas (crateras)', () => {
+  /** crateras e degraus fortes, descoberto por inteiro */
+  const rough = (x: number, z: number) => ({ y: 20 - Math.round(14 * Math.max(0, 1 - Math.hypot(x - 8, z - 8) / 7)) + ((x * 7 + z * 3) % 3), id: REGOLITH });
+  const quads = (g: THREE.BufferGeometry) => {
+    const p = g.getAttribute('position'), n = g.getAttribute('normal');
+    const out: { normal: number[]; xs: number[]; ys: number[]; zs: number[] }[] = [];
+    for (let i = 0; i < p.count; i += 4) {
+      const ids = [0, 1, 2, 3].map((k) => i + k);
+      out.push({
+        normal: [n.getX(i), n.getY(i), n.getZ(i)],
+        xs: ids.map((k) => p.getX(k)), ys: ids.map((k) => p.getY(k)), zs: ids.map((k) => p.getZ(k)),
+      });
+    }
+    return out;
+  };
+
+  it('cada coluna tem exatamente um topo, no fundo e na borda da cratera', () => {
+    const g = buildMapChunk(0, 0, () => true, rough)!;
+    const tops = quads(g).filter((q) => q.normal[1] > 0.5);
+    expect(tops).toHaveLength(256);
+    const seen = new Set(tops.map((q) => `${Math.min(...q.xs)},${Math.min(...q.zs)}`));
+    expect(seen.size).toBe(256); // nenhum topo repetido: nada de duas faces no mesmo lugar
+    for (const q of tops) {
+      const x = Math.min(...q.xs), z = Math.min(...q.zs);
+      expect(q.ys.every((y) => y === rough(x, z).y + 1)).toBe(true);
+    }
+  });
+
+  it('entre duas colunas só uma parede, da mais alta até o topo da mais baixa (sem faces repetidas)', () => {
+    const seenAll = () => true;
+    const g = buildMapChunk(0, 0, seenAll, rough)!;
+    const walls = quads(g).filter((q) => Math.abs(q.normal[1]) < 0.5);
+    const key = (q: (typeof walls)[number]) => `${q.normal.join(',')}|${Math.min(...q.xs)}|${Math.min(...q.ys)}|${Math.min(...q.zs)}|${Math.max(...q.ys)}`;
+    const keys = walls.map(key);
+    expect(new Set(keys).size).toBe(keys.length); // nenhuma parede duplicada
+    // conta o esperado dentro do chunk: um par de vizinhos com alturas diferentes dá uma parede; iguais, nenhuma
+    let expected = 0;
+    for (let z = 0; z < 16; z++)
+      for (let x = 0; x < 16; x++) {
+        for (const [dx, dz] of [[1, 0], [0, 1]]) {
+          if (x + dx > 15 || z + dz > 15) continue;
+          if (rough(x, z).y !== rough(x + dx, z + dz).y) expected++;
+        }
+      }
+    // as bordas do chunk (sem vizinho descoberto no teste de um chunk só) ainda levam saia; só contamos as internas
+    const internal = walls.filter((q) => {
+      const x0 = Math.min(...q.xs), z0 = Math.min(...q.zs), x1 = Math.max(...q.xs), z1 = Math.max(...q.zs);
+      const nx = q.normal[0], nz = q.normal[2];
+      const bx = nx > 0 ? x1 : nx < 0 ? x0 : -1, bz = nz > 0 ? z1 : nz < 0 ? z0 : -1;
+      return !((nx !== 0 && (bx === 0 || bx === 16)) || (nz !== 0 && (bz === 0 || bz === 16)));
+    });
+    expect(internal).toHaveLength(expected);
+  });
+
+  it('a parede entre chunks vizinhos aparece uma vez só (e não duas, uma em cada malha)', () => {
+    // dois chunks lado a lado, o da esquerda 12 blocos mais alto: só ele leva a parede da divisa
+    const surf = (x: number) => ({ y: x < 16 ? 30 : 18, id: REGOLITH });
+    const left = quads(buildMapChunk(0, 0, () => true, surf)!).filter((q) => q.normal[0] > 0.5 && Math.min(...q.xs) === 16);
+    const right = quads(buildMapChunk(1, 0, () => true, surf)!).filter((q) => q.normal[0] < -0.5 && Math.min(...q.xs) === 16);
+    expect(left).toHaveLength(16);
+    expect(right).toHaveLength(0);
+    // a parede vai do topo do chão fundo (19) até o topo do alto (31), sem sobrar nem faltar
+    for (const q of left) {
+      expect(Math.min(...q.ys)).toBe(19);
+      expect(Math.max(...q.ys)).toBe(31);
+    }
+  });
+
+  it('a saia só existe na borda do que foi descoberto, nunca no meio do terreno', () => {
+    const seen = (x: number, z: number) => x >= 2 && x < 10 && z >= 2 && z < 10;
+    const q = quads(buildMapChunk(0, 0, seen, rough)!);
+    for (const w of q.filter((k) => Math.abs(k.normal[1]) < 0.5)) {
+      const x0 = Math.min(...w.xs), z0 = Math.min(...w.zs);
+      // toda parede está dentro da área descoberta (ou na divisa com ela)
+      expect(x0).toBeGreaterThanOrEqual(2);
+      expect(x0).toBeLessThanOrEqual(10);
+      expect(z0).toBeGreaterThanOrEqual(2);
+      expect(z0).toBeLessThanOrEqual(10);
+    }
+  });
+});

@@ -26,6 +26,14 @@ fecha o mapa na hora. Não abre durante a câmara de pressurização nem com a m
 - **Qualidade:** desenhado numa textura do tamanho real da tela (com a densidade de pixels do celular, até 2560
   pixels), com antisserrilhado, sol com sombra, contorno em cada bloco e névoa ao longe. Em tela cheia, a textura cai
   pixel a pixel na tela.
+- **Áreas fundas (crateras) estáveis:**
+  - O fundo escuro com grade é só um pano de fundo: é desenhado primeiro e **sem teste de profundidade**, então nunca
+    cobre terreno. (Antes era um plano opaco 6 blocos acima do fundo das crateras mais fundas: escondia o chão delas
+    como um buraco preto e cortava as paredes numa borda irregular.)
+  - Cada coluna tem um único topo e cada degrau, uma única parede, feita pela coluna mais alta (também entre chunks):
+    nenhuma face se repete nem fica no mesmo lugar de outra. `tests/map.test.ts` confere isso numa cratera.
+  - A sombra anda em passos de um texel, a profundidade da câmera acompanha o zoom e o contorno dos blocos some aos
+    poucos quando o bloco fica pequeno (longe, ou parede vista de raspão), então nada pisca ao mover o mapa.
 
 ## Descoberto ao explorar
 
@@ -63,14 +71,17 @@ Arrastar move o mapa nos eixos da câmera; pinçar, a roda do mouse ou + e − m
 - `src/systems/Exploration.ts`: ladrilhos descobertos, por chunk de 16 × 16 (máscara de 16 bits).
 - `src/render/blockMap.ts`: lê a superfície do mundo (`World.topY` e o bloco do topo, com cache por chunk), monta a
   malha de cada chunk descoberto (`buildMapChunk`), desenha com luz, sombra e contorno, e os marcadores.
-- `src/app/MapDirector.ts`: abrir e fechar, o tablet 3D na frente da câmera, montar os chunks aos poucos (6 por
-  quadro, 60 ao abrir), arrastar e pinçar, nomes, legenda e bússola.
-- O tablet usa o mesmo modelo do ícone (`buildTablet` em `render/equipModels.ts`). Ele fica numa camada própria do
-  three.js: em tela cheia a câmera só vê essa camada, então o mundo não é desenhado enquanto o mapa está aberto.
+- `src/app/MapDirector.ts`: abrir e fechar, o tablet 3D na frente da câmera, montar os chunks por tempo (7 ms por
+  quadro; 45 ms ao abrir, mais perto primeiro) e preparar a superfície do que se descobre ainda com o mapa fechado
+  (1,5 ms por quadro), arrastar e pinçar, nomes, legenda e bússola.
+- O tablet usa o mesmo modelo do ícone (`buildTablet` em `render/equipModels.ts`). Ele fica numa cena à parte
+  (`Post.overlay`), desenhada numa **passada própria depois do mundo, com a profundidade limpa**: nada do mundo o cobre
+  (nem o telhado da base, que é transparente e antes era desenhado por cima do tablet), nem na animação de abrir e
+  fechar, nem com o mapa aberto. Em tela cheia a câmera ainda só vê a camada do tablet, então o mundo nem é desenhado.
 - Testes: `tests/map.test.ts` (exploração e malha) e `tools/visual-check/tablet.mjs` (no navegador).
 
 ## Em aberto
 
 - Marcar pontos no mapa e seguir um marcador.
 - Lugares com nome (crateras, depósitos de gelo) quando a história da v0.6 chegar.
-- Desempenho no celular ao abrir o mapa depois de explorar muito (a primeira abertura monta até 60 chunks).
+- Desempenho no celular ao abrir o mapa depois de explorar muito (os chunks são montados por tempo, mais perto primeiro).

@@ -25,14 +25,18 @@ const CLOSE_SECONDS = 0.42;
 const TABLET_DIST = 4;
 /** maior lado da textura do mapa, em pixels (a textura tem o tamanho real da tela) */
 const MAX_TEXTURE = 2560;
-/** chunks do mapa montados por quadro com o mapa aberto (o primeiro quadro monta mais) */
-const BUILD_PER_FRAME = 6;
+/** milissegundos por quadro montando o mapa; ao abrir pode gastar mais (o tablet ainda está subindo) */
+const BUILD_MS = 7;
+const BUILD_MS_OPEN = 45;
+/** milissegundos por quadro preparando a superfície do que foi descoberto, com o mapa fechado */
+const PREPARE_MS = 1.5;
 
 const ORE_KINDS: Partial<Record<PropType, MarkerKind>> = { crystal: 'crystal', gold: 'gold', ilmenite: 'ilmenite', meteorite: 'meteorite' };
 
 export interface MapDeps {
   events: GameBus;
-  scene: THREE.Scene;
+  /** cena desenhada por cima de tudo (Post.overlay): o tablet vive nela */
+  overlay: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
   sfx: Sfx;
@@ -72,6 +76,8 @@ export class MapDirector {
   private readonly labels = el('#map-labels');
   private readonly north = el('.map-north');
   private dt = 0;
+  /** chunks recém-descobertos esperando a superfície ser preparada (com o mapa fechado) */
+  private prepareQueue: string[] = [];
   private readonly labelEls = new Map<string, HTMLElement>();
   private markers: MapMarker[] = [];
   private markerT = 0;
@@ -82,11 +88,14 @@ export class MapDirector {
 
   constructor(private readonly d: MapDeps) {
     this.map = new BlockMap(d.surface, (x, z) => d.exploration.at(x, z), d.refY);
-    d.events.on('map:revealed', ({ chunks }) => this.map.invalidate(chunks));
+    d.events.on('map:revealed', ({ chunks }) => {
+      this.map.invalidate(chunks);
+      this.prepareQueue.push(...chunks);
+    });
     d.events.on('world:blockChanged', ({ x, z }) => this.map.blockChanged(x, z));
     this.screenMat = new THREE.MeshBasicMaterial({ map: this.map.target.texture, toneMapped: false, depthTest: false, fog: false });
     this.pivot.visible = false;
-    d.scene.add(this.pivot);
+    d.overlay.add(this.pivot);
     this.buildLegend();
     el('#map-close').addEventListener('click', () => this.close());
     el('#map-in').addEventListener('click', () => this.zoom(1 / 1.3));
@@ -131,7 +140,7 @@ export class MapDirector {
     // abre olhando para o mesmo lado que a câmera do jogo
     m.yaw = m.yawTarget = this.d.cameraYaw();
     this.d.exploration.revealAround(p.x, p.z);
-    m.sync(this.d.exploration.chunks(), 60);
+    m.sync(this.d.exploration.chunks(), BUILD_MS_OPEN);
     this.refreshMarkers();
     this.ensureTablet();
     this.state = 'opening';
@@ -183,7 +192,7 @@ export class MapDirector {
     if (this.tablet && !force && Math.abs(aspect - this.tabletAspect) < 0.01) return;
     if (this.tablet) this.pivot.remove(this.tablet);
     const tab = buildTablet(this.screenMat, aspect, 0.07, false);
-    // sempre por cima do mundo: sem teste de profundidade, na ordem moldura → tela → detalhes
+    // por cima de tudo: o overlay é desenhado depois do mundo, com a profundidade limpa; a ordem é moldura → tela → detalhes
     let order = 50;
     tab.traverse((o) => {
       const m = o as THREE.Mesh;
@@ -319,7 +328,11 @@ export class MapDirector {
 
   /** Depois da câmera se mexer: anima o tablet e atualiza o mapa. */
   update(dt: number): void {
-    if (this.state === 'closed') return;
+    if (this.state === 'closed') {
+      // fechado: só adianta o trabalho do próximo abrir
+      if (this.prepareQueue.length) this.prepareQueue = this.prepareQueue.slice(this.prepareQueue.length - this.map.prepare(this.prepareQueue, PREPARE_MS));
+      return;
+    }
     this.time += dt;
     this.dt = dt;
     if (this.state === 'opening') {
@@ -338,7 +351,7 @@ export class MapDirector {
     this.poseTablet();
     const p = this.d.player();
     this.map.setPlayer(p.x, p.y, p.z, p.facing, this.time);
-    this.map.sync(this.d.exploration.chunks(), BUILD_PER_FRAME);
+    this.map.sync(this.d.exploration.chunks(), BUILD_MS);
     // bússola: o norte gira junto com o mapa
     this.north.style.transform = `translateX(-50%) rotate(${THREE.MathUtils.radToDeg(this.map.yaw).toFixed(1)}deg)`;
     this.markerT -= dt;

@@ -313,7 +313,7 @@ export class Game {
     this.indoors = new IndoorView(scene, this.camera, this.lights); // depois de todas as luzes existirem
     const landerPos = this.lander.group.position;
     this.map = new MapDirector({
-      events, scene, camera: this.camera, renderer, sfx: this.sfx, haptics: this.haptics,
+      events, overlay: this.post.overlay, camera: this.camera, renderer, sfx: this.sfx, haptics: this.haptics,
       surface: (x, z) => {
         const y = this.world.topY(x, z);
         return { y, id: this.world.getBlock(x, y, z) };
@@ -909,6 +909,7 @@ export class Game {
     this.focus.set(rp.x, rp.y + 0.8, rp.z);
     rig.update(dt, this.focus);
     this.map.update(realDt);
+    this.post.setOverlay(this.map.active);
     // mapa em tela cheia: a câmera só vê o tablet (o mundo não é desenhado); ao fechar, volta para fora ou dentro
     if (this.map.full !== this.tabletOnly) {
       this.tabletOnly = this.map.full;

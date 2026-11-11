@@ -130,10 +130,14 @@ function blockMaterial(): THREE.MeshLambertMaterial {
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
+        // contorno de cada bloco: largura fixa na tela; some devagar quando o bloco fica pequeno (longe, ou parede
+        // vista de raspão), em vez de virar ruído e piscar
         vec2 gf = abs(fract(vGrid) - 0.5);
         float ge = 0.5 - max(gf.x, gf.y);
-        float gw = (fwidth(vGrid.x) + fwidth(vGrid.y)) * 0.9 + 0.012;
-        diffuseColor.rgb *= mix(0.74, 1.0, smoothstep(0.0, gw, ge));`,
+        float gw = clamp((fwidth(vGrid.x) + fwidth(vGrid.y)) * 0.75, 0.018, 0.5);
+        float edge = 1.0 - smoothstep(0.0, gw, ge);
+        float keep = 1.0 - smoothstep(0.2, 0.42, gw);
+        diffuseColor.rgb *= 1.0 - 0.26 * edge * keep;`,
       );
   };
   return m;
@@ -202,8 +206,8 @@ export class BlockMap {
     this.sun = new THREE.DirectionalLight('#fff0dc', 3.1);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
-    this.sun.shadow.bias = -0.0005;
-    this.sun.shadow.normalBias = 0.04;
+    this.sun.shadow.bias = -0.0006;
+    this.sun.shadow.normalBias = 0.06;
     this.scene.add(this.sun, this.sun.target);
     this.grid = groundGrid(refY - SKIRT - 1);
     this.scene.add(this.world, this.markerGroup, this.grid);
@@ -298,16 +302,20 @@ export class BlockMap {
     }
   }
 
-  /** Monta os chunks descobertos perto da vista que ainda não têm malha. `budget` limita quantos por chamada. */
-  sync(chunks: [number, number][], budget = Infinity): number {
+  /**
+   * Monta os chunks descobertos perto da vista que ainda não têm malha, do mais perto para o mais longe, parando
+   * quando passa de `ms` milissegundos (o jogo não trava). Devolve quantos ainda faltam.
+   */
+  sync(chunks: [number, number][], ms = Infinity): number {
     const vcx = this.view.x / CS, vcz = this.view.y / CS;
-    const reach = Math.ceil(this.distance / CS) + 4;
+    const reach = Math.ceil((this.distance * 1.8) / CS) + 3;
     const todo = chunks
       .filter(([cx, cz]) => !this.chunkMeshes.has(cx + ',' + cz) && Math.abs(cx + 0.5 - vcx) <= reach && Math.abs(cz + 0.5 - vcz) <= reach)
-      .sort((p, q) => Math.hypot(p[0] - vcx, p[1] - vcz) - Math.hypot(q[0] - vcx, q[1] - vcz));
+      .sort((p, q) => Math.hypot(p[0] + 0.5 - vcx, p[1] + 0.5 - vcz) - Math.hypot(q[0] + 0.5 - vcx, q[1] + 0.5 - vcz));
+    const t0 = performance.now();
     let built = 0;
     for (const [cx, cz] of todo) {
-      if (built >= budget) break;
+      if (built > 0 && performance.now() - t0 > ms) break;
       const geo = buildMapChunk(cx, cz, this.seen, (x, z) => this.surface(x, z), this.refY);
       built++;
       if (!geo) continue;
@@ -318,6 +326,21 @@ export class BlockMap {
       this.world.add(mesh);
     }
     return todo.length - built;
+  }
+
+  /**
+   * Com o mapa fechado: calcula a superfície dos chunks recém-descobertos aos pouquinhos, para a abertura do mapa
+   * não ter de ler o mundo todo de uma vez. Devolve quantos ainda faltam.
+   */
+  prepare(keys: string[], ms: number): number {
+    const t0 = performance.now();
+    let i = 0;
+    for (; i < keys.length; i++) {
+      if (i > 0 && performance.now() - t0 > ms) break;
+      const [cx, cz] = keys[i].split(',').map(Number);
+      this.surfaceChunk(cx, cz);
+    }
+    return keys.length - i;
   }
 
   // ---------- marcadores ----------
@@ -407,6 +430,13 @@ export class BlockMap {
     }
     cam.position.set(this.view.x + Math.sin(this.yaw) * c * d, this.viewY + Math.sin(PITCH) * d, this.view.y + Math.cos(this.yaw) * c * d);
     cam.lookAt(this.view.x, this.viewY, this.view.y);
+    // profundidade: do mais perto que cabe ao fim da névoa (24 bits ficam bem repartidos, sem blocos brigando)
+    const near = Math.max(2, d * 0.35), far = d * 4.5;
+    if (Math.abs(cam.near - near) > 0.01 || Math.abs(cam.far - far) > 0.01) {
+      cam.near = near;
+      cam.far = far;
+      cam.updateProjectionMatrix();
+    }
     const fog = this.scene.fog as THREE.Fog;
     fog.near = d * 1.25;
     fog.far = d * 2.8;
@@ -422,8 +452,11 @@ export class BlockMap {
       sc.far = ext * 4;
       sc.updateProjectionMatrix();
     }
-    this.sun.target.position.set(this.view.x, this.viewY, this.view.y);
-    this.sun.position.set(this.view.x - ext * 0.6, this.viewY + ext * 1.6, this.view.y + ext * 0.4);
+    // a câmera da sombra anda em passos de um texel: sem isso as bordas das sombras escorregam e piscam ao mover
+    const texel = (ext * 2) / this.sun.shadow.mapSize.x;
+    const sx = Math.round(this.view.x / texel) * texel, sz = Math.round(this.view.y / texel) * texel, sy = Math.round(this.viewY / texel) * texel;
+    this.sun.target.position.set(sx, sy, sz);
+    this.sun.position.set(sx - ext * 0.6, sy + ext * 1.6, sz + ext * 0.4);
     // a grade do chão acompanha a vista (de 8 em 8 blocos, para não escorregar)
     this.grid.position.x = Math.round(this.view.x / 8) * 8;
     this.grid.position.z = Math.round(this.view.y / 8) * 8;
@@ -449,8 +482,13 @@ function groundGrid(y: number): THREE.Mesh {
   t.repeat.set(1200 / 8, 1200 / 8);
   t.anisotropy = 8;
   t.colorSpace = THREE.SRGBColorSpace;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200), new THREE.MeshBasicMaterial({ map: t }));
+  // fundo puro: desenhado primeiro e sem teste de profundidade, então nunca cobre o terreno (antes, o plano ficava
+  // acima do fundo das crateras e escondia o chão delas, cortando as paredes numa borda irregular)
+  const mat = new THREE.MeshBasicMaterial({ map: t, depthTest: false, depthWrite: false });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200), mat);
   m.rotation.x = -Math.PI / 2;
   m.position.y = y;
+  m.renderOrder = -100;
+  m.frustumCulled = false;
   return m;
 }

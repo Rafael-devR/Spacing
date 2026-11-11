@@ -66,6 +66,13 @@ export function isQualityName(v: unknown): v is QualityName {
 }
 
 export class Post {
+  /**
+   * Cena por cima de tudo (o tablet do mapa). É desenhada numa passada própria depois do mundo, com a profundidade
+   * limpa: nada do mundo (telhado da base, partículas, névoa, objetos transparentes) consegue cobri-la.
+   */
+  readonly overlay = new THREE.Scene();
+  private overlayPass: RenderPass | null = null;
+  private overlayOn = false;
   private composer: EffectComposer | null = null;
   private readonly grade = new ShaderPass(GradeShader);
   bloom: UnrealBloomPass | null = null;
@@ -90,6 +97,12 @@ export class Post {
     c.setPixelRatio(pr);
     c.setSize(w, h);
     c.addPass(new RenderPass(this.scene, this.camera));
+    const ov = new RenderPass(this.overlay, this.camera);
+    ov.clear = false;
+    ov.clearDepth = true;
+    ov.enabled = this.overlayOn;
+    this.overlayPass = ov;
+    c.addPass(ov);
     this.bloom = null;
     if (q.bloom) {
       this.bloom = new UnrealBloomPass(new THREE.Vector2(w / 2, h / 2), 0.42, 0.55, 1.0);
@@ -106,6 +119,12 @@ export class Post {
     this.composer?.setSize(w, h);
     SKY.res.set(w * pr, h * pr);
     (this.grade.uniforms.uRes.value as THREE.Vector2).set(w * pr, h * pr);
+  }
+
+  /** Liga a passada do overlay (só enquanto há algo nele: não custa nada com o mapa fechado). */
+  setOverlay(on: boolean): void {
+    this.overlayOn = on;
+    if (this.overlayPass) this.overlayPass.enabled = on;
   }
 
   /** Efeitos de tela da sobrevivência, cada um de 0 a 1. */

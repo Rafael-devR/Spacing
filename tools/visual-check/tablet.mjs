@@ -61,6 +61,12 @@ const st = await g(() => ({
 check('em tela cheia a câmera só desenha o tablet', st.layers === 4, 'máscara ' + st.layers);
 check('mostra você, a sonda e a base', ['Você', 'Sonda', 'Base'].every((k) => st.labels.includes(k)), st.labels.join(', '));
 check('o HUD do jogo some', st.hud === '0', 'opacidade ' + st.hud);
+const draw = await g(() => {
+  const s = window.spacing;
+  return { overlay: s.post.overlay.children.includes(s.map.pivot), inWorld: s.scene.children.includes(s.map.pivot), grid: s.map.map.grid.material.depthTest };
+});
+check('o tablet é desenhado numa passada por cima do mundo (nada o cobre)', draw.overlay && !draw.inWorld, JSON.stringify(draw));
+check('a grade do fundo nunca esconde terreno', draw.grid === false);
 const mapInfo = await g(() => {
   const s = window.spacing, m = s.map.map;
   return {
@@ -102,11 +108,42 @@ const closed = await page.waitForFunction(() => document.querySelector('#map')?.
 const back = await g(() => window.spacing.camera.layers.mask);
 check('fecha e o mundo volta', closed && back === 1, 'máscara ' + back);
 
+// cratera funda: o fundo aparece (antes um plano cobria tudo abaixo dele, deixando um buraco preto)
+const deep = await g(() => {
+  const s = window.spacing, t = s.world.terrain;
+  let best = { h: 1e9, x: 0, z: 0 };
+  for (let x = -150; x <= 150; x += 3) for (let z = -150; z <= 150; z += 3) { const h = t.column(x, z).h; if (h < best.h) best = { h, x, z }; }
+  for (let dx = -30; dx <= 30; dx += 15) for (let dz = -30; dz <= 30; dz += 15) s.exploration.revealAround(best.x + dx, best.z + dz);
+  return { ...best, gridY: s.map.map.grid.position.y };
+});
+await g((d) => {
+  const s = window.spacing;
+  s.map.open();
+  s.map.map.view.set(d.x, d.z);
+  s.map.map.distance = 60;
+}, deep);
+await page.waitForFunction(() => document.querySelector('#map')?.classList.contains('full'), null, { timeout: 60000, polling: 100 });
+await page.waitForTimeout(2500);
+const lum = await g(() => {
+  const s = window.spacing, m = s.map.map, r = s.renderer, w = m.target.width, h = m.target.height;
+  const px = new Uint16Array(4 * 9 * 9); // a textura é half-float: converte cada canal para número
+  r.readRenderTargetPixels(m.target, Math.floor(w / 2) - 4, Math.floor(h / 2) - 4, 9, 9, px);
+  const f = (v) => { const e = (v >> 10) & 31, m2 = v & 1023; return (v >> 15 ? -1 : 1) * (e === 0 ? (m2 / 1024) * 2 ** -14 : 2 ** (e - 15) * (1 + m2 / 1024)); };
+  let sum = 0;
+  for (let i = 0; i < px.length; i += 4) sum += (f(px[i]) + f(px[i + 1]) + f(px[i + 2])) / 3;
+  return { mean: sum / 81 };
+});
+check('o fundo da cratera funda aparece no mapa (não é buraco escuro)', deep.h + 1 < deep.gridY && lum.mean > 0.08, `fundo y ${deep.h + 1} abaixo do plano da grade y ${deep.gridY}; brilho ${lum.mean.toFixed(3)}`);
+await page.screenshot({ path: `${out}/tablet-crater.png` });
+await page.click('#map-close');
+await page.waitForFunction(() => window.spacing.map.state === 'closed', null, { timeout: 30000, polling: 100 });
+await g(() => { window.spacing.rig.snap(window.spacing.player.pos.clone()); });
+
 // andar descobre mais terreno
 const before = await g(() => window.spacing.exploration.revealed);
 const far = await g(() => {
   const s = window.spacing;
-  const x = s.player.pos.x + 70, z = s.player.pos.z;
+  const x = s.player.pos.x - 70, z = s.player.pos.z;
   const out = s.exploration.at(x, z);
   s.player.pos.set(x, s.world.topY(Math.floor(x), Math.floor(z)) + 1.05, z);
   s.player.prevPos.copy(s.player.pos);
