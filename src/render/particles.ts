@@ -61,6 +61,11 @@ export class Particles {
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
   }
 
+  /** quantas partículas estão vivas agora */
+  get active(): number {
+    return this.max - this.free.length;
+  }
+
   burst(x: number, y: number, z: number, rgb: RGB, n = 10, power = 3): void {
     for (let k = 0; k < n; k++) {
       const a = Math.random() * Math.PI * 2;

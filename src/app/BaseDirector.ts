@@ -120,6 +120,20 @@ export class BaseDirector {
     this.mode = 'inside';
   }
 
+  /** Coloca o astronauta fora da base na hora, sem cena (o teste de desempenho começa sempre do lado de fora). */
+  leaveInstant(): void {
+    const { d } = this;
+    if (this.mode === 'outside') return;
+    d.baseHud.airlockClosed(false);
+    d.baseHud.setFade(false);
+    d.player.frozen = false;
+    d.craftPanel.close();
+    d.model.doorTarget = 0;
+    d.layout.structure.doorOpen = false;
+    this.setInsideView(false, true);
+    this.mode = 'outside';
+  }
+
   /** Salvo de antes da base existir com o astronauta onde ela está agora: tira ele para fora. */
   ensureNotStuck(): void {
     const p = this.d.player.pos;

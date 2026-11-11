@@ -28,6 +28,11 @@ export class ItemDrops {
     private readonly inventory: Inventory,
   ) {}
 
+  /** itens soltos voando até o jogador agora */
+  get count(): number {
+    return this.drops.length;
+  }
+
   spawn(item: ItemId, at: THREE.Vector3, n: number): void {
     for (let i = 0; i < n; i++) {
       const obj = this.models.createOutlined(item);

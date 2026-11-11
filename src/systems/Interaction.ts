@@ -229,6 +229,20 @@ export class Interaction {
     events.emit('block:placed', { x, y, z, id: block });
   }
 
+  /**
+   * Quebra o bloco (x, y, z) com os mesmos efeitos de quando o jogador o mina (destroços, poeira, item, evento), sem
+   * esperar a broca. Para o teste de desempenho (app/Benchmark.ts). Devolve false se o bloco não pode ser quebrado.
+   */
+  breakBlockAt(x: number, y: number, z: number): boolean {
+    const id = this.d.world.getBlock(x, y, z);
+    if (id === AIR || (BLOCK_DATA[id]?.hardness ?? Infinity) === Infinity) return false;
+    this.breakTarget({
+      kind: 'block', x, y, z, id, normal: [0, 1, 0], t: 0, key: `${x},${y},${z}`,
+      center: new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5), hard: BLOCK_DATA[id].hardness,
+    });
+    return true;
+  }
+
   private breakTarget(t: Target): void {
     if (this.locked) return;
     const { world, debris, particles, drops, events } = this.d;

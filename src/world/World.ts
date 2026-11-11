@@ -65,6 +65,11 @@ export class World {
   readonly structures: Structure[] = [];
   /** raio de chunks carregados ao redor do jogador */
   radius = 3;
+  /**
+   * Medição de desempenho (benchmark, docs/design/DESEMPENHO.md): quanto custa gerar um chunk, malhar um chunk novo e
+   * refazer a malha depois de editar blocos. Desligada (null) fora do teste: o custo é uma checagem por chunk.
+   */
+  perf: { onGenerate(ms: number): void; onMesh(ms: number, edit: boolean): void } | null = null;
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -84,7 +89,9 @@ export class World {
     const k = this.key(cx, cz);
     let c = this.chunks.get(k);
     if (!c) {
+      const t0 = this.perf ? performance.now() : 0;
       const g = this.terrain.generate(cx, cz);
+      this.perf?.onGenerate(performance.now() - t0);
       c = { cx, cz, key: k, data: g.data, props: g.props, maxY: g.maxY, mesh: null, propMeshes: [], dirty: true };
       for (const e of this.extraProps) {
         if (Math.floor(e.wx / CS) === cx && Math.floor(e.wz / CS) === cz) c.props.push({ ...e, y: 0 });
@@ -116,6 +123,11 @@ export class World {
   private underStructure(x: number, z: number): boolean {
     for (const s of this.structures) if (s.coversColumn(x, z)) return true;
     return false;
+  }
+
+  /** quantos chunks estão carregados agora */
+  get chunkCount(): number {
+    return this.chunks.size;
   }
 
   getBlock(x: number, y: number, z: number): BlockId {
@@ -175,7 +187,7 @@ export class World {
     }
     for (const k of dirty) {
       const c = this.chunks.get(k);
-      if (c && c.mesh) this.rebuild(c);
+      if (c && c.mesh) this.rebuild(c, true);
     }
     for (const [x, y, z, id] of applied) {
       if (id === AIR) this.settleProp(x, y, z);
@@ -184,7 +196,8 @@ export class World {
     return applied.length;
   }
 
-  rebuild(c: Chunk): void {
+  /** `edit`: a malha é refeita por uma edição de blocos (e não por um chunk novo); só serve para a medição */
+  rebuild(c: Chunk, edit = false): void {
     const ox = c.cx * CS, oz = c.cz * CS;
     const pad = this.pad;
     const h = Math.min(CH, c.maxY + 2);
@@ -193,6 +206,7 @@ export class World {
     for (let dz = -1; dz <= 1; dz++) {
       for (let dx = -1; dx <= 1; dx++) nb[dx + ',' + dz] = this.chunk(c.cx + dx, c.cz + dz).data;
     }
+    const t0 = this.perf ? performance.now() : 0;
     for (let y = 0; y < h; y++) {
       for (let z = -1; z <= CS; z++) {
         const dz = z < 0 ? -1 : z >= CS ? 1 : 0;
@@ -223,6 +237,7 @@ export class World {
       this.spawnProps(c);
     }
     c.dirty = false;
+    this.perf?.onMesh(performance.now() - t0, edit);
   }
 
   private propKey(p: PropSpawn): string {
