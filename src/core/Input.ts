@@ -34,6 +34,7 @@ export class Input implements MoveInput {
   onHotbar: ((index: number) => void) | null = null;
   onBuildToggle: (() => void) | null = null;
   onPause: (() => void) | null = null;
+  onBag: (() => void) | null = null;
 
   private readonly keys = new Set<string>();
   private readonly joy: { x: number; y: number; id: number | null } = { x: 0, y: 0, id: null };
@@ -60,6 +61,10 @@ export class Input implements MoveInput {
       if (k === 'q') this.onRotate?.(-1);
       if (k === 'e') this.onRotate?.(1);
       if (k === 'b') this.onBuildToggle?.();
+      if (k === 'i' || k === 'tab') {
+        e.preventDefault();
+        this.onBag?.();
+      }
       if (/^[1-8]$/.test(k)) this.onHotbar?.(Number(k) - 1);
     });
     addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));

@@ -31,6 +31,7 @@ import { Inventory } from '../systems/Inventory';
 import { Missions } from '../systems/Missions';
 import { Survival } from '../systems/Survival';
 import { el, maybeEl } from '../ui/dom';
+import { Bag } from '../ui/Bag';
 import { Hud } from '../ui/Hud';
 import { PauseMenu } from '../ui/PauseMenu';
 import { LANDER, SPAWN } from '../world/terrain';
@@ -79,6 +80,9 @@ export class Game {
 
   private readonly hud = new Hud();
   private readonly pauseMenu: PauseMenu;
+  private readonly bag: Bag;
+  /** último aviso de mochila cheia (para não repetir a cada item) */
+  private fullWarnT = -99;
   private readonly sfx = new Sfx();
   private readonly haptics = new Haptics();
   /** som de cada meteoro em voo, que acompanha a posição dele */
@@ -126,6 +130,7 @@ export class Game {
     this.world.load(this.save?.world);
     this.baseY = this.world.terrain.spawnH;
     this.inventory = new Inventory(events, this.save?.inventory);
+    this.bag = new Bag(this.inventory);
     this.player = new Player(scene, this.world, events);
     this.rig = new IsoRig(this.camera);
     this.particles = new Particles(scene);
@@ -135,6 +140,9 @@ export class Game {
     this.itemModels = new ItemModels(materials, propFactory);
     this.drops = new ItemDrops(scene, this.itemModels, this.inventory);
     this.loot = new LootPiles(scene, this.itemModels, this.world, this.drops, events);
+    // mochila cheia: o que não coube volta para o chão e espera ter espaço
+    this.loot.canTake = (item, n) => this.inventory.canAdd(item, n);
+    this.drops.onOverflow = (item, n, at) => this.loot.drop(at.clone(), { [item]: n });
     this.blockFx = new BlockFx(scene, this.itemModels);
     this.footprints = new Footprints(scene);
     this.interaction = new Interaction({
@@ -275,6 +283,7 @@ export class Game {
     const icons = {} as Record<ItemId, string>;
     for (const k of ITEM_ORDER) icons[k] = renderIcon(this.renderer, this.itemModels.create(k));
     this.hud.buildHotbar(icons, this.inventory);
+    this.bag.setIcons(icons);
     this.hud.setMission(this.missions.view());
 
     el('#loading').hidden = true;
@@ -325,6 +334,7 @@ export class Game {
     this.interaction.cancel();
     this.hud.setProgress(null);
     this.hud.setAim(null);
+    this.bag.close();
     this.sfx.setPaused(true);
     this.pauseMenu.show(this.prefs);
     this.persist();
@@ -344,6 +354,10 @@ export class Game {
     const help = el('#help');
     if (!help.hidden) {
       help.hidden = true;
+      return;
+    }
+    if (this.bag.open) {
+      this.bag.close();
       return;
     }
     if (this.state === 'playing') this.pause();
@@ -404,6 +418,7 @@ export class Game {
     e.on('action:denied', ({ reason, item }) => {
       sfx.play('deny');
       if (reason === 'notBlock') hud.toast(t('deny.notBlock'), true);
+      else if (reason === 'emptySlot') hud.toast(t('deny.emptySlot'), true);
       else if (reason === 'noItems' && item) hud.toast(t('deny.noItems', { item: ITEMS[item].name.toLowerCase() }), true);
     });
     e.on('item:collected', ({ item, amount }) => {
@@ -413,9 +428,19 @@ export class Game {
       sfx.play('pop', 1 + combo.n * 0.06);
       hud.pickup(item, amount);
     });
-    e.on('inventory:changed', ({ item }) => hud.renderCounts(inventory, item));
+    e.on('inventory:changed', ({ item }) => {
+      hud.renderCounts(inventory, item);
+      this.bag.render();
+    });
+    e.on('player:died', () => this.bag.close());
+    e.on('inventory:full', ({ item }) => {
+      if (this.time - this.fullWarnT < 2.5) return;
+      this.fullWarnT = this.time;
+      hud.ai(t('inventory.full', { item: ITEMS[item].name.toLowerCase() }), true);
+      sfx.play('deny');
+    });
     e.on('inventory:selected', ({ index }) => {
-      hud.select(index);
+      hud.select(index, inventory);
       sfx.play('ui');
     });
     e.on('build:mode', ({ on }) => {
@@ -478,6 +503,20 @@ export class Game {
     press('#btn-zoom-in', () => rig.zoom(1 / 1.2));
     press('#btn-zoom-out', () => rig.zoom(1.2));
     press('#btn-pause', () => this.togglePause());
+    press('#btn-bag', () => {
+      if (this.state === 'playing') this.bag.toggle();
+    });
+    input.onBag = () => {
+      if (this.state === 'playing') this.bag.toggle();
+    };
+    this.bag.onToggle = (open) => {
+      input.reset();
+      interaction.cancel();
+      this.hud.setProgress(null);
+      this.hud.setAim(null);
+      sfx.play('ui');
+      this.events.emit('bag:toggled', { open });
+    };
     el('#help').addEventListener('pointerdown', () => (el('#help').hidden = true));
 
     // tela cheia: botão no canto e, no celular, ao tocar na tela (o navegador exige um gesto: toque solto)

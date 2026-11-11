@@ -16,7 +16,7 @@ export type DeathCause = 'asphyxia' | 'meteor' | 'fall';
 
 export type Meter = 'o2' | 'battery' | 'integrity';
 
-export type DenyReason = 'notBlock' | 'noItems' | 'blocked';
+export type DenyReason = 'notBlock' | 'noItems' | 'blocked' | 'emptySlot';
 
 export interface GameEvents {
   /** o jogador quebrou um bloco */
@@ -31,8 +31,12 @@ export interface GameEvents {
   'item:collected': { item: ItemId; amount: number };
   /** contagem do inventário mudou (item null = vários itens) */
   'inventory:changed': { item: ItemId | null };
-  /** o jogador escolheu outro item na barra */
-  'inventory:selected': { index: number; item: ItemId };
+  /** o jogador escolheu outro espaço na barra (item null = espaço vazio) */
+  'inventory:selected': { index: number; item: ItemId | null };
+  /** não coube tudo no inventário; `amount` ficou de fora */
+  'inventory:full': { item: ItemId; amount: number };
+  /** a mochila abriu ou fechou */
+  'bag:toggled': { open: boolean };
   /** um golpe da furadeira acertou o alvo */
   'mine:hit': Vec3Like & { target: 'block' | 'prop' };
   /** uma ação foi recusada (sem item, lugar ocupado, ...) */

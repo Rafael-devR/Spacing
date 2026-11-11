@@ -85,7 +85,12 @@
 
   <div id="bottom">
     <div id="selected-name"></div>
-    <div id="hotbar"></div>
+    <div class="bar-row">
+      <div id="hotbar"></div>
+      <button class="slot bag-btn" id="btn-bag" type="button" title="Mochila (I)" aria-label="Abrir mochila">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5V3.5h4V5"/><path d="M6 10a4 4 0 0 1 4-5h4a4 4 0 0 1 4 5v9.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 19.5z"/><path d="M6 12h12"/><path d="M9.5 15.5h5v3h-5z"/></svg>
+      </button>
+    </div>
   </div>
 
   <div class="actions controls">
@@ -108,6 +113,21 @@
     </g>
   </svg>
   <div id="progress" hidden></div>
+</div>
+
+<div id="bag" hidden role="dialog" aria-modal="true" aria-labelledby="bag-title">
+  <div class="bag-card">
+    <div class="bag-head">
+      <h2 id="bag-title">Mochila</h2>
+      <span id="bag-hint"></span>
+      <button class="chip" id="bag-close" type="button" aria-label="Fechar mochila">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="bag-grid" id="bag-grid"></div>
+    <span class="bag-label">Barra de itens</span>
+    <div class="bag-grid" id="bag-hotbar"></div>
+  </div>
 </div>
 
 <div id="death" hidden role="dialog" aria-modal="true" aria-labelledby="death-title">
@@ -194,12 +214,14 @@
       <dt>B</dt><dd>Alternar minerar / construir</dd>
       <dt>Q / E</dt><dd>Girar a câmera 90°</dd>
       <dt>Roda do mouse</dt><dd>Zoom</dd>
-      <dt>1 a 8</dt><dd>Escolher item</dd>
+      <dt>1 a 8</dt><dd>Escolher espaço da barra</dd>
+      <dt>I ou Tab</dt><dd>Abrir a mochila</dd>
       <dt>Esc ou P</dt><dd>Pausar</dd></span>
       <span class="only-touch"><dt>Joystick</dt><dd>Andar</dd>
       <dt>Segurar no chão</dt><dd>Aparece uma mira acima do dedo: arraste até o bloco e segure para minerar (se estiver longe, o astronauta vai até lá)</dd>
       <dt>Toque rápido</dt><dd>Andar até o ponto</dd>
       <dt>Botão cubo</dt><dd>Modo construção: toque num bloco para colocar outro em cima</dd>
+      <dt>Bolsa</dt><dd>Abrir a mochila: toque num item e depois em outro espaço para mover</dd>
       <dt>Pinça</dt><dd>Zoom</dd>
       <dt>Setas curvas</dt><dd>Girar a câmera 90° (canto de cima)</dd></span>
     </dl>

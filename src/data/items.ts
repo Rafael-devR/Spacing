@@ -10,7 +10,16 @@ export interface ItemData {
   block?: BlockId;
   /** como desenhar o ícone de um item que não é bloco */
   icon?: { block?: BlockId; prop?: PropType };
+  /** quantos cabem num espaço do inventário (padrão STACK_SIZE) */
+  stack?: number;
 }
+
+/** espaços da barra de itens */
+export const HOTBAR_SIZE = 8;
+/** espaços da mochila (além da barra) */
+export const BAG_SIZE = 24;
+/** quantos itens cabem num espaço, se o item não disser outro número */
+export const STACK_SIZE = 64;
 
 export const ITEMS: Record<ItemId, ItemData> = {
   regolith: { name: 'Regolito', block: REGOLITH },
@@ -23,11 +32,15 @@ export const ITEMS: Record<ItemId, ItemData> = {
   crystal: { name: 'Cristal lunar', icon: { prop: 'crystal' } },
 };
 
-/** ordem dos itens na barra de itens */
+/** ordem de referência dos itens (ícones, conversão de salvamentos antigos) */
 export const ITEM_ORDER: ItemId[] = ['regolith', 'rock', 'basalt', 'ice', 'iron', 'ilmenite', 'gold', 'crystal'];
 
 export function isItemId(v: unknown): v is ItemId {
   return typeof v === 'string' && v in ITEMS;
+}
+
+export function stackSize(item: ItemId): number {
+  return ITEMS[item].stack ?? STACK_SIZE;
 }
 
 /** bloco que representa o item visualmente (ícone e item solto), se houver */

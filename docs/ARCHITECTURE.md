@@ -101,12 +101,12 @@ a aba, o jogo salva e pausa sozinho.
 
 ## Salvamento
 
-Chave `spacing.save` no `localStorage`, em JSON, formato **versão 3** (`src/core/save.ts`):
+Chave `spacing.save` no `localStorage`, em JSON, formato **versão 4** (`src/core/save.ts`):
 
 ```
-{ version: 2, seed, savedAt,
+{ version: 4, seed, savedAt,
   world: { edits: { "cx,cz": [[índice, bloco], ...] }, removedProps: [...], extraProps: [...] },
-  inventory: { item: quantidade },
+  inventory: { slots: [{ item, n } | null, ...32], selected },
   player: { x, y, z },
   missions: { step, count },
   suit: { suit, o2, battery, integrity },
@@ -115,6 +115,7 @@ Chave `spacing.save` no `localStorage`, em JSON, formato **versão 3** (`src/cor
 
 - O salvamento da v0.1 (chave `spacing.save.v1`, sem versão) é migrado na primeira carga e apagado.
 - Da versão 2 para a 3: o traje começa cheio e não há itens no chão.
+- Da versão 3 para a 4: as quantidades viram espaços do inventário ([design/INVENTARIO.md](design/INVENTARIO.md)).
 - Dados inválidos são limpos (itens desconhecidos, quantidades negativas); versões futuras são recusadas.
 - Salva a cada 5 segundos jogando, ao pausar, ao esconder a aba e ao sair.
 - Preferências (qualidade, som, tremor, vibração, mira de toque, tela cheia, orientação) ficam em

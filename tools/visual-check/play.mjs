@@ -50,9 +50,9 @@ const broke = await page
 await page.mouse.up();
 check('bloco minerado', broke, `bloco ${target.id} em ${target.block.join(',')}`);
 const collected = await page
-  .waitForFunction(() => Object.values(window.spacing.inventory.serialize()).reduce((a, n) => a + n, 0) > 0, null, { timeout: 90000, polling: 250 })
+  .waitForFunction(() => Object.values(window.spacing.inventory.totals()).reduce((a, n) => a + n, 0) > 0, null, { timeout: 90000, polling: 250 })
   .then(() => true, () => false);
-check('item chegou ao inventário', collected, JSON.stringify(await page.evaluate(() => window.spacing.inventory.serialize())));
+check('item chegou ao inventário', collected, JSON.stringify(await page.evaluate(() => window.spacing.inventory.totals())));
 await page.screenshot({ path: `${out}/play-1-minerado.png` });
 
 await page.keyboard.press('Escape');
@@ -62,15 +62,15 @@ check('menu de pausa visível', await page.isVisible('#pause'));
 await page.screenshot({ path: `${out}/play-2-pausa.png` });
 
 const save = await page.evaluate(() => JSON.parse(localStorage.getItem('spacing.save') || 'null'));
-check('salvou ao pausar', !!save && save.version === 3, save ? `versão ${save.version}` : 'sem salvamento');
-check('inventário no salvamento', !!save && Object.keys(save.inventory).length > 0);
+check('salvou ao pausar', !!save && save.version === 4, save ? `versão ${save.version}` : 'sem salvamento');
+check('inventário no salvamento', !!save && save.inventory.slots.some(Boolean));
 
 await page.click('#pause-resume');
 await page.waitForTimeout(300);
 check('Continuar volta ao jogo', (await page.evaluate(() => window.spacing.state)) === 'playing');
 
 // ---- sobrevivência: morrer sem oxigênio, itens no chão, renascer, recolher ----
-const before = await page.evaluate(() => window.spacing.inventory.serialize());
+const before = await page.evaluate(() => window.spacing.inventory.totals());
 // dentro da área pressurizada o módulo recarrega o traje: primeiro confere isso
 await page.evaluate(() => (window.spacing.survival.o2 = 40));
 const refilled = await page
@@ -101,7 +101,7 @@ const died = await page
   .waitForFunction(() => window.spacing.state === 'dead', null, { timeout: 60000, polling: 200 })
   .then(() => true, () => false);
 check('sem oxigênio, o astronauta morre', died);
-const afterDeath = await page.evaluate(() => ({ inv: window.spacing.inventory.serialize(), loot: window.spacing.loot.totals() }));
+const afterDeath = await page.evaluate(() => ({ inv: window.spacing.inventory.totals(), loot: window.spacing.loot.totals() }));
 check('inventário esvaziou na morte', Object.keys(afterDeath.inv).length === 0, JSON.stringify(afterDeath.inv));
 check('itens caíram no chão', JSON.stringify(afterDeath.loot) === JSON.stringify(before), `chão ${JSON.stringify(afterDeath.loot)}`);
 const card = await page.waitForSelector('#death:not([hidden])', { timeout: 30000 }).then(() => true, () => false);
@@ -127,7 +127,7 @@ check('traje cheio ao renascer', re.o2 === 100 && re.hp === 100, `O2 ${re.o2}, i
 check('renasce dentro da área pressurizada', re.dist < 4.5, `${re.dist.toFixed(1)} blocos do módulo`);
 check('itens continuam no chão', re.loot > 0);
 const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('spacing.save') || 'null'));
-check('itens caídos estão no salvamento', !!saved && saved.version === 3 && saved.loot.length > 0);
+check('itens caídos estão no salvamento', !!saved && saved.version === 4 && saved.loot.length > 0);
 await page.screenshot({ path: `${out}/play-4-renasceu.png` });
 
 // leva o astronauta até os itens
@@ -143,9 +143,9 @@ const recovered = await page
   .then(() => true, () => false);
 check('passar por cima recolhe os itens', recovered);
 const backInInv = await page
-  .waitForFunction((b) => JSON.stringify(window.spacing.inventory.serialize()) === JSON.stringify(b), before, { timeout: 90000, polling: 250 })
+  .waitForFunction((b) => JSON.stringify(window.spacing.inventory.totals()) === JSON.stringify(b), before, { timeout: 90000, polling: 250 })
   .then(() => true, () => false);
-check('inventário voltou ao que era', backInInv, JSON.stringify(await page.evaluate(() => window.spacing.inventory.serialize())));
+check('inventário voltou ao que era', backInInv, JSON.stringify(await page.evaluate(() => window.spacing.inventory.totals())));
 
 check('sem erros no console', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(results.join('\n'));

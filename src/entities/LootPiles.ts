@@ -117,6 +117,9 @@ export class LootPiles {
     });
   }
 
+  /** o inventário aceita esse item? (mochila cheia = o item fica no chão esperando) */
+  canTake: (item: ItemId, amount: number) => boolean = () => true;
+
   /** `canCollect` = falso no menu inicial (o jogador ainda não está jogando). */
   update(dt: number, t: number, player: Player, canCollect = true): void {
     const pc = player.center();
@@ -159,7 +162,7 @@ export class LootPiles {
       // ímã: passar perto recolhe
       if (canCollect && p.cooldown <= 0 && !player.dead) {
         const dx = pc.x - p.pos.x, dz = pc.z - p.pos.z, dy = pc.y - p.pos.y;
-        if (Math.hypot(dx, dz) < SURVIVAL.pickupRadius && Math.abs(dy) < 2) {
+        if (Math.hypot(dx, dz) < SURVIVAL.pickupRadius && Math.abs(dy) < 2 && this.canTake(p.item, p.amount)) {
           this.remove(i);
           this.drops.fly(p.item, p.pos, p.amount);
         }

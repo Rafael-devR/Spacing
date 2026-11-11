@@ -14,6 +14,10 @@ export const ptBR = {
   'hint.mineMouse': 'Segure o clique num bloco para minerar',
 
   'hud.resource': 'recurso',
+  'hud.emptySlot': 'Espaço vazio',
+  'bag.hintPick': 'Toque num item para mover',
+  'bag.hintDrop': 'Toque no espaço de destino',
+  'inventory.full': 'Mochila cheia: {item} ficou no chão',
   'hud.mine': 'Minerar',
   'hud.build': 'Construir',
   'hud.modeMine': 'Modo mineração',
@@ -28,6 +32,7 @@ export const ptBR = {
 
   'deny.notBlock': 'Selecione um bloco para construir',
   'deny.noItems': 'Sem {item} no inventário',
+  'deny.emptySlot': 'Escolha um bloco na barra para construir',
 
   'quality.baixo': 'Baixa',
   'quality.medio': 'Média',

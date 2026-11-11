@@ -148,6 +148,10 @@ body.touch #m-title { font-size: 14px; }
 }
 #selected-name { font-size: 12px; color: var(--ink-dim); letter-spacing: 0.04em; text-shadow: 0 1px 6px rgba(10, 8, 30, 0.7); }
 #hotbar { display: flex; gap: 5px; }
+.bar-row { display: flex; gap: 8px; align-items: center; }
+.bag-btn { display: grid; place-items: center; color: var(--ink); }
+.bag-btn svg { width: 24px; height: 24px; }
+.slot img[hidden] { display: none; }
 .slot {
   position: relative; width: 50px; height: 50px; padding: 0;
   border: 1px solid var(--line); border-radius: 6px;
@@ -156,7 +160,7 @@ body.touch #m-title { font-size: 14px; }
   cursor: pointer; transition: transform 0.12s ease, border-color 0.12s;
 }
 .slot img { width: 40px; height: 40px; margin: 4px; display: block; pointer-events: none; }
-.slot.empty img { opacity: 0.38; filter: saturate(0.3); }
+.slot.empty { background: rgba(22, 18, 42, 0.32); }
 .slot.selected { border: 2px solid var(--ink); background: var(--panel-strong); transform: translateY(-3px); }
 .slot .key { position: absolute; left: 4px; top: 2px; font-size: 9px; color: var(--ink-dim); }
 .slot .count {
@@ -267,23 +271,55 @@ body.touch .actions.controls { display: block !important; }
   body.touch #joystick { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
   body.touch .actions { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
   body.touch #mode-chip { bottom: calc(232px + env(safe-area-inset-bottom, 0px)); }
-  .slot { width: 42px; height: 42px; }
-  .slot img { width: 34px; height: 34px; margin: 3px; }
-  #hotbar { gap: 4px; }
+  #bottom .slot { width: 38px; height: 38px; }
+  #bottom .slot img { width: 30px; height: 30px; margin: 3px; }
+  #hotbar { gap: 3px; }
+  .bar-row { gap: 5px; }
   .sys .chip .lbl { display: none; }
 }
 /* celular deitado */
 @media (orientation: landscape) and (max-height: 500px) {
   body.touch #bottom { bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
   body.touch #mode-chip { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
-  .slot { width: 42px; height: 42px; }
-  .slot img { width: 34px; height: 34px; margin: 3px; }
+  #bottom .slot { width: 42px; height: 42px; }
+  #bottom .slot img { width: 34px; height: 34px; margin: 3px; }
   #hotbar { gap: 4px; }
   #selected-name { display: none; }
   .sys .chip .lbl { display: none; }
   #joystick { width: 118px; height: 118px; left: calc(18px + env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
   .hud-tl { width: min(220px, 30vw); gap: 6px; }
   #suit { gap: 3px; }
+}
+
+/* mochila */
+#bag {
+  position: fixed; inset: 0; display: grid; place-items: center; padding: 12px;
+  background: rgba(10, 8, 26, 0.55);
+}
+.bag-card {
+  display: grid; gap: 8px; padding: 14px 16px; border-radius: 14px; max-height: 100%; overflow-y: auto;
+  background: var(--panel-strong); border: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
+.bag-head { display: flex; align-items: center; gap: 12px; }
+.bag-head h2 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 20px; }
+#bag-hint { flex: 1; font-size: 12px; color: var(--ink-dim); }
+.bag-grid { display: grid; grid-template-columns: repeat(8, 46px); gap: 5px; }
+.bag-grid .slot { width: 46px; height: 46px; }
+.bag-grid .slot img { width: 36px; height: 36px; margin: 4px; }
+.bag-label { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-dim); margin-top: 4px; }
+.slot.held { border: 2px solid var(--suit); background: rgba(255, 122, 47, 0.22); transform: translateY(-3px); }
+#bag-hotbar .slot.selected { transform: none; }
+@media (max-height: 420px) {
+  .bag-card { gap: 5px; padding: 10px 14px; }
+  .bag-grid { grid-template-columns: repeat(8, 40px); gap: 4px; }
+  .bag-grid .slot { width: 40px; height: 40px; }
+  .bag-grid .slot img { width: 32px; height: 32px; margin: 3px; }
+}
+@media (max-width: 420px) {
+  .bag-grid { grid-template-columns: repeat(8, 38px); gap: 4px; }
+  .bag-grid .slot { width: 38px; height: 38px; }
+  .bag-grid .slot img { width: 30px; height: 30px; margin: 3px; }
 }
 
 /* ajuda */

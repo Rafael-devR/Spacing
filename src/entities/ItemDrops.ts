@@ -18,6 +18,8 @@ interface Drop {
 export class ItemDrops {
   private readonly drops: Drop[] = [];
   private readonly v = new THREE.Vector3();
+  /** o que chegou e não coube no inventário (mochila cheia) */
+  onOverflow: ((item: ItemId, amount: number, at: THREE.Vector3) => void) | null = null;
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -67,7 +69,8 @@ export class ItemDrops {
         if (dist < 0.35) {
           this.scene.remove(o);
           this.drops.splice(i, 1);
-          this.inventory.add(d.item, d.amount);
+          const left = this.inventory.add(d.item, d.amount);
+          if (left > 0) this.onOverflow?.(d.item, left, o.position);
           continue;
         }
       }

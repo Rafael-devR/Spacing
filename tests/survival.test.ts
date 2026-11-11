@@ -8,7 +8,8 @@ import { Player } from '../src/entities/Player';
 import { createMaterials } from '../src/render/materials';
 import { ItemModels } from '../src/render/itemModels';
 import { PropFactory } from '../src/render/models';
-import { Inventory } from '../src/systems/Inventory';
+import { STACK_SIZE } from '../src/data/items';
+import { Inventory, SLOT_COUNT } from '../src/systems/Inventory';
 import { Survival } from '../src/systems/Survival';
 import { World } from '../src/world/World';
 
@@ -162,6 +163,31 @@ describe('itens caídos na morte', () => {
       drops.update(STEP, player);
     }
     expect(loot.count).toBe(0);
-    expect(inventory.serialize()).toEqual({ rock: 9, crystal: 3 });
+    expect(inventory.totals()).toEqual({ rock: 9, crystal: 3 });
+  });
+
+  it('mochila cheia: o item fica no chão até ter espaço', () => {
+    const { loot, player, drops, inventory } = lootSetup();
+    loot.canTake = (item, n) => inventory.canAdd(item, n);
+    drops.onOverflow = (item, n, at) => loot.drop(at.clone(), { [item]: n });
+    for (let i = 0; i < SLOT_COUNT; i++) inventory.add('rock', STACK_SIZE);
+    const walk = (seconds: number): void => {
+      for (let i = 0; i < 60 * seconds; i++) {
+        const next = loot.serialize()[0];
+        if (next) player.pos.set(next.x, player.pos.y, next.z);
+        loot.update(STEP, i * STEP, player);
+        drops.update(STEP, player);
+      }
+    };
+    // um minério minerado com a mochila cheia: chega voando, não cabe e volta para o chão
+    drops.spawn('gold', player.pos.clone(), 1);
+    walk(4);
+    expect(inventory.count('gold')).toBe(0);
+    expect(loot.totals()).toEqual({ gold: 1 });
+    // abriu espaço: passar por cima recolhe
+    inventory.remove('rock', STACK_SIZE);
+    walk(4);
+    expect(inventory.count('gold')).toBe(1);
+    expect(loot.count).toBe(0);
   });
 });

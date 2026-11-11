@@ -1,16 +1,17 @@
 // Salvamento com versão e migração. Toda mudança de formato ganha uma versão nova,
 // uma função de migração e um teste (tests/save.test.ts).
-import { isItemId, type ItemId } from '../data/items';
+import { isItemId } from '../data/items';
 import type { PropType } from '../data/props';
 import { SUITS, type SuitId } from '../data/survival';
 import type { LootSave } from '../entities/LootPiles';
+import { Inventory, type InventorySave, type ItemCounts } from '../systems/Inventory';
 import type { SurvivalSave } from '../systems/Survival';
 
 export const SAVE_KEY = 'spacing.save';
 /** chave usada pela v0.1, sem campo de versão */
 export const LEGACY_SAVE_KEY = 'spacing.save.v1';
 export const PREFS_KEY = 'spacing.prefs.v1';
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export interface ExtraPropSave {
   wx: number;
@@ -34,7 +35,8 @@ export interface SaveData {
   seed: number;
   savedAt: number;
   world: WorldSave;
-  inventory: Partial<Record<ItemId, number>>;
+  /** espaços do inventário (v4); versões antigas guardavam só quantidades */
+  inventory: InventorySave;
   player: { x: number; y: number; z: number } | null;
   missions: { step: number; count: number };
   /** medidores do traje (v3); null = traje cheio */
@@ -116,13 +118,26 @@ function cleanLoot(v: unknown): LootSave[] {
   return out;
 }
 
-function cleanInventory(v: unknown): SaveData['inventory'] {
-  const out: SaveData['inventory'] = {};
-  if (!isObj(v)) return out;
-  for (const [k, n] of Object.entries(v)) {
-    if (isItemId(k) && typeof n === 'number' && n > 0) out[k] = Math.floor(n);
+/** v1 a v3: quantidades por item. Vira espaços na ordem de coleta. */
+function countsToSlots(v: unknown): InventorySave {
+  const counts: ItemCounts = {};
+  if (isObj(v)) {
+    for (const [k, n] of Object.entries(v)) {
+      if (isItemId(k) && typeof n === 'number' && n > 0) counts[k] = Math.floor(n);
+    }
   }
-  return out;
+  return new Inventory(undefined, counts).serialize();
+}
+
+/** v4: espaços. Espaços inválidos ficam vazios. */
+function cleanSlots(v: unknown): InventorySave {
+  const raw = isObj(v) && Array.isArray(v.slots) ? v.slots : [];
+  const slots = raw.map((s) =>
+    isObj(s) && isItemId(s.item) && typeof s.n === 'number' && s.n > 0 ? { item: s.item, n: Math.floor(s.n) } : null,
+  );
+  const selected = isObj(v) ? Math.floor(num(v.selected, 0)) : 0;
+  // o construtor limita tamanho de pilha, quantidade de espaços e seleção
+  return new Inventory(undefined, { slots, selected }).serialize();
 }
 
 /**
@@ -130,11 +145,12 @@ function cleanInventory(v: unknown): SaveData['inventory'] {
  * v1 (v0.1.0): sem campo `version`, salvo em `spacing.save.v1`.
  * v2: igual ao v1 mais `version`, `seed` e `savedAt`.
  * v3: mais `suit` (medidores do traje) e `loot` (itens caídos na morte).
+ * v4: `inventory` em espaços (`slots` e `selected`), como no Minecraft.
  */
 export function migrate(raw: unknown, seed: number): SaveData | null {
   if (!isObj(raw)) return null;
   const version = raw.version === undefined ? 1 : raw.version;
-  if (version !== 1 && version !== 2 && version !== SAVE_VERSION) return null; // versão futura: não arrisca
+  if (version !== 1 && version !== 2 && version !== 3 && version !== SAVE_VERSION) return null; // versão futura: não arrisca
   const p = isObj(raw.player) ? raw.player : null;
   const m = isObj(raw.missions) ? raw.missions : {};
   return {
@@ -142,11 +158,11 @@ export function migrate(raw: unknown, seed: number): SaveData | null {
     seed: version === 1 ? seed : num(raw.seed, seed),
     savedAt: num(raw.savedAt, 0),
     world: cleanWorld(raw.world),
-    inventory: cleanInventory(raw.inventory),
+    inventory: version === SAVE_VERSION ? cleanSlots(raw.inventory) : countsToSlots(raw.inventory),
     player: p ? { x: num(p.x, 0.5), y: num(p.y, 30), z: num(p.z, 0.5) } : null,
     missions: { step: Math.max(0, Math.floor(num(m.step, 0))), count: Math.max(0, Math.floor(num(m.count, 0))) },
-    suit: version === SAVE_VERSION ? cleanSuit(raw.suit) : null,
-    loot: version === SAVE_VERSION ? cleanLoot(raw.loot) : [],
+    suit: version >= 3 ? cleanSuit(raw.suit) : null,
+    loot: version >= 3 ? cleanLoot(raw.loot) : [],
   };
 }
 

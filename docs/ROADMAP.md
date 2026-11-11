@@ -35,6 +35,7 @@ Detalhes em [design/SOBREVIVENCIA.md](design/SOBREVIVENCIA.md) e [design/GAME_JU
 - [x] Morte: todos os itens caem no chão, renascimento no módulo, marcador "Seus itens".
 - [x] Game juice de todos esses eventos, mais pausa de impacto, vibração e animações de bloco.
 - [x] Áudio posicional: direção, distância e eco da cratera ([design/AUDIO.md](design/AUDIO.md)).
+- [x] Inventário em espaços livres com mochila ([design/INVENTARIO.md](design/INVENTARIO.md)).
 - [x] Interface do celular: mira acima do dedo, tela cheia e paisagem, HUD reorganizado
   ([design/INTERFACE.md](design/INTERFACE.md)).
 - [ ] Ajuste dos números (duração do oxigênio, danos) depois de jogar no celular.

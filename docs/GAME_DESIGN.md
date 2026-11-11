@@ -58,7 +58,7 @@ limitada pelo oxigênio. Loop longo (horas): cumprir a cadeia de missões até o
 | Mundo em chunks com geração procedural    | Pronto                                    |
 | Mineração e destroços com física          | Pronto                                    |
 | Construção com blocos                     | Pronto (básico)                           |
-| Inventário em barra de itens              | Pronto (básico)                           |
+| Inventário em espaços livres, com mochila | Pronto                                    |
 | Meteoros com cratera                      | Pronto                                    |
 | Missões                                   | Protótipo linear (a refazer na v0.6)      |
 | Salvar no navegador                       | Pronto (básico)                           |

@@ -167,13 +167,13 @@ export class Interaction {
   private place(t: BlockTarget): void {
     const { world, player, inventory, events, particles } = this.d;
     const item = inventory.selectedItem();
+    if (!item) {
+      events.emit('action:denied', { reason: 'emptySlot' });
+      return;
+    }
     const block = ITEMS[item].block;
     if (block === undefined) {
       events.emit('action:denied', { reason: 'notBlock', item });
-      return;
-    }
-    if (!inventory.has(item)) {
-      events.emit('action:denied', { reason: 'noItems', item });
       return;
     }
     const x = t.x + t.normal[0], y = t.y + t.normal[1], z = t.z + t.normal[2];
@@ -186,7 +186,7 @@ export class Interaction {
       return;
     }
     world.setBlock(x, y, z, block);
-    inventory.remove(item, 1);
+    inventory.removeSelected(1);
     particles.dust(x + 0.5, y, z + 0.5, 5, 0.5);
     events.emit('block:placed', { x, y, z, id: block });
   }

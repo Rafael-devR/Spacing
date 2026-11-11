@@ -22,6 +22,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
   - Game juice: câmera lenta e som abafado na morte, feixe ao renascer, respiração e batimento em ciclo,
     pausa de impacto e bloco que encolhe ao quebrar, bloco que estica ao ser colocado, astronauta que
     achata ao pousar e tom de coleta subindo em sequência.
+- **Inventário em espaços livres** ([design/INVENTARIO.md](docs/design/INVENTARIO.md)): barra de 8
+  espaços e mochila de 24, sem espaço preso a tipo de item. O item coletado completa uma pilha igual (até 64)
+  ou vai para o primeiro espaço vazio. Mochila (botão ao lado da barra, I ou Tab) com mover, juntar e trocar
+  por toque. Com a mochila cheia, o item fica no chão até ter espaço. Salvamento versão 4, com migração.
 - **Interface do celular** ([design/INTERFACE.md](docs/design/INTERFACE.md)):
   - Mira deslocada: ao segurar o dedo, a mira aparece 80 px acima dele, então o bloco e o anel de progresso
     ficam visíveis. Dá para trocar para "No dedo" no menu de pausa.
@@ -42,7 +46,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - Vibração no celular ao quebrar blocos, em impactos de meteoro e ao concluir objetivos.
 - O jogo salva e pausa sozinho ao trocar de aplicativo ou esconder a aba.
 - Teste jogado automático no navegador (`tools/visual-check/play.mjs`) e testes de eventos, salvamento,
-  passo fixo, inventário, consistência dos dados e sobrevivência, áudio posicional e preferências (54 testes no total).
+  passo fixo, inventário, consistência dos dados e sobrevivência, áudio posicional, preferências e inventário (63 testes no total).
 
 ### Corrigido
 

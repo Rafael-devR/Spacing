@@ -1,8 +1,8 @@
 // HUD: barra de itens, contadores, avisos, bússola, coordenadas, missão e anel de mineração.
 import type * as THREE from 'three';
-import { ITEMS, ITEM_ORDER, type ItemId } from '../data/items';
+import { HOTBAR_SIZE, ITEMS, type ItemId } from '../data/items';
 import { t } from '../i18n';
-import type { Inventory } from '../systems/Inventory';
+import type { Inventory, Slot } from '../systems/Inventory';
 import type { AimView, MiningProgress } from '../systems/Interaction';
 import type { MissionView } from '../systems/Missions';
 import { el } from './dom';
@@ -19,6 +19,7 @@ export class Hud {
   private readonly marks: { d: number; el: HTMLElement }[] = [];
   private readonly pickups = new Map<ItemId, { el: HTMLElement; n: number; timer?: number }>();
   private slots: HTMLButtonElement[] = [];
+  private icons = {} as Record<ItemId, string>;
   private bannerTimer = 0;
   private wp: THREE.Vector3 | null = null;
   private loot: THREE.Vector3 | null = null;
@@ -48,46 +49,48 @@ export class Hud {
     }
   }
 
+  /** Cria os espaços da barra. Os espaços não têm tipo: mostram o que estiver dentro. */
   buildHotbar(icons: Record<ItemId, string>, inv: Inventory): void {
+    this.icons = icons;
     this.hotbar.innerHTML = '';
-    this.slots = ITEM_ORDER.map((item, i) => {
+    this.slots = [];
+    for (let i = 0; i < HOTBAR_SIZE; i++) {
       const b = document.createElement('button');
       b.className = 'slot';
-      b.id = 'slot-' + item;
+      b.id = 'slot-' + i;
       b.type = 'button';
-      b.title = ITEMS[item].name;
-      b.innerHTML = `<span class="key">${i + 1}</span><img alt="" src="${icons[item]}"><span class="count"></span>`;
+      b.innerHTML = `<span class="key">${i + 1}</span><img alt=""><span class="count"></span>`;
       b.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
         this.onSelect?.(i);
       });
       this.hotbar.appendChild(b);
-      return b;
-    });
-    this.select(inv.selected);
+      this.slots.push(b);
+    }
     this.renderCounts(inv);
+    this.select(inv.selected, inv);
   }
 
-  select(index: number): void {
+  select(index: number, inv: Inventory): void {
     this.slots.forEach((s, k) => s.classList.toggle('selected', k === index));
-    const item = ITEM_ORDER[index];
-    el('#selected-name').textContent = ITEMS[item].name + (ITEMS[item].block !== undefined ? '' : ' · ' + t('hud.resource'));
+    const item = inv.slot(index)?.item;
+    el('#selected-name').textContent = !item
+      ? t('hud.emptySlot')
+      : ITEMS[item].name + (ITEMS[item].block !== undefined ? '' : ' · ' + t('hud.resource'));
   }
 
+  /** Redesenha os espaços da barra; `changed` dá um pulinho nos espaços com esse item. */
   renderCounts(inv: Inventory, changed: ItemId | null = null): void {
-    ITEM_ORDER.forEach((item, i) => {
-      const s = this.slots[i];
-      if (!s) return;
-      const n = inv.count(item);
-      const count = s.querySelector<HTMLElement>('.count');
-      if (count) count.textContent = n ? String(n) : '';
-      s.classList.toggle('empty', !n);
-      if (item === changed) {
+    this.slots.forEach((s, i) => {
+      const st = inv.slot(i);
+      renderSlot(s, st, this.icons);
+      if (st && st.item === changed) {
         s.classList.remove('bump');
         void s.offsetWidth;
         s.classList.add('bump');
       }
     });
+    this.select(inv.selected, inv);
   }
 
   pickup(item: ItemId, amount = 1): void {
@@ -345,4 +348,21 @@ export class Hud {
     const alt = Math.round(p.y - base);
     this.coords.textContent = t('hud.coords', { x: Math.floor(p.x), z: Math.floor(p.z), alt: (alt >= 0 ? '+' : '') + alt });
   }
+}
+
+/** Desenha um espaço do inventário (barra ou mochila): ícone e quantidade, ou vazio. */
+export function renderSlot(b: HTMLElement, st: Slot, icons: Record<ItemId, string>): void {
+  const img = b.querySelector('img');
+  const count = b.querySelector<HTMLElement>('.count');
+  const key = st ? `${st.item}:${st.n}` : '';
+  if (b.dataset.content === key) return;
+  b.dataset.content = key;
+  b.classList.toggle('empty', !st);
+  b.title = st ? ITEMS[st.item].name : '';
+  if (img) {
+    if (st) img.src = icons[st.item];
+    else img.removeAttribute('src');
+    img.hidden = !st;
+  }
+  if (count) count.textContent = st && st.n > 1 ? String(st.n) : '';
 }

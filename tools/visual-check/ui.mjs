@@ -92,18 +92,45 @@ async function open(w, h, prefix) {
   }, finger);
   await page.waitForTimeout(300);
   check('mira some ao soltar', await page.evaluate(() => document.querySelector('#aim').hidden));
+  // barra: o item minerado foi para o primeiro espaço; mochila abre e move itens
+  await page.waitForFunction(() => window.spacing.inventory.slot(0) !== null, null, { timeout: 60000 }).catch(() => {});
+  const first = await page.evaluate(() => window.spacing.inventory.slot(0));
+  check('item coletado vai para o primeiro espaço', !!first, JSON.stringify(first));
+  await page.evaluate(() => {
+    const inv = window.spacing.inventory;
+    inv.add('gold', 3);
+    inv.add('ice', 70);
+  });
+  await page.click('#btn-bag');
+  await page.waitForTimeout(300);
+  check('mochila abre', await page.isVisible('#bag'));
+  await page.click('#bag-hotbar .slot[data-index="1"]');
+  await page.click('#bag-grid .slot[data-index="10"]');
+  await page.waitForTimeout(200);
+  const moved = await page.evaluate(() => [window.spacing.inventory.slot(1), window.spacing.inventory.slot(10)]);
+  check('tocar e tocar move o item para a mochila', moved[0] === null && moved[1]?.item === 'gold', JSON.stringify(moved));
+  await page.screenshot({ path: `${out}/paisagem-4-mochila.png` });
+  await page.click('#bag-close');
+  await page.waitForTimeout(200);
+  check('mochila fecha', !(await page.isVisible('#bag')));
+  await page.screenshot({ path: `${out}/paisagem-5-barra.png` });
   await page.click('#btn-pause');
   await page.waitForTimeout(400);
-  await page.screenshot({ path: `${out}/paisagem-4-pausa.png` });
+  await page.screenshot({ path: `${out}/paisagem-6-pausa.png` });
   await page.close();
 }
 
 // ---- retrato ----
 {
   const { page } = await open(390, 844, 'retrato-');
+  await page.evaluate(() => window.spacing.inventory.add('gold', 3));
+  await page.click('#btn-bag');
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${out}/retrato-3-mochila.png` });
+  await page.click('#bag-close');
   await page.click('#btn-pause');
   await page.waitForTimeout(400);
-  await page.screenshot({ path: `${out}/retrato-3-pausa.png` });
+  await page.screenshot({ path: `${out}/retrato-4-pausa.png` });
   await page.close();
 }
 
