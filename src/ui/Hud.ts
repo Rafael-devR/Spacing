@@ -3,7 +3,7 @@ import type * as THREE from 'three';
 import { ITEMS, ITEM_ORDER, type ItemId } from '../data/items';
 import { t } from '../i18n';
 import type { Inventory } from '../systems/Inventory';
-import type { MiningProgress } from '../systems/Interaction';
+import type { AimView, MiningProgress } from '../systems/Interaction';
 import type { MissionView } from '../systems/Missions';
 import { el } from './dom';
 
@@ -24,8 +24,20 @@ export class Hud {
   private loot: THREE.Vector3 | null = null;
   private readonly fxLayer = el('#fx-layer');
   private readonly meterCache = new Map<string, string>();
+  private readonly aimEl = el('#aim');
+  private readonly aimLine = el('#aim-line');
+  private readonly aimReticle = el('#aim-reticle');
+  private readonly mission = el('#mission');
+  private missionTimer = 0;
+  private missionKey = '';
 
   constructor() {
+    // objetivo: um toque abre ou fecha o texto completo
+    this.mission.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      clearTimeout(this.missionTimer);
+      this.mission.classList.toggle('open');
+    });
     const strip = el('#compass-strip');
     for (let d = 0; d < 360; d += 15) {
       const m = document.createElement('span');
@@ -122,6 +134,30 @@ export class Hud {
     e.style.setProperty('--p', (p.f * 100).toFixed(1) + '%');
   }
 
+  /** Mira deslocada do toque (null = esconde). */
+  setAim(a: AimView | null): void {
+    const e = this.aimEl;
+    if (!a) {
+      if (!e.hidden) e.hidden = true;
+      return;
+    }
+    e.hidden = false;
+    e.dataset.state = a.state;
+    this.aimReticle.setAttribute('transform', `translate(${a.x.toFixed(1)} ${a.y.toFixed(1)})`);
+    // linha do dedo até a borda da mira
+    const dx = a.x - a.fingerX, dy = a.y - a.fingerY;
+    const len = Math.hypot(dx, dy);
+    const show = len > 50;
+    if (show) {
+      const ux = dx / len, uy = dy / len;
+      this.aimLine.setAttribute('x1', (a.fingerX + ux * 26).toFixed(1));
+      this.aimLine.setAttribute('y1', (a.fingerY + uy * 26).toFixed(1));
+      this.aimLine.setAttribute('x2', (a.x - ux * 22).toFixed(1));
+      this.aimLine.setAttribute('y2', (a.y - uy * 22).toFixed(1));
+    }
+    this.aimLine.style.display = show ? '' : 'none';
+  }
+
   setBuildMode(on: boolean): void {
     document.body.classList.toggle('build', on);
     const b = el('#btn-build');
@@ -141,8 +177,22 @@ export class Hud {
     this.heading.textContent = String(Math.round(heading) % 360);
   }
 
+  /** Abre o texto completo do objetivo por alguns segundos (novo objetivo, começo do jogo). */
+  peekMission(ms = 7000): void {
+    const m = this.mission;
+    m.classList.add('open');
+    clearTimeout(this.missionTimer);
+    this.missionTimer = window.setTimeout(() => m.classList.remove('open'), ms);
+  }
+
   setMission(v: MissionView): void {
-    const m = el('#mission');
+    const m = this.mission;
+    // objetivo novo: abre o texto completo por alguns segundos
+    const key = `${v.index}:${v.done}`;
+    if (key !== this.missionKey) {
+      this.missionKey = key;
+      this.peekMission();
+    }
     m.classList.toggle('done', v.done);
     el('#m-step').textContent = v.done ? t('mission.allDone') : t('mission.step', { n: Math.min(v.index + 1, v.total), total: v.total });
     el('#m-title').textContent = v.step.title;

@@ -42,9 +42,11 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). Leia o [README]
 
 - Código do jogo: `src/`, em TypeScript, organizado por pastas (ver `docs/ARCHITECTURE.md`). Entrada em
   `src/main.ts`; laço, estados e ligação dos sistemas em `src/app/Game.ts`; eventos em `src/app/events.ts`.
-- Testes: `tests/`. Capturas de tela, teste jogado e de áudio: `tools/visual-check/` (`shot.mjs`, `play.mjs`, `audio.mjs`;
-  ferramenta à parte, com `package.json` próprio). Rode o `play.mjs` depois de mudar jogabilidade e o `audio.mjs`
-  depois de mudar o áudio ([design/AUDIO.md](docs/design/AUDIO.md)).
+- Testes: `tests/`. Capturas de tela, teste jogado, de interface e de áudio: `tools/visual-check/` (`shot.mjs`, `play.mjs`,
+  `ui.mjs`, `audio.mjs`;
+  ferramenta à parte, com `package.json` próprio). Rode o `play.mjs` depois de mudar jogabilidade, o `ui.mjs`
+  depois de mudar o HUD ([design/INTERFACE.md](docs/design/INTERFACE.md)) e o `audio.mjs` depois de mudar o áudio
+  ([design/AUDIO.md](docs/design/AUDIO.md)).
 - Depuração em `npm run dev`: `window.spacing` é o objeto do jogo; `?eventos` no endereço mostra os eventos.
 - Decisões: `docs/adr/`. Referências de arte: `docs/art/reference/`.
 - Sobrevivência: números em `src/data/survival.ts`, regras em `src/systems/Survival.ts`, resposta

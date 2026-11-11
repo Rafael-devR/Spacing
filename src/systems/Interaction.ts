@@ -53,6 +53,16 @@ export interface MiningProgress {
   f: number;
 }
 
+/** Estado da mira para o HUD desenhar (só no toque com mira deslocada). */
+export interface AimView {
+  fingerX: number;
+  fingerY: number;
+  x: number;
+  y: number;
+  /** none = sem alvo; ok = ao alcance; far = longe (o astronauta vai até lá); hard = não dá para minerar */
+  state: 'none' | 'ok' | 'far' | 'hard';
+}
+
 export interface InteractionDeps {
   scene: THREE.Scene;
   camera: THREE.Camera;
@@ -74,6 +84,8 @@ export class Interaction {
   buildMode = false;
   /** progresso da mineração atual para o anel na tela; null = não está minerando */
   progress: MiningProgress | null = null;
+  /** mira deslocada para o HUD; null = escondida */
+  aim: AimView | null = null;
   private walkGoal: WalkGoal | null = null;
   private readonly mine: { key: string | null; progress: number; tick: number } = { key: null, progress: 0, tick: 0 };
   private stuck = 0;
@@ -206,7 +218,8 @@ export class Interaction {
     const { player, particles, debris, camera, canvas, events } = this.d;
     const p: PointerState = input.pointer;
     const active = p.inside && (p.type === 'mouse' || p.down);
-    const t = active ? this.pick(p.x, p.y) : null;
+    // construir é por toque rápido, no ponto tocado; minerar segurando usa a mira deslocada
+    const t = active ? (this.buildMode ? this.pick(p.x, p.y) : this.pick(p.aimX, p.aimY)) : null;
     this.target = t;
     const reach = this.inReach(t);
 
@@ -265,7 +278,14 @@ export class Interaction {
     }
     player.mining = mining;
 
-    if (mining && t) {
+    this.aim = input.aiming && !this.buildMode
+      ? { fingerX: p.x, fingerY: p.y, x: p.aimX, y: p.aimY, state: !t ? 'none' : t.hard === Infinity ? 'hard' : reach ? 'ok' : 'far' }
+      : null;
+
+    if (mining && t && this.aim) {
+      // com mira deslocada, o anel de progresso fica na mira (o bloco está logo abaixo dela)
+      this.progress = { x: this.aim.x, y: this.aim.y, f: Math.min(1, this.mine.progress) };
+    } else if (mining && t) {
       const sp = t.center.clone().project(camera);
       const r = canvas.getBoundingClientRect();
       this.progress = {
@@ -315,6 +335,7 @@ export class Interaction {
     this.mine.key = null;
     this.mine.progress = 0;
     this.progress = null;
+    this.aim = null;
     this.d.player.mining = false;
     this.d.player.faceTarget = undefined;
   }

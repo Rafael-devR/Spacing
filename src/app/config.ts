@@ -13,3 +13,6 @@ export const MAX_STEPS_PER_FRAME = 5;
 
 /** intervalo do salvamento automático (ms) */
 export const AUTOSAVE_MS = 5000;
+
+/** no toque, quantos pixels acima do dedo fica a mira ao segurar (docs/design/INTERFACE.md) */
+export const TOUCH_AIM_OFFSET = 80;

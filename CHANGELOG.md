@@ -22,6 +22,17 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
   - Game juice: câmera lenta e som abafado na morte, feixe ao renascer, respiração e batimento em ciclo,
     pausa de impacto e bloco que encolhe ao quebrar, bloco que estica ao ser colocado, astronauta que
     achata ao pousar e tom de coleta subindo em sequência.
+- **Interface do celular** ([design/INTERFACE.md](docs/design/INTERFACE.md)):
+  - Mira deslocada: ao segurar o dedo, a mira aparece 80 px acima dele, então o bloco e o anel de progresso
+    ficam visíveis. Dá para trocar para "No dedo" no menu de pausa.
+  - Tela cheia ao tocar na tela (celular) e botão de tela cheia; em tela cheia a tela trava deitada (ou
+    "Livre", no menu). A tela inicial sugere deitar o celular quando ele está em pé.
+  - HUD reorganizado: traje e objetivo compacto no canto esquerdo, bússola e mensagens no topo, pausa, tela
+    cheia e câmera no canto direito, joystick, itens e ações (pular e minerar/construir) embaixo. O HUD some
+    no menu e na pausa; nome do lugar e coordenadas foram para o menu de pausa.
+  - Tela inicial mais compacta com o celular deitado.
+  - Teste `tools/visual-check/ui.mjs`: capturas do celular deitado e em pé, HUD dentro da tela e sem
+    sobreposição, mira acima do dedo minerando o bloco certo.
 - **Áudio posicional** ([design/AUDIO.md](docs/design/AUDIO.md)): os sons do mundo (passos, mineração,
   blocos, destroços, meteoros) vêm da posição deles, com direção que acompanha o giro da câmera, volume e
   agudos que caem com a distância e eco da cratera. O meteoro leva o som junto enquanto cai. O módulo de
@@ -31,7 +42,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - Vibração no celular ao quebrar blocos, em impactos de meteoro e ao concluir objetivos.
 - O jogo salva e pausa sozinho ao trocar de aplicativo ou esconder a aba.
 - Teste jogado automático no navegador (`tools/visual-check/play.mjs`) e testes de eventos, salvamento,
-  passo fixo, inventário, consistência dos dados e sobrevivência e áudio posicional (51 testes no total).
+  passo fixo, inventário, consistência dos dados e sobrevivência, áudio posicional e preferências (54 testes no total).
 
 ### Corrigido
 

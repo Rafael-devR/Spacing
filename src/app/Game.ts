@@ -2,6 +2,7 @@
 // Estados: carregando → menu → jogando ⇄ pausa.
 import * as THREE from 'three';
 import { Sfx, type Voice } from '../audio/Sfx';
+import { applyOrientation, enterFullscreen, exitFullscreen, fullscreenSupported, isFullscreen, onFullscreenChange } from '../core/fullscreen';
 import { Haptics } from '../core/haptics';
 import { Input } from '../core/Input';
 import { SHAKE_SCALE, loadPrefs, savePrefs, type Prefs } from '../core/prefs';
@@ -34,7 +35,7 @@ import { Hud } from '../ui/Hud';
 import { PauseMenu } from '../ui/PauseMenu';
 import { LANDER, SPAWN } from '../world/terrain';
 import { World } from '../world/World';
-import { AUTOSAVE_MS, FIXED_STEP, MAX_STEPS_PER_FRAME, SEED, VERSION } from './config';
+import { AUTOSAVE_MS, FIXED_STEP, MAX_STEPS_PER_FRAME, SEED, TOUCH_AIM_OFFSET, VERSION } from './config';
 import { createBus, type GameBus, type GameState, type Vec3Like } from './events';
 import { FixedStep } from './FixedStep';
 import { SurvivalDirector } from './SurvivalDirector';
@@ -172,6 +173,7 @@ export class Game {
     this.haptics.enabled = this.prefs.vibration;
     this.rig.shakeScale = SHAKE_SCALE[this.prefs.shake];
     document.body.classList.toggle('touch', this.input.touch);
+    this.input.aimOffset = this.prefs.touchAim === 'offset' ? TOUCH_AIM_OFFSET : 0;
 
     this.post = new Post(renderer, scene, this.camera);
     this.qualityName = this.prefs.quality ?? this.defaultQuality();
@@ -197,6 +199,21 @@ export class Game {
           this.prefs.vibration = on;
           this.haptics.enabled = on;
           this.haptics.play('medium');
+          this.changedPrefs();
+        },
+        onTouchAim: (aim) => {
+          this.prefs.touchAim = aim;
+          this.input.aimOffset = aim === 'offset' ? TOUCH_AIM_OFFSET : 0;
+          this.changedPrefs();
+        },
+        onFullscreen: (on) => {
+          this.prefs.fullscreen = on;
+          void (on ? enterFullscreen(this.prefs.orientation === 'landscape') : exitFullscreen());
+          this.changedPrefs();
+        },
+        onOrientation: (o) => {
+          this.prefs.orientation = o;
+          void applyOrientation(o === 'landscape');
           this.changedPrefs();
         },
         onControls: () => (el('#help').hidden = false),
@@ -294,6 +311,7 @@ export class Game {
     const rig = this.rig;
     rig.yawTarget = Math.round((rig.yaw - Math.PI / 4) / (Math.PI / 2)) * (Math.PI / 2) + Math.PI / 4;
     navigator.wakeLock?.request?.('screen').catch(() => {});
+    this.hud.peekMission();
     const hint = this.missions.current.hint;
     this.hud.toast(hint ?? t(this.input.touch ? 'hint.mineTouch' : 'hint.mineMouse'));
     this.perf.frames = this.perf.time = 0;
@@ -306,6 +324,7 @@ export class Game {
     this.input.reset();
     this.interaction.cancel();
     this.hud.setProgress(null);
+    this.hud.setAim(null);
     this.sfx.setPaused(true);
     this.pauseMenu.show(this.prefs);
     this.persist();
@@ -460,6 +479,36 @@ export class Game {
     press('#btn-zoom-out', () => rig.zoom(1.2));
     press('#btn-pause', () => this.togglePause());
     el('#help').addEventListener('pointerdown', () => (el('#help').hidden = true));
+
+    // tela cheia: botão no canto e, no celular, ao tocar na tela (o navegador exige um gesto: toque solto)
+    const fsBtn = el<HTMLButtonElement>('#btn-fullscreen');
+    fsBtn.hidden = !fullscreenSupported;
+    fsBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    fsBtn.addEventListener('click', () => {
+      if (isFullscreen()) {
+        this.prefs.fullscreen = false;
+        void exitFullscreen();
+      } else {
+        this.prefs.fullscreen = true;
+        void enterFullscreen(this.prefs.orientation === 'landscape');
+      }
+      this.changedPrefs();
+    });
+    onFullscreenChange((on) => {
+      fsBtn.classList.toggle('on', on);
+      fsBtn.setAttribute('aria-pressed', String(on));
+      this.resize();
+    });
+    document.addEventListener(
+      'pointerup',
+      (e) => {
+        if (!input.touch || e.pointerType === 'mouse' || !this.prefs.fullscreen || isFullscreen()) return;
+        if (this.state !== 'menu' && this.state !== 'playing') return;
+        if ((e.target as Element | null)?.closest?.('#pause, #btn-fullscreen')) return;
+        void enterFullscreen(this.prefs.orientation === 'landscape');
+      },
+      true,
+    );
 
     input.onRotate = (d) => rig.rotate(d);
     input.onZoom = (f) => rig.zoom(f);
@@ -638,7 +687,8 @@ export class Game {
     if (playing) {
       interaction.update(dt, input);
       hud.setProgress(interaction.progress);
-    }
+      hud.setAim(interaction.aim);
+    } else hud.setAim(null);
     this.particles.update(dt);
     this.motes.update(dt, rig.target, time);
     this.director.update(realDt, time);

@@ -12,6 +12,9 @@ export interface PointerState {
   startT: number;
   /** distância percorrida desde o toque, em pixels */
   moved: number;
+  /** ponto de mira: igual a x, y no mouse; no toque fica acima do dedo (ver Input.aimOffset) */
+  aimX: number;
+  aimY: number;
 }
 
 export class Input implements MoveInput {
@@ -19,7 +22,11 @@ export class Input implements MoveInput {
   moveY = 0;
   jump = false;
   readonly touch: boolean;
-  readonly pointer: PointerState = { x: 0, y: 0, inside: false, down: false, button: 0, type: 'mouse', startT: 0, moved: 0 };
+  readonly pointer: PointerState = {
+    x: 0, y: 0, inside: false, down: false, button: 0, type: 'mouse', startT: 0, moved: 0, aimX: 0, aimY: 0,
+  };
+  /** no toque, quantos pixels acima do dedo fica a mira (0 = embaixo do dedo) */
+  aimOffset = 0;
 
   onTap: ((x: number, y: number, button: number) => void) | null = null;
   onRotate: ((dir: number) => void) | null = null;
@@ -69,7 +76,11 @@ export class Input implements MoveInput {
     );
 
     canvas.addEventListener('pointerdown', (e) => {
-      canvas.setPointerCapture?.(e.pointerId);
+      try {
+        canvas.setPointerCapture?.(e.pointerId);
+      } catch {
+        // ponteiro sintético (testes) ou já solto
+      }
       this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this.touches.size === 2) {
         this.pointer.down = false;
@@ -85,6 +96,7 @@ export class Input implements MoveInput {
         x: e.clientX, y: e.clientY, inside: true, down: true, button: e.button,
         type: e.pointerType, startT: performance.now(), moved: 0,
       });
+      this.aim();
     });
     canvas.addEventListener('pointermove', (e) => {
       const t = this.touches.get(e.pointerId);
@@ -104,6 +116,7 @@ export class Input implements MoveInput {
       p.y = e.clientY;
       p.inside = true;
       p.type = e.pointerType;
+      this.aim();
     });
     const end = (e: PointerEvent): void => {
       const had = this.touches.delete(e.pointerId);
@@ -123,6 +136,20 @@ export class Input implements MoveInput {
     });
 
     this.setupJoystick(joystick.base, joystick.knob);
+  }
+
+  /** mira deslocada: o dedo não cobre o bloco que está sendo minerado */
+  private aim(): void {
+    const p = this.pointer;
+    const off = p.type === 'mouse' ? 0 : this.aimOffset;
+    p.aimX = p.x;
+    p.aimY = Math.max(6, p.y - off);
+  }
+
+  /** a mira deslocada está visível agora (dedo segurando no mundo) */
+  get aiming(): boolean {
+    const p = this.pointer;
+    return p.down && p.type !== 'mouse' && this.aimOffset > 0 && this.touches.size === 1;
   }
 
   private pinchDist(): number {

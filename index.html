@@ -11,14 +11,12 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Rubik:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="/src/ui/styles.css">
 </head>
-<body>
+<body data-state="loading">
 <div id="game"></div>
 
 <div id="hud">
-  <div class="top-left">
-    <span class="eyebrow">Missão 01 · Polo sul lunar</span>
-    <span class="place">Cratera Shackleton</span>
-    <span id="coords"></span>
+  <!-- canto superior esquerdo: traje e objetivo -->
+  <div class="hud-tl">
     <div id="suit" aria-label="Traje">
       <div class="meter" id="meter-o2" title="Oxigênio">
         <span class="m-ico" aria-hidden="true">O₂</span>
@@ -36,7 +34,7 @@
         <span class="m-val">100</span>
       </div>
     </div>
-    <section id="mission" aria-live="polite">
+    <section id="mission" aria-live="polite" title="Toque para abrir ou fechar">
       <span id="m-step"></span>
       <strong id="m-title"></strong>
       <span id="m-text"></span>
@@ -45,37 +43,52 @@
     </section>
   </div>
 
+  <!-- topo: bússola e mensagens -->
+  <div id="compass" aria-hidden="true"><div id="compass-strip"></div><div id="heading">0</div></div>
+  <div id="toasts" aria-live="polite"></div>
+
+  <!-- canto superior direito: sistema e câmera -->
+  <div class="hud-tr">
+    <div class="sys">
+      <button class="chip" id="btn-fullscreen" type="button" title="Tela cheia" aria-label="Tela cheia" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      </button>
+      <button class="chip" id="btn-pause" type="button" title="Pausar (Esc)" aria-label="Pausar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6v12M15 6v12"/></svg>
+        <span class="lbl">Pausa</span>
+      </button>
+    </div>
+    <div class="cam controls" aria-label="Câmera">
+      <button class="round sm" id="btn-rot-l" type="button" aria-label="Girar câmera para a esquerda">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.3-5.6"/><path d="M4 4v4h4"/></svg>
+      </button>
+      <button class="round sm" id="btn-rot-r" type="button" aria-label="Girar câmera para a direita">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4h-4"/></svg>
+      </button>
+      <button class="round sm" id="btn-zoom-in" type="button" aria-label="Aproximar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg>
+      </button>
+      <button class="round sm" id="btn-zoom-out" type="button" aria-label="Afastar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 12h12"/></svg>
+      </button>
+    </div>
+  </div>
+
   <div id="banner" hidden><span class="k"></span><span class="t"></span></div>
   <div id="wp-arrow" class="wp" hidden><span class="arrow"></span><span class="dist"></span></div>
   <div id="wp-loot" class="wp loot" hidden><span class="arrow"></span><span class="dist"></span></div>
   <div id="fx-layer" aria-hidden="true"></div>
-
-  <div id="compass" aria-hidden="true"><div id="compass-strip"></div><div id="heading">0</div></div>
-
-  <div class="sys">
-    <button class="chip" id="btn-pause" type="button" title="Pausar (Esc)" aria-label="Pausar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6v12M15 6v12"/></svg>
-      <span class="lbl">Pausa</span>
-    </button>
-  </div>
-
-  <div id="toasts" aria-live="polite"></div>
   <div id="mode-chip">Modo mineração</div>
+
+  <!-- embaixo: joystick (polegar esquerdo), itens (centro), ações (polegar direito) -->
+  <div id="joystick" class="controls"><div id="knob"></div></div>
 
   <div id="bottom">
     <div id="selected-name"></div>
     <div id="hotbar"></div>
   </div>
 
-  <div id="joystick"><div id="knob"></div></div>
-
-  <div class="actions">
-    <button class="round" id="btn-rot-l" type="button" aria-label="Girar câmera para a esquerda">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.3-5.6"/><path d="M4 4v4h4"/></svg>
-    </button>
-    <button class="round" id="btn-rot-r" type="button" aria-label="Girar câmera para a direita">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4h-4"/></svg>
-    </button>
+  <div class="actions controls">
     <button class="round" id="btn-build" type="button" aria-pressed="false" aria-label="Alternar entre minerar e construir">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg>
       <span class="lbl">Minerar</span>
@@ -85,15 +98,15 @@
     </button>
   </div>
 
-  <div class="zoom">
-    <button class="round" id="btn-zoom-in" type="button" aria-label="Aproximar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg>
-    </button>
-    <button class="round" id="btn-zoom-out" type="button" aria-label="Afastar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 12h12"/></svg>
-    </button>
-  </div>
-
+  <!-- mira deslocada (toque): a mira fica acima do dedo para o bloco não ficar escondido -->
+  <svg id="aim" hidden aria-hidden="true">
+    <line id="aim-line"></line>
+    <g id="aim-reticle">
+      <circle r="18" class="ring"></circle>
+      <path d="M0 -25v7M0 18v7M-25 0h7M18 0h7" class="ticks"></path>
+      <circle r="2.5" class="dot"></circle>
+    </g>
+  </svg>
   <div id="progress" hidden></div>
 </div>
 
@@ -108,7 +121,13 @@
 
 <div id="pause" hidden role="dialog" aria-modal="true" aria-labelledby="pause-title">
   <div class="pause-card">
-    <h2 id="pause-title">Pausado</h2>
+    <div class="pause-head">
+      <h2 id="pause-title">Pausado</h2>
+      <div class="where">
+        <span class="eyebrow">Missão 01 · Cratera Shackleton</span>
+        <span id="coords"></span>
+      </div>
+    </div>
     <button class="cta" id="pause-resume" type="button">Continuar</button>
     <div class="settings">
       <div class="setting">
@@ -130,6 +149,24 @@
           <button type="button" data-shake="off">Desligado</button>
           <button type="button" data-shake="low">Baixo</button>
           <button type="button" data-shake="normal">Normal</button>
+        </div>
+      </div>
+      <div class="setting only-touch-row" id="pause-aim-row">
+        <span class="setting-label">Mira ao segurar</span>
+        <div class="seg" role="group" aria-label="Mira ao segurar">
+          <button type="button" data-aim="offset">Acima do dedo</button>
+          <button type="button" data-aim="finger">No dedo</button>
+        </div>
+      </div>
+      <div class="setting" id="pause-fullscreen-row">
+        <span class="setting-label">Tela cheia</span>
+        <button type="button" class="toggle" id="pause-fullscreen" aria-pressed="true">Ligado</button>
+      </div>
+      <div class="setting only-touch-row" id="pause-orientation-row">
+        <span class="setting-label">Tela em tela cheia</span>
+        <div class="seg" role="group" aria-label="Orientação da tela">
+          <button type="button" data-orientation="landscape">Deitada</button>
+          <button type="button" data-orientation="free">Livre</button>
         </div>
       </div>
       <div class="setting" id="pause-vibration-row">
@@ -160,11 +197,11 @@
       <dt>1 a 8</dt><dd>Escolher item</dd>
       <dt>Esc ou P</dt><dd>Pausar</dd></span>
       <span class="only-touch"><dt>Joystick</dt><dd>Andar</dd>
-      <dt>Segurar no bloco</dt><dd>Minerar (se estiver longe, o astronauta vai até lá)</dd>
+      <dt>Segurar no chão</dt><dd>Aparece uma mira acima do dedo: arraste até o bloco e segure para minerar (se estiver longe, o astronauta vai até lá)</dd>
       <dt>Toque rápido</dt><dd>Andar até o ponto</dd>
       <dt>Botão cubo</dt><dd>Modo construção: toque num bloco para colocar outro em cima</dd>
       <dt>Pinça</dt><dd>Zoom</dd>
-      <dt>Setas curvas</dt><dd>Girar a câmera 90°</dd></span>
+      <dt>Setas curvas</dt><dd>Girar a câmera 90° (canto de cima)</dd></span>
     </dl>
     <p>O progresso é salvo neste navegador a cada 5 segundos. Toque em qualquer lugar para fechar.</p>
   </div>
@@ -185,6 +222,7 @@
       <button class="cta" id="btn-start" type="button" disabled>Carregando…</button>
       <button class="ghost-btn" id="btn-reset" type="button" hidden>Novo jogo</button>
       <span id="loading">Carregando motor 3D…</span>
+      <span id="rotate-hint"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M3 14a9 9 0 0 0 6 6"/></svg>Melhor deitado: gire o celular</span>
     </div>
   </div>
 </div>

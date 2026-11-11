@@ -89,7 +89,10 @@ limitada pelo oxigênio. Loop longo (horas): cumprir a cadeia de missões até o
 
 ## Controles e UX
 
-- Jogável com um dedo: joystick à esquerda, ações à direita, mira por toque no mundo.
+- Jogável com um dedo: joystick à esquerda, ações à direita, mira por toque no mundo. Ao segurar, a mira fica
+  acima do dedo para o bloco não ficar escondido. Detalhes e layout do HUD em
+  [design/INTERFACE.md](design/INTERFACE.md).
+- Feito para o celular deitado, em tela cheia (entra ao tocar); em pé também funciona.
 - Em computador, tudo tem atalho de teclado e mouse.
 - Textos com bom contraste e tamanho mínimo legível em tela pequena de celular.
 - Os medidores do traje ficam sempre visíveis e falam por cor e movimento, não só por número.

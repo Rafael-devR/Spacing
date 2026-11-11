@@ -34,6 +34,16 @@ Começa um jogo novo, minera o bloco ao lado do astronauta, espera o item chegar
 confere o salvamento e volta ao jogo. Imprime cada verificação com OK ou FALHOU e sai com erro se alguma
 falhar. Precisa do servidor de desenvolvimento (`npm run dev`), porque usa o acesso `window.spacing`.
 
+## Teste da interface
+
+```bash
+node ui.mjs http://localhost:5173/ /tmp/shots
+```
+
+Abre o jogo como celular deitado (844×390) e em pé (390×844), salva capturas da tela inicial, do jogo, da
+mira deslocada e da pausa, e confere que o HUD fica dentro da tela, sem blocos sobrepostos, e que segurar o
+dedo minera o bloco sob a mira. Rode depois de mexer no HUD, no `index.html` ou nos controles.
+
 ## Teste do áudio
 
 ```bash

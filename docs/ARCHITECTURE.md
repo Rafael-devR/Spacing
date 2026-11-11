@@ -22,7 +22,7 @@ src/
   main.ts            ponto de entrada: cria o renderizador e o Game
   app/               Game (laço, estados, ligação dos sistemas), SurvivalDirector (resposta à sobrevivência),
                      eventos do jogo, configuração, passo fixo
-  core/              barramento de eventos, entrada, salvamento, preferências, ruído, cor, vibração
+  core/              barramento de eventos, entrada, salvamento, preferências, tela cheia, ruído, cor, vibração
   data/              conteúdo como dados: blocos, itens, objetos, missões
   world/             terreno, chunks (World), mesher, registro de blocos
   entities/          jogador, destroços, meteoros, itens soltos, itens caídos na morte (LootPiles)
@@ -117,7 +117,8 @@ Chave `spacing.save` no `localStorage`, em JSON, formato **versão 3** (`src/cor
 - Da versão 2 para a 3: o traje começa cheio e não há itens no chão.
 - Dados inválidos são limpos (itens desconhecidos, quantidades negativas); versões futuras são recusadas.
 - Salva a cada 5 segundos jogando, ao pausar, ao esconder a aba e ao sair.
-- Preferências (qualidade, som, tremor, vibração) ficam em `spacing.prefs.v1`.
+- Preferências (qualidade, som, tremor, vibração, mira de toque, tela cheia, orientação) ficam em
+  `spacing.prefs.v1`. Campos novos entram com valor padrão quando faltam, sem mudar a versão.
 - **Toda mudança de formato** ganha nova versão, função de migração e teste em `tests/save.test.ts`.
 
 ## Testes
