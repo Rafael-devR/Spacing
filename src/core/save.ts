@@ -1,6 +1,8 @@
 // Salvamento com versão e migração. Toda mudança de formato ganha uma versão nova,
 // uma função de migração e um teste (tests/save.test.ts).
 import { isItemId } from '../data/items';
+import type { EquipmentSave } from '../systems/Equipment';
+import { EQUIP_SLOTS, EQUIPMENT, isEquipId } from '../data/equipment';
 import type { PropType } from '../data/props';
 import { SUITS, type SuitId } from '../data/survival';
 import type { LootSave } from '../entities/LootPiles';
@@ -11,7 +13,7 @@ export const SAVE_KEY = 'spacing.save';
 /** chave usada pela v0.1, sem campo de versão */
 export const LEGACY_SAVE_KEY = 'spacing.save.v1';
 export const PREFS_KEY = 'spacing.prefs.v1';
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export interface ExtraPropSave {
   wx: number;
@@ -43,6 +45,17 @@ export interface SaveData {
   suit: SurvivalSave | null;
   /** itens caídos no chão esperando ser recolhidos (v3) */
   loot: LootSave[];
+  /** equipamentos no traje, fora do inventário (v5) */
+  equipment: EquipmentSave;
+  /** base (v5): estava dentro ao salvar e onde renasce */
+  base: BaseSave;
+}
+
+export interface BaseSave {
+  inside: boolean;
+  respawn: 'lander' | 'base';
+  /** já viu a base (aviso da IA uma vez só) */
+  visited: boolean;
 }
 
 export interface KeyValueStore {
@@ -103,7 +116,9 @@ function cleanSuit(v: unknown): SurvivalSave | null {
   if (!isObj(v)) return null;
   const suit = typeof v.suit === 'string' && v.suit in SUITS ? (v.suit as SuitId) : 'emergency';
   const m = (k: string): number => Math.max(0, Math.min(100, num(v[k], 100)));
-  return { suit, o2: m('o2'), battery: m('battery'), integrity: m('integrity') };
+  const out: SurvivalSave = { suit, o2: m('o2'), battery: m('battery'), integrity: m('integrity') };
+  if (typeof v.energy === 'number') out.energy = m('energy');
+  return out;
 }
 
 function cleanLoot(v: unknown): LootSave[] {
@@ -116,6 +131,21 @@ function cleanLoot(v: unknown): LootSave[] {
     out.push({ item: l.item, amount: Math.floor(l.amount), x, y, z, pile: Math.max(0, Math.floor(num(l.pile, 0))) });
   }
   return out;
+}
+
+function cleanEquipment(v: unknown): EquipmentSave {
+  const out: EquipmentSave = {};
+  if (!isObj(v)) return out;
+  for (const slot of EQUIP_SLOTS) {
+    const id = v[slot];
+    if (isEquipId(id) && EQUIPMENT[id].slot === slot) out[slot] = id;
+  }
+  return out;
+}
+
+function cleanBase(v: unknown): BaseSave {
+  const b = isObj(v) ? v : {};
+  return { inside: b.inside === true, respawn: b.respawn === 'base' ? 'base' : 'lander', visited: b.visited === true };
 }
 
 /** v1 a v3: quantidades por item. Vira espaços na ordem de coleta. */
@@ -146,11 +176,12 @@ function cleanSlots(v: unknown): InventorySave {
  * v2: igual ao v1 mais `version`, `seed` e `savedAt`.
  * v3: mais `suit` (medidores do traje) e `loot` (itens caídos na morte).
  * v4: `inventory` em espaços (`slots` e `selected`), como no Minecraft.
+ * v5: `equipment` (equipamentos fora do inventário) e `base` (dentro da base, onde renasce).
  */
 export function migrate(raw: unknown, seed: number): SaveData | null {
   if (!isObj(raw)) return null;
   const version = raw.version === undefined ? 1 : raw.version;
-  if (version !== 1 && version !== 2 && version !== 3 && version !== SAVE_VERSION) return null; // versão futura: não arrisca
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== SAVE_VERSION) return null; // versão futura: não arrisca
   const p = isObj(raw.player) ? raw.player : null;
   const m = isObj(raw.missions) ? raw.missions : {};
   return {
@@ -158,11 +189,13 @@ export function migrate(raw: unknown, seed: number): SaveData | null {
     seed: version === 1 ? seed : num(raw.seed, seed),
     savedAt: num(raw.savedAt, 0),
     world: cleanWorld(raw.world),
-    inventory: version === SAVE_VERSION ? cleanSlots(raw.inventory) : countsToSlots(raw.inventory),
+    inventory: version >= 4 ? cleanSlots(raw.inventory) : countsToSlots(raw.inventory),
     player: p ? { x: num(p.x, 0.5), y: num(p.y, 30), z: num(p.z, 0.5) } : null,
     missions: { step: Math.max(0, Math.floor(num(m.step, 0))), count: Math.max(0, Math.floor(num(m.count, 0))) },
     suit: version >= 3 ? cleanSuit(raw.suit) : null,
     loot: version >= 3 ? cleanLoot(raw.loot) : [],
+    equipment: version >= 5 ? cleanEquipment(raw.equipment) : {},
+    base: version >= 5 ? cleanBase(raw.base) : { inside: false, respawn: 'lander', visited: false },
   };
 }
 

@@ -12,6 +12,8 @@ export interface ItemData {
   icon?: { block?: BlockId; prop?: PropType };
   /** quantos cabem num espaço do inventário (padrão STACK_SIZE) */
   stack?: number;
+  /** comida (ainda sem uso: a energia vem da comida, docs/design/BASE.md) */
+  food?: { energy: number };
 }
 
 /** espaços da barra de itens */

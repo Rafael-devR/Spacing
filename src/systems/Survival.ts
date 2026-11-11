@@ -1,13 +1,16 @@
 // Medidores do traje: oxigênio, bateria e integridade (docs/design/SOBREVIVENCIA.md).
 // Roda no passo fixo, não desenha nada e publica eventos; o Game decide a resposta.
 import type { DeathCause, GameBus, Meter, Vec3Like } from '../app/events';
-import { SURVIVAL, SUITS, type SuitData, type SuitId } from '../data/survival';
+import { ITEMS, type ItemId } from '../data/items';
+import { NEEDS, SURVIVAL, SUITS, type SuitData, type SuitId } from '../data/survival';
 
 export interface SurvivalSave {
   suit: SuitId;
   o2: number;
   battery: number;
   integrity: number;
+  /** energia do corpo (só quando NEEDS.energy estiver ligado) */
+  energy?: number;
 }
 
 export interface SurvivalDeps {
@@ -20,6 +23,8 @@ export interface SurvivalDeps {
   mining: () => boolean;
   /** centro da área pressurizada (módulo de pouso) */
   pressureCenter: () => Vec3Like;
+  /** dentro da base: pressurizado e protegido de meteoros */
+  sheltered?: () => boolean;
 }
 
 const clamp = (v: number): number => Math.max(0, Math.min(100, v));
@@ -28,6 +33,8 @@ export class Survival {
   o2 = 100;
   battery = 100;
   integrity = 100;
+  /** energia do corpo, 0..100 (desligada por enquanto: NEEDS.energy.enabled) */
+  energy: number = NEEDS.energy.max;
   suitId: SuitId = 'emergency';
   dead = false;
   /** segundos restantes sem levar dano */
@@ -47,10 +54,12 @@ export class Survival {
       this.o2 = clamp(saved.o2);
       this.battery = clamp(saved.battery);
       this.integrity = clamp(saved.integrity) || 100; // salvou morto: volta inteiro
+      if (typeof saved.energy === 'number') this.energy = clamp(saved.energy);
     }
     this.o2Level = this.levelFor(this.o2);
     this.batteryLevel = this.battery / 100 < SURVIVAL.batteryWarn ? 1 : 0;
     d.events.on('meteor:impact', ({ distance }) => {
+      if (this.d.sheltered?.()) return;
       if (distance < SURVIVAL.meteorRadius) this.damage(SURVIVAL.meteorMaxDamage * (1 - distance / SURVIVAL.meteorRadius), 'meteor');
     });
     d.events.on('player:land', ({ speed }) => {
@@ -72,7 +81,8 @@ export class Survival {
     const { d } = this;
     this.invulnerable = Math.max(0, this.invulnerable - dt);
     const p = d.position(), c = d.pressureCenter();
-    const inside = Math.hypot(p.x - c.x, p.z - c.z) < SURVIVAL.pressureRadius && Math.abs(p.y - c.y) < 4;
+    const inside =
+      (Math.hypot(p.x - c.x, p.z - c.z) < SURVIVAL.pressureRadius && Math.abs(p.y - c.y) < 4) || !!d.sheltered?.();
     if (inside !== this.inPressure) {
       this.inPressure = inside;
       d.events.emit('suit:recharge', { on: inside });
@@ -89,6 +99,8 @@ export class Survival {
       this.o2 = clamp(this.o2 - (100 / s.o2Seconds) * mul * dt);
     }
     if (mining && this.battery > 0) this.battery = clamp(this.battery - this.suit.drillDrain * dt);
+
+    if (NEEDS.energy.enabled) this.energy = clamp(this.energy - (NEEDS.energy.hungerPerMinute / 60) * dt);
 
     this.updateWarnings();
 
@@ -139,6 +151,21 @@ export class Survival {
     }
   }
 
+  /** Comer: devolve energia se o item for comida. Retorna false se não for (ainda nada é comida). */
+  eat(item: ItemId): boolean {
+    const food = ITEMS[item].food;
+    if (!food) return false;
+    this.energy = clamp(this.energy + food.energy);
+    return true;
+  }
+
+  /** Descansar na base: traje cheio. (Com a energia ligada, o descanso não substitui a comida.) */
+  rest(): void {
+    if (this.dead) return;
+    this.o2 = this.battery = this.integrity = 100;
+    this.updateWarnings();
+  }
+
   /** Traje de emergência novo: medidores cheios e alguns segundos sem dano. */
   respawn(): void {
     this.suitId = 'emergency';
@@ -156,6 +183,8 @@ export class Survival {
   }
 
   serialize(): SurvivalSave {
-    return { suit: this.suitId, o2: this.o2, battery: this.battery, integrity: this.integrity };
+    const out: SurvivalSave = { suit: this.suitId, o2: this.o2, battery: this.battery, integrity: this.integrity };
+    if (NEEDS.energy.enabled) out.energy = this.energy;
+    return out;
   }
 }

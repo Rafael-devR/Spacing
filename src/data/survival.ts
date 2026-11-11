@@ -51,3 +51,16 @@ export const SURVIVAL = {
   /** distância para recolher itens caídos (blocos) */
   pickupRadius: 1.2,
 } as const;
+
+/**
+ * Necessidades do corpo, ainda **desligadas** (docs/design/BASE.md): a fome consome energia e a energia vem
+ * da comida (`food` em data/items.ts). Ligar = `enabled: true`, medidor no HUD e comida no jogo.
+ */
+export const NEEDS = {
+  energy: {
+    enabled: false,
+    max: 100,
+    /** quanto a fome tira da energia por minuto */
+    hungerPerMinute: 1.2,
+  },
+} as const;

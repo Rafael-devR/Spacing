@@ -90,6 +90,23 @@ describe('salvamento', () => {
     expect(s?.loot).toEqual([{ item: 'gold', amount: 2, x: 1, y: 2, z: 3, pile: 1 }]);
   });
 
+  it('v4 → v5: sem equipamento, fora da base, renasce no módulo de pouso', () => {
+    const s = migrate({ ...V1, version: 4, inventory: { slots: [], selected: 0 } }, 1)!;
+    expect(s.equipment).toEqual({});
+    expect(s.base).toEqual({ inside: false, respawn: 'lander', visited: false });
+  });
+
+  it('v5: limpa equipamento e base inválidos', () => {
+    const s = migrate({
+      ...V1, version: SAVE_VERSION, inventory: { slots: [], selected: 0 },
+      equipment: { map: 'espada', capacete: 'map' }, base: { inside: 'sim', respawn: 'lua' },
+      suit: { suit: 'emergency', o2: 50, battery: 50, integrity: 50, energy: 130 },
+    }, 1)!;
+    expect(s.equipment).toEqual({});
+    expect(s.base).toEqual({ inside: false, respawn: 'lander', visited: false });
+    expect(s.suit?.energy).toBe(100);
+  });
+
   it('recusa lixo e versões futuras', () => {
     expect(migrate(null, 1)).toBeNull();
     expect(migrate('texto', 1)).toBeNull();
@@ -110,6 +127,8 @@ describe('salvamento', () => {
       seed: 3, world: V1.world as never, inventory: slots({ ice: 2 }), player: null, missions: { step: 0, count: 0 },
       suit: { suit: 'emergency' as const, o2: 40, battery: 10, integrity: 75 },
       loot: [{ item: 'iron' as const, amount: 3, x: 1, y: 18, z: 2, pile: 1 }],
+      equipment: { map: 'map' as const },
+      base: { inside: true, respawn: 'base' as const, visited: true },
     };
     expect(writeSave(store, data)).toBe(true);
     const back = loadSave(store, 3);
@@ -118,6 +137,8 @@ describe('salvamento', () => {
     expect(back?.savedAt).toBeGreaterThan(0);
     expect(back?.suit).toEqual({ suit: 'emergency', o2: 40, battery: 10, integrity: 75 });
     expect(back?.loot).toEqual([{ item: 'iron', amount: 3, x: 1, y: 18, z: 2, pile: 1 }]);
+    expect(back?.equipment).toEqual({ map: 'map' });
+    expect(back?.base).toEqual({ inside: true, respawn: 'base', visited: true });
   });
 
   it('sem armazenamento (navegador bloqueado) não quebra', () => {
@@ -125,7 +146,8 @@ describe('salvamento', () => {
     expect(
       writeSave(null, {
         seed: 1, world: { edits: {}, removedProps: [], extraProps: [] }, inventory: slots({}), player: null,
-        missions: { step: 0, count: 0 }, suit: null, loot: [],
+        missions: { step: 0, count: 0 }, suit: null, loot: [], equipment: {},
+        base: { inside: false, respawn: 'lander', visited: false },
       }),
     ).toBe(false);
   });

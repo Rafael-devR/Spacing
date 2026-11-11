@@ -78,6 +78,8 @@ export class Meteors {
       const dd = minD + Math.random() * (maxD - minD);
       const x = Math.floor(p.x + Math.cos(a) * dd), z = Math.floor(p.z + Math.sin(a) * dd);
       if (Math.hypot(x - LANDER.x, z - LANDER.z) < 9) continue;
+      // longe da base (com folga de 5 blocos)
+      if (world.structures.some((st) => x >= st.box.x0 - 5 && x <= st.box.x1 + 5 && z >= st.box.z0 - 5 && z <= st.box.z1 + 5)) continue;
       const c = world.chunks.get(world.key(Math.floor(x / CS), Math.floor(z / CS)));
       if (!c || !c.mesh) continue;
       const y = world.topY(x, z) + 1;

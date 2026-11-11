@@ -35,6 +35,8 @@ Detalhes em [design/SOBREVIVENCIA.md](design/SOBREVIVENCIA.md) e [design/GAME_JU
 - [x] Morte: todos os itens caem no chão, renascimento no módulo, marcador "Seus itens".
 - [x] Game juice de todos esses eventos, mais pausa de impacto, vibração e animações de bloco.
 - [x] Áudio posicional: direção, distância e eco da cratera ([design/AUDIO.md](design/AUDIO.md)).
+- [x] Base lunar inicial: câmara de pressurização, interior em corte, beliche, bancada com laser e o
+  Mapa como primeiro equipamento ([design/BASE.md](design/BASE.md)).
 - [x] Inventário em espaços livres com mochila ([design/INVENTARIO.md](design/INVENTARIO.md)).
 - [x] Interface do celular: mira acima do dedo, tela cheia e paisagem, HUD reorganizado
   ([design/INTERFACE.md](design/INTERFACE.md)).
@@ -42,7 +44,7 @@ Detalhes em [design/SOBREVIVENCIA.md](design/SOBREVIVENCIA.md) e [design/GAME_JU
 
 ## v0.4: Sobrevivência II
 
-- [ ] Crafting com receitas e tela de crafting.
+- [ ] Crafting com receitas e tela de crafting (bancada e primeira receita prontas na base inicial).
 - [ ] Gerador de Domo (esfera de atmosfera, ficção).
 - [ ] Painéis solares e eletrolisador (gelo vira O₂ e H₂).
 - [ ] Escuridão e frio nas crateras; lanterna e aquecimento.

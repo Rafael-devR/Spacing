@@ -35,6 +35,8 @@ export class Input implements MoveInput {
   onBuildToggle: (() => void) | null = null;
   onPause: (() => void) | null = null;
   onBag: (() => void) | null = null;
+  /** botão de ação do lugar (porta, bancada, beliche) */
+  onUse: (() => void) | null = null;
 
   private readonly keys = new Set<string>();
   private readonly joy: { x: number; y: number; id: number | null } = { x: 0, y: 0, id: null };
@@ -61,6 +63,7 @@ export class Input implements MoveInput {
       if (k === 'q') this.onRotate?.(-1);
       if (k === 'e') this.onRotate?.(1);
       if (k === 'b') this.onBuildToggle?.();
+      if (k === 'f' || k === 'enter') this.onUse?.();
       if (k === 'i' || k === 'tab') {
         e.preventDefault();
         this.onBag?.();

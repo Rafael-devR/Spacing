@@ -16,7 +16,6 @@ import type { Post } from '../render/post';
 import type { Interaction } from '../systems/Interaction';
 import type { Inventory } from '../systems/Inventory';
 import type { Survival } from '../systems/Survival';
-import { SPAWN } from '../world/terrain';
 import type { Hud } from '../ui/Hud';
 import type { DeathCause, GameBus, GameState } from './events';
 
@@ -45,6 +44,8 @@ export interface SurvivalDirectorDeps {
   slowMotion(seconds: number, scale: number): void;
   /** o jogador foi teletransportado (renascer): carregar chunks e reposicionar a câmera */
   teleported(): void;
+  /** coloca o astronauta no ponto de renascimento (módulo de pouso ou base) */
+  placeRespawn(): void;
   persist(): void;
 }
 
@@ -146,9 +147,9 @@ export class SurvivalDirector {
     d.hud.hideDeath();
     d.survival.respawn();
     d.player.dead = false;
-    d.player.spawn(SPAWN.x, SPAWN.z);
-    d.teleported();
     d.rig.distTarget = this.zoomBefore;
+    d.placeRespawn(); // pode trocar o zoom (dentro da base a câmera fica mais perto)
+    d.teleported();
     d.sfx.setMuffled(0);
     d.sfx.play('respawn');
     d.haptics.play('success');

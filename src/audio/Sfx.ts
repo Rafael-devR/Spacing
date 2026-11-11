@@ -7,7 +7,8 @@ import { distanceCutoff, distanceGain, FAR, HUM, listenerPosition, NEAR, reverbS
 export type SoundName =
   | 'hit' | 'break' | 'pop' | 'step' | 'land' | 'jump' | 'place' | 'deny' | 'ui'
   | 'clink' | 'kick' | 'whoosh' | 'boom' | 'chime'
-  | 'beep' | 'alarm' | 'breath' | 'heartbeat' | 'hurt' | 'death' | 'respawn' | 'charge' | 'powerDown' | 'pickupBig';
+  | 'beep' | 'alarm' | 'breath' | 'heartbeat' | 'hurt' | 'death' | 'respawn' | 'charge' | 'powerDown' | 'pickupBig'
+  | 'door' | 'pressurize' | 'depressurize' | 'rest' | 'craftDone' | 'equip';
 
 const MASTER = 0.55;
 /** volume do eco da cratera */
@@ -30,7 +31,7 @@ export interface Voice {
 /** sons grandes, ouvidos de longe */
 const FAR_SOUNDS: ReadonlySet<SoundName> = new Set<SoundName>(['boom', 'whoosh']);
 /** duração aproximada (s) dos sons do mundo, para saber até quando acompanhar o ouvinte */
-const LENGTH: Partial<Record<SoundName, number>> = { whoosh: 1.8, boom: 1.4, break: 0.3, land: 0.2 };
+const LENGTH: Partial<Record<SoundName, number>> = { whoosh: 1.8, boom: 1.4, break: 0.3, land: 0.2, door: 0.7, craftDone: 0.6 };
 
 interface Emitter extends Voice {
   readonly input: GainNode;
@@ -182,6 +183,60 @@ export class Sfx {
     e.stop = () => {
       for (const s of sources) s.stop();
       stop();
+    };
+    return e;
+  }
+
+  /** Laser da bancada em laço (zumbido agudo com estalos), no ponto dado. */
+  laser(at: Vec3): Voice | null {
+    const ctx = this.ctx;
+    if (!ctx || !this.noise || this.muted) return null;
+    const e = this.emitter(at, NEAR, Infinity);
+    const out = ctx.createGain();
+    out.gain.value = 0;
+    out.gain.setTargetAtTime(0.5, ctx.currentTime, 0.08);
+    out.connect(e.input);
+    const sources: AudioScheduledSourceNode[] = [];
+    const tone = ctx.createOscillator();
+    tone.type = 'sawtooth';
+    tone.frequency.value = 1240;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 1900;
+    bp.Q.value = 3;
+    const tg = ctx.createGain();
+    tg.gain.value = 0.05;
+    tone.connect(bp);
+    bp.connect(tg);
+    tg.connect(out);
+    // tremolo rápido: o laser "chia"
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 37;
+    const lg = ctx.createGain();
+    lg.gain.value = 0.03;
+    lfo.connect(lg);
+    lg.connect(tg.gain);
+    const crackle = ctx.createBufferSource();
+    crackle.buffer = this.noise;
+    crackle.loop = true;
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 4200;
+    const cg = ctx.createGain();
+    cg.gain.value = 0.09;
+    crackle.connect(hp);
+    hp.connect(cg);
+    cg.connect(out);
+    for (const s of [tone, lfo, crackle]) {
+      s.start();
+      sources.push(s);
+    }
+    const stop = e.stop;
+    e.stop = () => {
+      const t = ctx.currentTime;
+      out.gain.setTargetAtTime(0, t, 0.05);
+      for (const s of sources) s.stop(t + 0.3);
+      setTimeout(stop, 350);
     };
     return e;
   }
@@ -402,6 +457,30 @@ export class Sfx {
         break;
       case 'charge': T(240 * pitch, 260 * pitch, 0.12, 0.05, 'triangle'); break;
       case 'powerDown': T(520, 70, 0.6, 0.14, 'sawtooth'); break;
+      case 'door':
+        N(0.45, 'bandpass', 380, 0.3, 1.2, 3.2);
+        T(120, 90, 0.4, 0.06, 'triangle');
+        setTimeout(() => T(85, 55, 0.18, 0.3), 380);
+        break;
+      case 'pressurize':
+        N(1.7, 'highpass', 1800, 0.22, 0.7, 2.2);
+        T(160, 520, 1.6, 0.045, 'sine');
+        setTimeout(() => T(880, 1320, 0.14, 0.06), 1500);
+        break;
+      case 'depressurize':
+        N(1.5, 'highpass', 3600, 0.2, 0.7, 0.35);
+        T(520, 150, 1.4, 0.045, 'sine');
+        break;
+      case 'rest':
+        [659.25, 523.25, 392, 329.63].forEach((f, i) => setTimeout(() => T(f, f, 0.6, 0.05, 'triangle'), i * 180));
+        break;
+      case 'craftDone':
+        N(0.35, 'bandpass', 2400, 0.25, 2, 0.3);
+        T(1400, 700, 0.3, 0.08, 'triangle');
+        break;
+      case 'equip':
+        [523.25, 783.99, 1046.5].forEach((f, i) => setTimeout(() => T(f, f * 1.01, 0.22, 0.08, 'triangle'), i * 70));
+        break;
       case 'chime':
         [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => setTimeout(() => T(f, f * 1.002, 0.5, 0.09), i * 90));
         break;

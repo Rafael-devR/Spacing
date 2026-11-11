@@ -40,6 +40,16 @@ import { AUTOSAVE_MS, FIXED_STEP, MAX_STEPS_PER_FRAME, SEED, TOUCH_AIM_OFFSET, V
 import { createBus, type GameBus, type GameState, type Vec3Like } from './events';
 import { FixedStep } from './FixedStep';
 import { SurvivalDirector } from './SurvivalDirector';
+import { BaseDirector } from './BaseDirector';
+import { HAB_MODULE } from '../data/base';
+import { EQUIP_SLOTS, type EquipId } from '../data/equipment';
+import { BaseModel } from '../render/baseModel';
+import { createEquipModel } from '../render/equipModels';
+import { Crafting } from '../systems/Crafting';
+import { Equipment } from '../systems/Equipment';
+import { BaseHud } from '../ui/BaseHud';
+import { CraftPanel } from '../ui/CraftPanel';
+import { layoutModule } from '../world/baseLayout';
 
 export class Game {
   state: GameState = 'loading';
@@ -81,6 +91,12 @@ export class Game {
   private readonly hud = new Hud();
   private readonly pauseMenu: PauseMenu;
   private readonly bag: Bag;
+  readonly equipment: Equipment;
+  readonly crafting: Crafting;
+  readonly base: BaseDirector;
+  readonly baseModel: BaseModel;
+  private readonly craftPanel: CraftPanel;
+  private readonly baseHud = new BaseHud();
   /** último aviso de mochila cheia (para não repetir a cada item) */
   private fullWarnT = -99;
   private readonly sfx = new Sfx();
@@ -112,6 +128,7 @@ export class Game {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.08;
+    renderer.localClippingEnabled = true; // impressão da bancada (render/Fabricator.ts)
     container.appendChild(renderer.domElement);
 
     const scene = this.scene;
@@ -129,8 +146,14 @@ export class Game {
     this.world = new World(scene, SEED, materials.terrain, propFactory, events);
     this.world.load(this.save?.world);
     this.baseY = this.world.terrain.spawnH;
+    // base: a estrutura entra no mundo antes de gerar os chunks (as pedras soltas respeitam a área)
+    const baseLayout = layoutModule(HAB_MODULE, this.world.terrain);
+    this.world.addStructure(baseLayout.structure);
     this.inventory = new Inventory(events, this.save?.inventory);
     this.bag = new Bag(this.inventory);
+    this.equipment = new Equipment(events, this.save?.equipment);
+    this.crafting = new Crafting({ inventory: this.inventory, equipment: this.equipment, events });
+    this.craftPanel = new CraftPanel(this.crafting);
     this.player = new Player(scene, this.world, events);
     this.rig = new IsoRig(this.camera);
     this.particles = new Particles(scene);
@@ -173,8 +196,23 @@ export class Game {
         moving: () => Math.hypot(this.player.vel.x, this.player.vel.z) > 0.3,
         mining: () => this.player.mining,
         pressureCenter: () => this.lander.group.position,
+        sheltered: () => this.base.inside,
       },
       this.save?.suit,
+    );
+
+    // modelo e experiência da base
+    const terrain = this.world.terrain;
+    this.baseModel = new BaseModel(baseLayout, (x, z) => terrain.column(Math.floor(x), Math.floor(z)).h + 1);
+    scene.add(this.baseModel.group);
+    this.base = new BaseDirector(
+      {
+        events, scene, world: this.world, layout: baseLayout, model: this.baseModel, player: this.player, rig: this.rig,
+        input: this.input, interaction: this.interaction, survival: this.survival, crafting: this.crafting,
+        craftPanel: this.craftPanel, hud: this.hud, baseHud: this.baseHud, sfx: this.sfx, haptics: this.haptics,
+        particles: this.particles, getState: () => this.state, persist: () => this.persist(),
+      },
+      this.save?.base ?? null,
     );
 
     this.sfx.muted = this.prefs.muted;
@@ -244,6 +282,10 @@ export class Game {
         this.player.animate(0);
         this.rig.snap(new THREE.Vector3(p.x, p.y + 0.8, p.z));
       },
+      placeRespawn: () => {
+        if (this.base.respawn === 'base') this.base.placeInside();
+        else this.player.spawn(SPAWN.x, SPAWN.z);
+      },
       persist: () => this.persist(),
     });
 
@@ -276,6 +318,9 @@ export class Game {
       while (player.collides(player.pos.x, player.pos.y, player.pos.z) && player.pos.y < 60) player.pos.y += 1;
       player.prevPos.copy(player.pos);
     } else player.spawn(SPAWN.x, SPAWN.z);
+    // salvo dentro da base: volta dentro, sem transição; salvo onde a base agora está: sai para fora
+    if (this.save?.base.inside) this.base.placeInside();
+    else this.base.ensureNotStuck();
     player.animate(0);
     this.loot.load(this.save?.loot ?? []);
     this.rig.snap(new THREE.Vector3(player.pos.x, player.pos.y + 0.8, player.pos.z));
@@ -284,6 +329,10 @@ export class Game {
     for (const k of ITEM_ORDER) icons[k] = renderIcon(this.renderer, this.itemModels.create(k));
     this.hud.buildHotbar(icons, this.inventory);
     this.bag.setIcons(icons);
+    const equipIcons = {} as Record<EquipId, string>;
+    for (const slot of EQUIP_SLOTS) equipIcons[slot] = renderIcon(this.renderer, createEquipModel(slot));
+    this.bag.setEquipment(this.equipment, equipIcons);
+    this.craftPanel.setIcons(icons, equipIcons);
     this.hud.setMission(this.missions.view());
 
     el('#loading').hidden = true;
@@ -335,6 +384,7 @@ export class Game {
     this.hud.setProgress(null);
     this.hud.setAim(null);
     this.bag.close();
+    this.craftPanel.close();
     this.sfx.setPaused(true);
     this.pauseMenu.show(this.prefs);
     this.persist();
@@ -358,6 +408,10 @@ export class Game {
     }
     if (this.bag.open) {
       this.bag.close();
+      return;
+    }
+    if (this.craftPanel.open) {
+      this.craftPanel.close();
       return;
     }
     if (this.state === 'playing') this.pause();
@@ -431,8 +485,13 @@ export class Game {
     e.on('inventory:changed', ({ item }) => {
       hud.renderCounts(inventory, item);
       this.bag.render();
+      this.craftPanel.render();
     });
-    e.on('player:died', () => this.bag.close());
+    e.on('player:died', () => {
+      this.bag.close();
+      this.craftPanel.close();
+    });
+    e.on('equipment:changed', () => this.bag.render());
     e.on('inventory:full', ({ item }) => {
       if (this.time - this.fullWarnT < 2.5) return;
       this.fullWarnT = this.time;
@@ -518,6 +577,20 @@ export class Game {
       this.events.emit('bag:toggled', { open });
     };
     el('#help').addEventListener('pointerdown', () => (el('#help').hidden = true));
+
+    // base: botão de ação do lugar e tela da bancada
+    this.baseHud.onUse = () => {
+      sfx.init();
+      this.base.use();
+    };
+    input.onUse = () => this.base.use();
+    this.craftPanel.onToggle = (open) => {
+      input.reset();
+      interaction.cancel();
+      this.hud.setProgress(null);
+      this.hud.setAim(null);
+      if (!open) sfx.play('ui');
+    };
 
     // tela cheia: botão no canto e, no celular, ao tocar na tela (o navegador exige um gesto: toque solto)
     const fsBtn = el<HTMLButtonElement>('#btn-fullscreen');
@@ -619,6 +692,8 @@ export class Game {
       missions: this.missions.serialize(),
       suit: this.survival.serialize(),
       loot: this.loot.serialize(),
+      equipment: this.equipment.serialize(),
+      base: this.base.serialize(),
     });
   }
 
@@ -693,7 +768,7 @@ export class Game {
     // simulação em passo fixo
     const steps = this.fixed.advance(dt);
     for (let i = 0; i < steps; i++) {
-      if (playing) interaction.steer(input, FIXED_STEP);
+      if (playing && !this.base.busy) interaction.steer(input, FIXED_STEP);
       player.step(FIXED_STEP, input, rig);
       if (playing) this.survival.step(FIXED_STEP);
       this.debris.update(FIXED_STEP, player);
@@ -709,6 +784,8 @@ export class Game {
     this.waypoint.update(time);
     this.lootMarker.update(time);
     this.lander.update(time);
+    if (playing) this.crafting.update(dt);
+    this.base.update(dt);
     for (const [id, v] of this.meteorVoices) {
       const h = this.meteors.headOf(id);
       if (h) v.at(h.x, h.y, h.z);
@@ -719,15 +796,19 @@ export class Game {
     this.focus.set(rp.x, rp.y + 0.8, rp.z);
     rig.update(dt, this.focus);
     this.sfx.setListener(player.model.root.position, rig.forward());
+    this.baseModel.update(dt, time, this.camera.position);
 
     world.radius = THREE.MathUtils.clamp(Math.ceil((1.05 * rig.distTarget + 10) / 16), 2, 5);
     world.update(player.pos.x, player.pos.z, 2, dt);
 
-    if (playing) {
+    if (playing && !this.base.busy) {
       interaction.update(dt, input);
       hud.setProgress(interaction.progress);
       hud.setAim(interaction.aim);
-    } else hud.setAim(null);
+    } else {
+      hud.setAim(null);
+      if (playing) hud.setProgress(null);
+    }
     this.particles.update(dt);
     this.motes.update(dt, rig.target, time);
     this.director.update(realDt, time);

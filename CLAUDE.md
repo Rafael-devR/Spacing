@@ -49,6 +49,8 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). Leia o [README]
   ([design/AUDIO.md](docs/design/AUDIO.md)).
 - Depuração em `npm run dev`: `window.spacing` é o objeto do jogo; `?eventos` no endereço mostra os eventos.
 - Decisões: `docs/adr/`. Referências de arte: `docs/art/reference/`.
+- Base: dados em `src/data/base.ts` (módulos), `recipes.ts`, `equipment.ts`; experiência em
+  `src/app/BaseDirector.ts`; teste no navegador `tools/visual-check/base.mjs` ([design/BASE.md](docs/design/BASE.md)).
 - Sobrevivência: números em `src/data/survival.ts`, regras em `src/systems/Survival.ts`, resposta
   (avisos, sons, efeitos, morte) em `src/app/SurvivalDirector.ts`.
 - Salvamento: `localStorage`, chave `spacing.save` (com versão e migração em `src/core/save.ts`) e

@@ -38,6 +38,10 @@ export class Player {
   dead = false;
   /** piscando (invulnerável depois de renascer) */
   blinking = false;
+  /** parado por uma cena (câmara de pressurização, descanso): ignora a entrada e a física */
+  frozen = false;
+  /** caminhada roteirizada (entrar e sair da base): sem física, em linha reta */
+  private script: { from: THREE.Vector3; to: THREE.Vector3; t: number; dur: number; done?: () => void } | null = null;
   private flash = 0;
   private squash = 0;
   private deadPose = 0;
@@ -109,10 +113,43 @@ export class Player {
     return true;
   }
 
+  /** Anda sozinho até `to` em `seconds` (sem física). `done` roda ao chegar. */
+  walkTo(to: THREE.Vector3, seconds: number, done?: () => void): void {
+    this.script = { from: this.pos.clone(), to: to.clone(), t: 0, dur: Math.max(0.05, seconds), done };
+  }
+
+  get scripted(): boolean {
+    return this.script !== null || this.frozen;
+  }
+
   /** Física de um passo fixo. */
   step(dt: number, input: MoveInput, cam: IsoRig): void {
     const p = this.pos;
     this.prevPos.copy(p);
+    if (this.script || this.frozen) {
+      input.jump = false;
+      this.onGround = true;
+      const s = this.script;
+      if (!s) {
+        this.vel.set(0, 0, 0);
+        return;
+      }
+      s.t += dt;
+      const k = Math.min(1, s.t / s.dur);
+      p.lerpVectors(s.from, s.to, k);
+      this.vel.set((s.to.x - s.from.x) / s.dur, 0, (s.to.z - s.from.z) / s.dur);
+      this.stepTimer -= dt;
+      if (this.stepTimer <= 0) {
+        this.events?.emit('player:step', { x: p.x, y: p.y, z: p.z });
+        this.stepTimer = 0.34;
+      }
+      if (k >= 1) {
+        this.script = null;
+        this.vel.set(0, 0, 0);
+        s.done?.();
+      }
+      return;
+    }
     // direção de movimento relativa à câmera
     const f = cam.forward(), r = cam.right();
     const mx = this.dead ? 0 : input.moveX, my = this.dead ? 0 : input.moveY;

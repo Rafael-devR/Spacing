@@ -103,6 +103,12 @@
     </button>
   </div>
 
+  <!-- ação do lugar (porta, bancada, beliche): aparece só quando dá para usar -->
+  <button id="btn-use" type="button" hidden>
+    <span class="use-key" aria-hidden="true">F</span>
+    <span class="use-label"></span>
+  </button>
+
   <!-- mira deslocada (toque): a mira fica acima do dedo para o bloco não ficar escondido -->
   <svg id="aim" hidden aria-hidden="true">
     <line id="aim-line"></line>
@@ -113,6 +119,32 @@
     </g>
   </svg>
   <div id="progress" hidden></div>
+</div>
+
+<!-- transição da câmara de pressurização: portas de bloqueio que fecham, leitura e abrem -->
+<div id="airlock" hidden aria-live="polite">
+  <div class="shutter top"><i></i></div>
+  <div class="shutter bottom"><i></i></div>
+  <div class="airlock-read">
+    <span class="airlock-kicker" id="airlock-kicker">Câmara de pressurização</span>
+    <span class="airlock-value" id="airlock-value">0%</span>
+    <div class="airlock-bar"><i id="airlock-fill"></i></div>
+    <span class="airlock-sub" id="airlock-sub">Equalizando pressão</span>
+  </div>
+</div>
+
+<div id="fade" hidden><span id="fade-text"></span></div>
+
+<div id="craft" hidden role="dialog" aria-modal="true" aria-labelledby="craft-title">
+  <div class="craft-card">
+    <div class="bag-head">
+      <h2 id="craft-title">Bancada de fabricação</h2>
+      <button class="chip" id="craft-close" type="button" aria-label="Fechar bancada">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div id="craft-list"></div>
+  </div>
 </div>
 
 <div id="bag" hidden role="dialog" aria-modal="true" aria-labelledby="bag-title">
@@ -127,6 +159,8 @@
     <div class="bag-grid" id="bag-grid"></div>
     <span class="bag-label">Barra de itens</span>
     <div class="bag-grid" id="bag-hotbar"></div>
+    <span class="bag-label">Equipamento no traje</span>
+    <div class="equip-row" id="bag-equip"></div>
   </div>
 </div>
 
@@ -216,12 +250,14 @@
       <dt>Roda do mouse</dt><dd>Zoom</dd>
       <dt>1 a 8</dt><dd>Escolher espaço da barra</dd>
       <dt>I ou Tab</dt><dd>Abrir a mochila</dd>
+      <dt>F ou Enter</dt><dd>Usar porta, bancada ou beliche (quando aparecer o botão)</dd>
       <dt>Esc ou P</dt><dd>Pausar</dd></span>
       <span class="only-touch"><dt>Joystick</dt><dd>Andar</dd>
       <dt>Segurar no chão</dt><dd>Aparece uma mira acima do dedo: arraste até o bloco e segure para minerar (se estiver longe, o astronauta vai até lá)</dd>
       <dt>Toque rápido</dt><dd>Andar até o ponto</dd>
       <dt>Botão cubo</dt><dd>Modo construção: toque num bloco para colocar outro em cima</dd>
       <dt>Bolsa</dt><dd>Abrir a mochila: toque num item e depois em outro espaço para mover</dd>
+      <dt>Botão de ação</dt><dd>Aparece perto da porta da base, da bancada e do beliche</dd>
       <dt>Pinça</dt><dd>Zoom</dd>
       <dt>Setas curvas</dt><dd>Girar a câmera 90° (canto de cima)</dd></span>
     </dl>

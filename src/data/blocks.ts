@@ -11,6 +11,8 @@ export const BASALT: BlockId = 4;
 export const ICE: BlockId = 5;
 export const IRON: BlockId = 6;
 export const CRYSTAL: BlockId = 7;
+/** casco da base: só existe dentro de estruturas (world/Structure.ts), nunca nos chunks */
+export const HULL: BlockId = 8;
 
 export interface BlockData {
   name: string;
@@ -43,4 +45,5 @@ export const BLOCK_DATA: Record<BlockId, BlockData> = {
     hardness: 1.5,
     drop: 'crystal',
   },
+  [HULL]: { name: 'Casco da base', color: '#d9dde6', hardness: Infinity, drop: null },
 };

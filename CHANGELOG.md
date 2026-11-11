@@ -22,6 +22,21 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
   - Game juice: câmera lenta e som abafado na morte, feixe ao renascer, respiração e batimento em ciclo,
     pausa de impacto e bloco que encolhe ao quebrar, bloco que estica ao ser colocado, astronauta que
     achata ao pousar e tom de coleta subindo em sequência.
+- **Base lunar inicial** ([design/BASE.md](docs/design/BASE.md), [ADR 0005](docs/adr/0005-base-como-estrutura-sobre-os-voxels.md)):
+  - Habitat no platô ao lado do módulo de pouso, montado a partir de dados para crescer em módulos.
+  - Entrada pela câmara de pressurização: botão "Entrar na base", porta que corre, portas de bloqueio com
+    leitura de 0 a 100% e troca para a vista em corte (telhado some, paredes da frente abaixam, lado de fora
+    escurece). Saída pelo caminho inverso.
+  - Dentro: anda-se livremente, o traje recarrega e meteoros não alcançam.
+  - Beliche: descansar enche o traje e passa a ser o ponto de renascimento.
+  - Bancada de fabricação com receitas e impressão a laser (holograma, camada que sobe, dois lasers com
+    faíscas e som).
+  - Primeira receita: **Mapa**, um equipamento que fica no traje (fora do inventário) e é equipado ao ficar
+    pronto. O uso vem na próxima etapa.
+  - Estrutura para comida, fome e energia, ainda desligada.
+  - Salvamento versão 5 (equipamento e estado da base), com migração.
+  - Teste `tools/visual-check/base.mjs`.
+- Itens no chão com **contorno branco**.
 - **Inventário em espaços livres** ([design/INVENTARIO.md](docs/design/INVENTARIO.md)): barra de 8
   espaços e mochila de 24, sem espaço preso a tipo de item. O item coletado completa uma pilha igual (até 64)
   ou vai para o primeiro espaço vazio. Mochila (botão ao lado da barra, I ou Tab) com mover, juntar e trocar
@@ -46,7 +61,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - Vibração no celular ao quebrar blocos, em impactos de meteoro e ao concluir objetivos.
 - O jogo salva e pausa sozinho ao trocar de aplicativo ou esconder a aba.
 - Teste jogado automático no navegador (`tools/visual-check/play.mjs`) e testes de eventos, salvamento,
-  passo fixo, inventário, consistência dos dados e sobrevivência, áudio posicional, preferências e inventário (63 testes no total).
+  passo fixo, inventário, consistência dos dados e sobrevivência, áudio posicional, preferências, inventário e base (78 testes no total).
 
 ### Corrigido
 

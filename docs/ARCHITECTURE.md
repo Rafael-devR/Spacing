@@ -21,14 +21,16 @@ do `MeshLambertMaterial` (`src/render/materials.ts`). Atualizar exige revisar es
 src/
   main.ts            ponto de entrada: cria o renderizador e o Game
   app/               Game (laço, estados, ligação dos sistemas), SurvivalDirector (resposta à sobrevivência),
+                     BaseDirector (entrada na base, bancada, descanso),
                      eventos do jogo, configuração, passo fixo
   core/              barramento de eventos, entrada, salvamento, preferências, tela cheia, ruído, cor, vibração
-  data/              conteúdo como dados: blocos, itens, objetos, missões
-  world/             terreno, chunks (World), mesher, registro de blocos
+  data/              conteúdo como dados: blocos, itens, objetos, missões, base, receitas, equipamentos
+  world/             terreno, chunks (World), mesher, registro de blocos, estruturas da base (ADR 0005)
   entities/          jogador, destroços, meteoros, itens soltos, itens caídos na morte (LootPiles)
-  systems/           interação (minerar/construir), inventário, missões, sobrevivência (Survival)
-  render/            materiais e shaders, céu, luzes, pós-processamento, partículas, modelos, câmera, ícones
-  ui/                HUD, menu de pausa, estilos
+  systems/           interação (minerar/construir), inventário, missões, sobrevivência, fabricação, equipamento
+  render/            materiais e shaders, céu, luzes, pós-processamento, partículas, modelos, câmera, ícones,
+                     modelo da base e bancada com laser (Fabricator)
+  ui/                HUD, menu de pausa, mochila, bancada, botão de ação e transições da base, estilos
   audio/             sons sintetizados e áudio posicional (design/AUDIO.md)
   i18n/              textos da interface (pt-BR)
 tests/               testes automatizados (Vitest)
@@ -101,20 +103,23 @@ a aba, o jogo salva e pausa sozinho.
 
 ## Salvamento
 
-Chave `spacing.save` no `localStorage`, em JSON, formato **versão 4** (`src/core/save.ts`):
+Chave `spacing.save` no `localStorage`, em JSON, formato **versão 5** (`src/core/save.ts`):
 
 ```
-{ version: 4, seed, savedAt,
+{ version: 5, seed, savedAt,
   world: { edits: { "cx,cz": [[índice, bloco], ...] }, removedProps: [...], extraProps: [...] },
   inventory: { slots: [{ item, n } | null, ...32], selected },
   player: { x, y, z },
   missions: { step, count },
   suit: { suit, o2, battery, integrity },
-  loot: [{ item, amount, x, y, z, pile }] }
+  loot: [{ item, amount, x, y, z, pile }],
+  equipment: { map: "map" },
+  base: { inside, respawn: "lander" | "base", visited } }
 ```
 
 - O salvamento da v0.1 (chave `spacing.save.v1`, sem versão) é migrado na primeira carga e apagado.
 - Da versão 2 para a 3: o traje começa cheio e não há itens no chão.
+- Da versão 4 para a 5: sem equipamento, fora da base, renasce no módulo de pouso.
 - Da versão 3 para a 4: as quantidades viram espaços do inventário ([design/INVENTARIO.md](design/INVENTARIO.md)).
 - Dados inválidos são limpos (itens desconhecidos, quantidades negativas); versões futuras são recusadas.
 - Salva a cada 5 segundos jogando, ao pausar, ao esconder a aba e ao sair.

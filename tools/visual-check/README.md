@@ -44,6 +44,16 @@ Abre o jogo como celular deitado (844×390) e em pé (390×844), salva capturas 
 mira deslocada e da pausa, e confere que o HUD fica dentro da tela, sem blocos sobrepostos, e que segurar o
 dedo minera o bloco sob a mira. Rode depois de mexer no HUD, no `index.html` ou nos controles.
 
+## Teste da base
+
+```bash
+node base.mjs http://localhost:5173/ /tmp/shots
+```
+
+Leva o astronauta até a porta, entra pela câmara de pressurização, anda por dentro, fabrica o mapa na
+bancada, descansa, confere o salvamento e sai, com uma captura de cada passo (`base-*.png`). Como o WebGL
+roda por software, o jogo fica bem lento aqui: as esperas são longas de propósito.
+
 ## Teste do áudio
 
 ```bash

@@ -488,3 +488,118 @@ body.touch .only-touch-row { display: grid; }
 .death-card p { margin: 0; color: var(--ink-dim); line-height: 1.5; max-width: 36ch; }
 .death-card .cta { margin-top: 6px; }
 @keyframes death-in { from { opacity: 0; } }
+
+/* ---- base: botão de ação do lugar ---- */
+#btn-use {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  display: inline-flex; align-items: center; gap: 10px;
+  height: 46px; padding: 0 18px 0 8px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(127, 231, 255, 0.7); background: rgba(14, 22, 48, 0.82); color: var(--ink);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  font-family: var(--font-display); font-weight: 600; font-size: 16px;
+  box-shadow: 0 0 0 0 rgba(127, 231, 255, 0.5), 0 6px 20px rgba(0, 0, 0, 0.35);
+  animation: use-in 0.25s ease, use-pulse 1.8s ease-in-out 0.3s infinite;
+  pointer-events: auto;
+}
+.use-key {
+  display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--ice); color: var(--space); font-family: var(--font-ui); font-size: 13px; font-weight: 700;
+}
+body.touch .use-key { display: none; }
+body.touch #btn-use { padding: 0 20px; }
+#btn-use:active { transform: translateX(-50%) scale(0.96); }
+@keyframes use-in { from { opacity: 0; translate: 0 8px; } }
+@keyframes use-pulse { 50% { box-shadow: 0 0 0 6px rgba(127, 231, 255, 0), 0 6px 20px rgba(0, 0, 0, 0.35); } 0% { box-shadow: 0 0 0 0 rgba(127, 231, 255, 0.45), 0 6px 20px rgba(0, 0, 0, 0.35); } }
+/* no celular: logo acima do polegar direito */
+body.touch #btn-use { left: auto; transform: none; right: calc(18px + env(safe-area-inset-right, 0px)); bottom: calc(118px + env(safe-area-inset-bottom, 0px)); }
+body.touch #btn-use:active { transform: scale(0.96); }
+@media (orientation: portrait) { body.touch #btn-use { bottom: calc(184px + env(safe-area-inset-bottom, 0px)); } }
+body[data-state="dead"] #btn-use { display: none; }
+
+/* ---- transição da câmara de pressurização ---- */
+#airlock { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+.shutter {
+  position: absolute; left: 0; right: 0; height: 50.5%;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 2px, transparent 2px 64px),
+    linear-gradient(180deg, #23263a, #171a2a);
+  transition: transform 0.38s cubic-bezier(0.7, 0, 0.3, 1);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+}
+.shutter.top { top: 0; transform: translateY(-101%); }
+.shutter.bottom { bottom: 0; transform: translateY(101%); }
+.shutter i {
+  position: absolute; left: 0; right: 0; height: 14px;
+  background: repeating-linear-gradient(135deg, #f2b233 0 14px, #2b2b33 14px 28px);
+}
+.shutter.top i { bottom: 0; }
+.shutter.bottom i { top: 0; }
+#airlock.closed .shutter { transform: translateY(0); }
+.airlock-read {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%;
+  display: grid; justify-items: center; gap: 6px; text-align: center;
+  padding: 16px 28px 14px; border-radius: 12px; min-width: min(300px, 70vw);
+  background: #141726; border: 1px solid rgba(127, 231, 255, 0.35);
+  box-shadow: 0 0 0 6px #141726, 0 10px 40px rgba(0, 0, 0, 0.6), inset 0 0 30px rgba(127, 231, 255, 0.08);
+  opacity: 0; transition: opacity 0.2s;
+}
+#airlock.closed .airlock-read { opacity: 1; transition-delay: 0.25s; }
+.airlock-kicker { font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ice); }
+.airlock-value { font-family: var(--font-display); font-weight: 700; font-size: clamp(40px, 9vh, 64px); font-variant-numeric: tabular-nums; line-height: 1; }
+.airlock-bar { width: min(260px, 60vw); height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.airlock-bar i { display: block; height: 100%; width: 0; background: var(--ice); box-shadow: 0 0 12px var(--ice); }
+.airlock-sub { font-size: 12px; color: var(--ink-dim); }
+#airlock.done .airlock-bar i { background: #7dffa8; box-shadow: 0 0 12px #7dffa8; }
+#airlock.done .airlock-kicker { color: #7dffa8; }
+
+/* ---- descanso: escurece ---- */
+#fade {
+  position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; pointer-events: none;
+  background: #05040c; opacity: 0; transition: opacity 0.6s ease;
+}
+#fade.on { opacity: 1; }
+#fade-text { font-family: var(--font-display); font-size: 22px; color: var(--ink-dim); letter-spacing: 0.04em; }
+
+/* ---- bancada ---- */
+#craft {
+  position: fixed; inset: 0; display: grid; place-items: center; padding: 12px;
+  background: rgba(10, 8, 26, 0.5);
+}
+.craft-card {
+  width: min(520px, 100%); max-height: 100%; overflow-y: auto; display: grid; gap: 10px; padding: 14px 16px;
+  border-radius: 14px; background: var(--panel-strong); border: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
+#craft-list { display: grid; gap: 8px; }
+.recipe {
+  display: grid; grid-template-columns: 64px 1fr auto; gap: 12px; align-items: center;
+  padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03);
+}
+.recipe img { width: 64px; height: 64px; border-radius: 8px; background: rgba(127, 231, 255, 0.08); }
+.recipe-info { display: grid; gap: 4px; min-width: 0; }
+.recipe-name { font-family: var(--font-display); font-weight: 600; font-size: 16px; }
+.recipe-tag { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ice); margin-left: 6px; }
+.recipe-desc { font-size: 12px; color: var(--ink-dim); line-height: 1.35; }
+.recipe-needs { display: flex; flex-wrap: wrap; gap: 6px; }
+.need { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-variant-numeric: tabular-nums; padding: 2px 6px 2px 2px; border-radius: 6px; background: rgba(255, 255, 255, 0.06); }
+.need img { width: 22px; height: 22px; background: none; }
+.need.ok { color: #7dffa8; }
+.need.miss { color: var(--warn); }
+.recipe .cta { height: 42px; padding: 0 16px; font-size: 15px; }
+.recipe .cta:disabled { opacity: 0.45; cursor: default; }
+@media (max-width: 460px) {
+  .recipe { grid-template-columns: 52px 1fr; }
+  .recipe img { width: 52px; height: 52px; }
+  .recipe .cta { grid-column: 1 / -1; width: 100%; }
+}
+
+/* ---- equipamento (na mochila) ---- */
+.equip-row { display: flex; gap: 8px; }
+.equip-slot {
+  display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 12px 0 4px;
+  border-radius: 8px; border: 1px dashed var(--line); color: var(--ink-dim); font-size: 12px;
+}
+.equip-slot img { width: 38px; height: 38px; }
+.equip-slot img[hidden] { display: none; }
+.equip-slot.on { border-style: solid; border-color: rgba(127, 231, 255, 0.6); color: var(--ink); background: rgba(127, 231, 255, 0.08); }

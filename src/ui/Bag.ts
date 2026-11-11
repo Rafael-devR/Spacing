@@ -1,6 +1,8 @@
 // Tela da mochila: mostra todos os espaços (mochila em cima, barra embaixo) e deixa reorganizar.
 // Toque num item para pegar e toque em outro espaço para soltar: junta pilhas iguais, troca diferentes.
+import { EQUIPMENT, EQUIP_SLOTS, type EquipId } from '../data/equipment';
 import { BAG_SIZE, HOTBAR_SIZE, type ItemId } from '../data/items';
+import type { Equipment } from '../systems/Equipment';
 import { t } from '../i18n';
 import type { Inventory } from '../systems/Inventory';
 import { el } from './dom';
@@ -14,6 +16,8 @@ export class Bag {
   /** espaço "na mão" (escolhido para mover); null = nenhum */
   private held: number | null = null;
   private icons = {} as Record<ItemId, string>;
+  private equipment: Equipment | null = null;
+  private equipIcons = {} as Record<EquipId, string>;
 
   constructor(private readonly inv: Inventory) {
     const grid = el('#bag-grid');
@@ -38,6 +42,12 @@ export class Bag {
 
   setIcons(icons: Record<ItemId, string>): void {
     this.icons = icons;
+  }
+
+  /** Equipamentos do traje (mostrados embaixo; não fazem parte do inventário). */
+  setEquipment(eq: Equipment, icons: Record<EquipId, string>): void {
+    this.equipment = eq;
+    this.equipIcons = icons;
   }
 
   get open(): boolean {
@@ -82,5 +92,15 @@ export class Bag {
       b.classList.toggle('selected', i === this.inv.selected);
     });
     el('#bag-hint').textContent = t(this.held === null ? 'bag.hintPick' : 'bag.hintDrop');
+    const row = el('#bag-equip');
+    row.innerHTML = '';
+    for (const slot of EQUIP_SLOTS) {
+      const id = this.equipment?.inSlot(slot) ?? null;
+      const d = document.createElement('div');
+      d.className = 'equip-slot' + (id ? ' on' : '');
+      const src = id ? this.equipIcons[id] : '';
+      d.innerHTML = `<img alt="" ${id ? `src="${src}"` : 'hidden'}><span>${id ? EQUIPMENT[id].name : t(`bag.equipEmpty.${slot}`)}</span>`;
+      row.appendChild(d);
+    }
   }
 }

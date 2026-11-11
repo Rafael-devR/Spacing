@@ -4,6 +4,7 @@ import type { GameBus } from '../app/events';
 import type { ExtraPropSave, WorldSave } from '../core/save';
 import { AIR, type BlockId } from '../data/blocks';
 import type { PropType } from '../data/props';
+import type { Structure } from './Structure';
 import type { PropFactory } from '../render/models';
 import { meshPadded } from './mesher';
 import { CH, CS, Terrain, idx, type PropSpawn } from './terrain';
@@ -60,6 +61,8 @@ export class World {
   /** todas as malhas de objetos carregadas (para o raio de mira) */
   readonly propMeshes: PropMesh[] = [];
   private readonly pad = new Uint8Array(PL * CH);
+  /** estruturas construídas (a base); mandam nas células que ocupam */
+  readonly structures: Structure[] = [];
   /** raio de chunks carregados ao redor do jogador */
   radius = 3;
 
@@ -99,9 +102,26 @@ export class World {
     return c;
   }
 
+  /** Registra uma estrutura. Chame antes de gerar os chunks da região (os objetos soltos respeitam). */
+  addStructure(s: Structure): void {
+    this.structures.push(s);
+  }
+
+  /** estrutura que ocupa a célula, se houver */
+  structureAt(x: number, y: number, z: number): Structure | null {
+    for (const s of this.structures) if (s.contains(x, y, z)) return s;
+    return null;
+  }
+
+  private underStructure(x: number, z: number): boolean {
+    for (const s of this.structures) if (s.coversColumn(x, z)) return true;
+    return false;
+  }
+
   getBlock(x: number, y: number, z: number): BlockId {
     if (y < 0) return 1;
     if (y >= CH) return AIR;
+    for (const s of this.structures) if (s.contains(x, y, z)) return s.block(x, y, z);
     const cx = Math.floor(x / CS), cz = Math.floor(z / CS);
     return this.chunk(cx, cz).data[idx(x - cx * CS, y, z - cz * CS)];
   }
@@ -109,6 +129,7 @@ export class World {
   /** Igual a getBlock, mas não gera chunks novos (para raios de seleção). */
   peekBlock(x: number, y: number, z: number): BlockId {
     if (y < 0 || y >= CH) return AIR;
+    for (const s of this.structures) if (s.contains(x, y, z)) return s.block(x, y, z, true);
     const cx = Math.floor(x / CS), cz = Math.floor(z / CS);
     const c = this.chunks.get(this.key(cx, cz));
     return c ? c.data[idx(x - cx * CS, y, z - cz * CS)] : AIR;
@@ -134,6 +155,7 @@ export class World {
     for (const e of list) {
       const [x, y, z, id] = e;
       if (y <= 0 || y >= CH) continue;
+      if (this.structureAt(x, y, z)) continue; // a base não é editável bloco a bloco
       const cx = Math.floor(x / CS), cz = Math.floor(z / CS);
       const c = this.chunk(cx, cz);
       const lx = x - cx * CS, lz = z - cz * CS;
@@ -213,6 +235,7 @@ export class World {
 
   private spawnProp(c: Chunk, p: PropInstance): PropMesh | null {
     if (this.removedProps.has(this.propKey(p))) return null;
+    if (this.underStructure(p.wx, p.wz)) return null; // nada de pedra dentro da base
     p.y = this.topY(p.wx, p.wz) + 1;
     const mesh = this.props.create(p.type, p.variant) as PropMesh;
     mesh.position.set(p.wx + 0.5, p.y, p.wz + 0.5);
@@ -228,6 +251,7 @@ export class World {
 
   /** Objetos criados durante o jogo (ex.: meteoritos); são salvos. */
   addExtraProp(e: { wx: number; wz: number; type: PropType; variant?: number; rot?: number; scale?: number }): PropMesh | null {
+    if (this.underStructure(e.wx, e.wz)) return null;
     const save: ExtraPropSave = {
       wx: e.wx,
       wz: e.wz,

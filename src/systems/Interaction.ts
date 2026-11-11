@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import type { GameBus } from '../app/events';
 import type { RGB } from '../core/color';
 import type { Input, PointerState } from '../core/Input';
-import { AIR } from '../data/blocks';
+import { AIR, HULL } from '../data/blocks';
 import { ITEMS } from '../data/items';
 import { PROPS, PROP_DEBRIS } from '../data/props';
 import type { Debris } from '../entities/Debris';
@@ -179,7 +179,7 @@ export class Interaction {
     const x = t.x + t.normal[0], y = t.y + t.normal[1], z = t.z + t.normal[2];
     const pm = world.propAt(x, z);
     if (
-      y <= 0 || y >= CH || world.getBlock(x, y, z) !== AIR || player.intersectsBlock(x, y, z) ||
+      y <= 0 || y >= CH || world.getBlock(x, y, z) !== AIR || player.intersectsBlock(x, y, z) || world.structureAt(x, y, z) ||
       (pm && pm.userData.prop.y === y)
     ) {
       events.emit('action:denied', { reason: 'blocked', item });
@@ -219,7 +219,9 @@ export class Interaction {
     const p: PointerState = input.pointer;
     const active = p.inside && (p.type === 'mouse' || p.down);
     // construir é por toque rápido, no ponto tocado; minerar segurando usa a mira deslocada
-    const t = active ? (this.buildMode ? this.pick(p.x, p.y) : this.pick(p.aimX, p.aimY)) : null;
+    let t = active ? (this.buildMode ? this.pick(p.x, p.y) : this.pick(p.aimX, p.aimY)) : null;
+    // a base não é minerável nem serve de apoio para blocos: sem destaque
+    if (t && t.kind === 'block' && t.id === HULL) t = null;
     this.target = t;
     const reach = this.inReach(t);
 

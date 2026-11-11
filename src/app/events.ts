@@ -2,6 +2,7 @@
 import { EventBus } from '../core/events';
 import type { BlockId } from '../data/blocks';
 import type { ItemId } from '../data/items';
+import type { EquipId, EquipSlot } from '../data/equipment';
 import type { PropType } from '../data/props';
 
 export interface Vec3Like {
@@ -69,6 +70,18 @@ export interface GameEvents {
   'player:damaged': { amount: number; cause: DeathCause; integrity: number };
   'player:died': Vec3Like & { cause: DeathCause };
   'player:respawned': Vec3Like;
+  // ---- base (docs/design/BASE.md) ----
+  /** entrou ou saiu da base (depois da câmara de pressurização) */
+  'base:entered': { module: string };
+  'base:exited': { module: string };
+  /** a bancada começou ou terminou de fabricar */
+  'craft:started': { recipe: string; seconds: number };
+  'craft:finished': { recipe: string };
+  /** um equipamento entrou no traje */
+  'equipment:changed': { slot: EquipSlot; id: EquipId };
+  /** descansou no beliche */
+  'player:rested': Vec3Like;
+
   /** itens caíram no chão (morte) */
   'loot:dropped': Vec3Like & { pieces: number };
 }
