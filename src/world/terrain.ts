@@ -1,15 +1,44 @@
 // Geração procedural da Lua: relevo, mares de basalto, crateras, minérios e objetos soltos.
-import { createNoise2D, createNoise3D, mulberry32, hash2, hash3, fbm2, smoothstep } from './noise.js';
-import { BEDROCK, REGOLITH, ROCK, BASALT, ICE, IRON, CRYSTAL } from './blocks.js';
+import { createNoise2D, createNoise3D, mulberry32, hash2, fbm2, smoothstep, type Noise2D, type Noise3D } from '../core/noise';
+import { BEDROCK, REGOLITH, ROCK, BASALT, ICE, IRON, CRYSTAL, type BlockId } from '../data/blocks';
+import type { PropType } from '../data/props';
 
 export const CS = 16; // largura do chunk (x, z)
 export const CH = 48; // altura do mundo
 export const LANDER = { x: -3, z: -2, r: 1.7 };
 
-export const idx = (x, y, z) => x + z * CS + y * CS * CS;
+export const idx = (x: number, y: number, z: number): number => x + z * CS + y * CS * CS;
+
+/** objeto solto gerado pelo terreno */
+export interface PropSpawn {
+  wx: number;
+  wz: number;
+  y: number;
+  type: PropType;
+  variant: number;
+  rot: number;
+  scale: number;
+  /** chave para o salvamento; objetos naturais usam "wx,wz" */
+  key?: string;
+}
+
+export interface GeneratedChunk {
+  data: Uint8Array;
+  props: PropSpawn[];
+  maxY: number;
+}
 
 export class Terrain {
-  constructor(seed) {
+  readonly seed: number;
+  /** altura (não arredondada) do planalto do pouso */
+  readonly spawnH: number;
+  private readonly nBase: Noise2D;
+  private readonly nDetail: Noise2D;
+  private readonly nMare: Noise2D;
+  private readonly nIron: Noise3D;
+  private readonly nCrystal: Noise3D;
+
+  constructor(seed: number) {
     this.seed = seed;
     const r = mulberry32(seed);
     this.nBase = createNoise2D(r);
@@ -20,7 +49,7 @@ export class Terrain {
     this.spawnH = this.rawHeight(0, 0).h;
   }
 
-  craters(x, z, cell, minR, maxR, prob, salt) {
+  private craters(x: number, z: number, cell: number, minR: number, maxR: number, prob: number, salt: number): number {
     const s = this.seed + salt;
     const cx = Math.floor(x / cell), cz = Math.floor(z / cell);
     let h = 0;
@@ -40,7 +69,7 @@ export class Terrain {
     return h;
   }
 
-  rawHeight(x, z) {
+  rawHeight(x: number, z: number): { h: number; mare: number } {
     let h = 17 + fbm2(this.nBase, x * 0.008, z * 0.008, 4) * 7 + this.nDetail(x * 0.035, z * 0.035) * 1.4;
     const mare = smoothstep(0.12, 0.42, fbm2(this.nMare, x * 0.0045 + 50, z * 0.0045, 3));
     h -= mare * 3.5;
@@ -50,16 +79,18 @@ export class Terrain {
   }
 
   // altura do bloco do topo (inteiro) e fator de "mar"
-  column(x, z) {
-    let { h, mare } = this.rawHeight(x, z);
+  column(x: number, z: number): { h: number; mare: number } {
+    const raw = this.rawHeight(x, z);
+    const mare = raw.mare;
+    let h = raw.h;
     const d = Math.hypot(x, z);
     if (d < 9) h = this.spawnH + (h - this.spawnH) * smoothstep(5, 9, d); // planalto do pouso
     return { h: Math.max(3, Math.min(CH - 6, Math.floor(h))), mare };
   }
 
-  generate(cx, cz) {
+  generate(cx: number, cz: number): GeneratedChunk {
     const data = new Uint8Array(CS * CS * CH);
-    const props = [];
+    const props: PropSpawn[] = [];
     let maxY = 0;
     const s = this.seed;
     for (let lz = 0; lz < CS; lz++) {
@@ -70,7 +101,7 @@ export class Terrain {
         const isMare = mare > 0.5;
         for (let y = 0; y <= h; y++) {
           const depth = h - y;
-          let id;
+          let id: BlockId;
           if (y === 0) id = BEDROCK;
           else if (depth === 0) id = h <= 9 ? ICE : isMare ? BASALT : REGOLITH;
           else if (depth <= 2) id = isMare ? BASALT : h <= 9 && depth === 1 ? ICE : REGOLITH;
@@ -86,7 +117,7 @@ export class Terrain {
         const r = hash2(wx, wz, s + 77);
         if (r < 0.013 && Math.hypot(wx - LANDER.x, wz - LANDER.z) > 4) {
           const t = hash2(wx, wz, s + 78);
-          const type = t < 0.42 ? 'boulder' : t < 0.68 ? 'ilmenite' : t < 0.86 ? 'crystal' : 'gold';
+          const type: PropType = t < 0.42 ? 'boulder' : t < 0.68 ? 'ilmenite' : t < 0.86 ? 'crystal' : 'gold';
           props.push({
             wx, wz, y: h + 1, type,
             variant: Math.floor(hash2(wx, wz, s + 79) * 3),
@@ -98,8 +129,4 @@ export class Terrain {
     }
     return { data, props, maxY };
   }
-}
-
-export function blockVariation(wx, y, wz) {
-  return 0.93 + 0.12 * hash3(wx, y, wz, 9);
 }

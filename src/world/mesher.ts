@@ -1,10 +1,31 @@
 // Gera a malha de um chunk: só faces visíveis, oclusão ambiente por vértice,
 // variação de cor por bloco e "pepitas" de minério saindo das faces.
-import { BLOCKS } from './blocks.js';
-import { hash3 } from './noise.js';
+import { hash3 } from '../core/noise';
+import type { RGB } from '../core/color';
+import type { BlockId } from '../data/blocks';
+import { BLOCKS } from './registry';
+
+type V3 = [number, number, number];
+
+interface Face {
+  dir: V3;
+  c: V3[];
+  /** eixo da normal (0 = x, 1 = y, 2 = z) e os dois eixos do plano da face */
+  axis: number;
+  u: number;
+  v: number;
+}
+
+export interface MeshArrays {
+  position: Float32Array;
+  normal: Float32Array;
+  color: Float32Array;
+  /** coordenada da face (0..1) para o brilho de borda; 0.5 = sem borda */
+  edge: Float32Array;
+}
 
 // Cantos de cada face: 0,1 embaixo; 2,3 em cima (mesma ordem em todas as faces).
-const FACES = [
+const FACE_DEFS: { dir: V3; c: V3[] }[] = [
   { dir: [-1, 0, 0], c: [[0, 1, 0], [0, 0, 0], [0, 1, 1], [0, 0, 1]] },
   { dir: [1, 0, 0], c: [[1, 1, 1], [1, 0, 1], [1, 1, 0], [1, 0, 0]] },
   { dir: [0, -1, 0], c: [[1, 0, 1], [0, 0, 1], [1, 0, 0], [0, 0, 0]] },
@@ -12,11 +33,10 @@ const FACES = [
   { dir: [0, 0, -1], c: [[1, 0, 0], [0, 0, 0], [1, 1, 0], [0, 1, 0]] },
   { dir: [0, 0, 1], c: [[0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]] },
 ];
-for (const f of FACES) {
-  f.axis = f.dir[0] ? 0 : f.dir[1] ? 1 : 2;
-  f.u = f.axis === 0 ? 1 : 0;
-  f.v = f.axis === 2 ? 1 : 2;
-}
+const FACES: Face[] = FACE_DEFS.map((f) => {
+  const axis = f.dir[0] ? 0 : f.dir[1] ? 1 : 2;
+  return { ...f, axis, u: axis === 0 ? 1 : 0, v: axis === 2 ? 1 : 2 };
+});
 
 const AO = [0.48, 0.66, 0.83, 1];
 
@@ -24,15 +44,24 @@ const AO = [0.48, 0.66, 0.83, 1];
  * pad: blocos com 1 de margem em x e z: índice (x+1) + (z+1)*(w+2) + y*(w+2)*(d+2)
  * ox, oz: origem do chunk no mundo (para variação de cor determinística)
  */
-export function meshPadded(pad, w, d, h, maxY, ox, oz, belowSolid = true) {
+export function meshPadded(
+  pad: Uint8Array,
+  w: number,
+  d: number,
+  h: number,
+  maxY: number,
+  ox: number,
+  oz: number,
+  belowSolid = true,
+): MeshArrays {
   const PW = w + 2, PL = (w + 2) * (d + 2);
-  const at = (x, y, z) => {
+  const at = (x: number, y: number, z: number): number => {
     if (y < 0) return belowSolid ? 1 : 0;
     if (y >= h) return 0;
     return pad[x + 1 + (z + 1) * PW + y * PL];
   };
-  const pos = [], nor = [], col = [], edg = [];
-  const p = [0, 0, 0], q = [0, 0, 0];
+  const pos: number[] = [], nor: number[] = [], col: number[] = [], edg: number[] = [];
+  const p: V3 = [0, 0, 0], q: V3 = [0, 0, 0];
   const top = Math.min(maxY, h - 1);
 
   for (let y = 0; y <= top; y++) {
@@ -86,30 +115,43 @@ export function meshPadded(pad, w, d, h, maxY, ox, oz, belowSolid = true) {
   };
 }
 
-function addNuggets(pos, nor, col, edg, ore, f, x, y, z, wx, wz, fi) {
+function addNuggets(
+  pos: number[],
+  nor: number[],
+  col: number[],
+  edg: number[],
+  ore: RGB,
+  f: Face,
+  x: number,
+  y: number,
+  z: number,
+  wx: number,
+  wz: number,
+  fi: number,
+): void {
   const n = f.dir;
   const count = 1 + (hash3(wx, y, wz, 40 + fi) > 0.35 ? 1 : 0) + (hash3(wx, y, wz, 50 + fi) > 0.8 ? 1 : 0);
   for (let k = 0; k < count; k++) {
-    const r = (s) => hash3(wx * 3 + k, y * 7 + fi, wz * 5, s);
+    const r = (s: number): number => hash3(wx * 3 + k, y * 7 + fi, wz * 5, s);
     const hu = 0.22 + 0.56 * r(11);
     const hv = 0.22 + 0.56 * r(12);
     const size = 0.1 + 0.09 * r(13);
     const ang = r(14) * Math.PI;
     // ponto na face
-    const P = [x, y, z];
+    const P: V3 = [x, y, z];
     if (n[f.axis] > 0) P[f.axis] += 1;
     P[f.u] += hu;
     P[f.v] += hv;
-    const base = [];
+    const base: V3[] = [];
     for (let i = 0; i < 4; i++) {
       const a = ang + (i * Math.PI) / 2;
-      const b = [P[0], P[1], P[2]];
+      const b: V3 = [P[0], P[1], P[2]];
       b[f.u] += Math.cos(a) * size;
       b[f.v] += Math.sin(a) * size;
       b[f.axis] -= n[f.axis] * 0.04;
       base.push(b);
     }
-    const apex = [P[0], P[1], P[2]];
+    const apex: V3 = [P[0], P[1], P[2]];
     apex[f.axis] += n[f.axis] * size * 1.15;
     apex[f.u] += (r(15) - 0.5) * size * 0.6;
     apex[f.v] += (r(16) - 0.5) * size * 0.6;
@@ -136,16 +178,16 @@ function addNuggets(pos, nor, col, edg, ore, f, x, y, z, wx, wz, fi) {
   }
 }
 
-function triNormal(a, b, c) {
+function triNormal(a: V3, b: V3, c: V3): V3 {
   const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
   const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
-  let x = uy * vz - uz * vy, y = uz * vx - ux * vz, z = ux * vy - uy * vx;
+  const x = uy * vz - uz * vy, y = uz * vx - ux * vz, z = ux * vy - uy * vx;
   const l = Math.hypot(x, y, z) || 1;
   return [x / l, y / l, z / l];
 }
 
 // Malha de um único bloco (ícones e itens soltos)
-export function meshSingle(id) {
+export function meshSingle(id: BlockId): MeshArrays {
   const pad = new Uint8Array(9);
   pad[4] = id;
   return meshPadded(pad, 1, 1, 1, 0, 0, 0, false);

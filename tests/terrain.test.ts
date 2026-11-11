@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CH, CS, Terrain, idx } from '../src/terrain.js';
-import { AIR, BEDROCK } from '../src/blocks.js';
+import { CH, CS, Terrain, idx } from '../src/world/terrain';
+import { AIR, BEDROCK } from '../src/data/blocks';
 
 describe('Terrain', () => {
   it('gera o mesmo chunk para a mesma semente', () => {

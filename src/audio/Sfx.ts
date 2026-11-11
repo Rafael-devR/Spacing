@@ -1,36 +1,57 @@
 // Sons sintetizados com WebAudio (sem arquivos). Só inicia após um toque/clique.
+
+export type SoundName =
+  | 'hit' | 'break' | 'pop' | 'step' | 'land' | 'jump' | 'place' | 'deny' | 'ui'
+  | 'clink' | 'kick' | 'whoosh' | 'boom' | 'chime';
+
+const MASTER = 0.55;
+
+type AudioCtor = typeof AudioContext;
+
 export class Sfx {
-  constructor() {
-    this.ctx = null;
-    this.muted = false;
-  }
-  init() {
-    if (this.ctx) { this.ctx.resume?.(); return; }
-    const AC = window.AudioContext || window.webkitAudioContext;
+  muted = false;
+  private ctx: AudioContext | null = null;
+  private master: GainNode | null = null;
+  private noise: AudioBuffer | null = null;
+
+  init(): void {
+    if (this.ctx) {
+      void this.ctx.resume();
+      return;
+    }
+    const AC: AudioCtor | undefined =
+      window.AudioContext ?? (window as unknown as { webkitAudioContext?: AudioCtor }).webkitAudioContext;
     if (!AC) return;
     const ctx = (this.ctx = new AC());
     this.master = ctx.createGain();
-    this.master.gain.value = this.muted ? 0 : 0.55;
+    this.master.gain.value = this.muted ? 0 : MASTER;
     this.master.connect(ctx.destination);
     const len = ctx.sampleRate;
     this.noise = ctx.createBuffer(1, len, ctx.sampleRate);
     const d = this.noise.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-    this.ambient();
+    this.ambient(ctx, this.master);
   }
-  setMuted(m) {
+
+  setMuted(m: boolean): void {
     this.muted = m;
-    if (this.master) this.master.gain.setTargetAtTime(m ? 0 : 0.55, this.ctx.currentTime, 0.05);
+    if (this.master && this.ctx) this.master.gain.setTargetAtTime(m ? 0 : MASTER, this.ctx.currentTime, 0.05);
   }
-  ambient() {
-    const ctx = this.ctx;
+
+  /** Congela todo o áudio (menu de pausa). */
+  setPaused(paused: boolean): void {
+    if (!this.ctx) return;
+    void (paused ? this.ctx.suspend() : this.ctx.resume());
+  }
+
+  private ambient(ctx: AudioContext, master: GainNode): void {
     const out = ctx.createGain();
     out.gain.value = 0.05;
     const lp = ctx.createBiquadFilter();
     lp.type = 'lowpass';
     lp.frequency.value = 380;
     lp.connect(out);
-    out.connect(this.master);
+    out.connect(master);
     for (const f of [55, 82.4, 110.3]) {
       const o = ctx.createOscillator();
       o.type = 'triangle';
@@ -47,8 +68,11 @@ export class Sfx {
     lg.connect(lp.frequency);
     lfo.start();
   }
-  noiseHit(dur, type, freq, gain, q = 1, sweep = 1) {
-    const ctx = this.ctx, t = ctx.currentTime;
+
+  private noiseHit(dur: number, type: BiquadFilterType, freq: number, gain: number, q = 1, sweep = 1): void {
+    const ctx = this.ctx, master = this.master;
+    if (!ctx || !master || !this.noise) return;
+    const t = ctx.currentTime;
     const src = ctx.createBufferSource();
     src.buffer = this.noise;
     src.loop = true;
@@ -60,11 +84,16 @@ export class Sfx {
     const g = ctx.createGain();
     g.gain.setValueAtTime(gain, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    src.connect(f); f.connect(g); g.connect(this.master);
+    src.connect(f);
+    f.connect(g);
+    g.connect(master);
     src.start(t, Math.random() * 0.5, dur + 0.05);
   }
-  tone(f0, f1, dur, gain, type = 'sine') {
-    const ctx = this.ctx, t = ctx.currentTime;
+
+  private tone(f0: number, f1: number, dur: number, gain: number, type: OscillatorType = 'sine'): void {
+    const ctx = this.ctx, master = this.master;
+    if (!ctx || !master) return;
+    const t = ctx.currentTime;
     const o = ctx.createOscillator();
     o.type = type;
     o.frequency.setValueAtTime(f0, t);
@@ -73,10 +102,13 @@ export class Sfx {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(gain, t + 0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(this.master);
-    o.start(t); o.stop(t + dur + 0.02);
+    o.connect(g);
+    g.connect(master);
+    o.start(t);
+    o.stop(t + dur + 0.02);
   }
-  play(name) {
+
+  play(name: SoundName): void {
     if (!this.ctx || this.muted) return;
     switch (name) {
       case 'hit': this.noiseHit(0.07, 'bandpass', 900 + Math.random() * 700, 0.35, 2.5); break;

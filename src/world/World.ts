@@ -1,80 +1,138 @@
 // Mundo em chunks: carrega/descarrega ao redor do jogador, guarda edições e objetos removidos.
 import * as THREE from 'three';
-import { Terrain, CS, CH, idx } from './terrain.js';
-import { meshPadded } from './mesher.js';
-import { AIR, BLOCKS } from './blocks.js';
+import type { GameBus } from '../app/events';
+import type { ExtraPropSave, WorldSave } from '../core/save';
+import { AIR, type BlockId } from '../data/blocks';
+import type { PropType } from '../data/props';
+import type { PropFactory } from '../render/models';
+import { meshPadded } from './mesher';
+import { CH, CS, Terrain, idx, type PropSpawn } from './terrain';
 
-const PW = CS + 2, PL = PW * PW;
+const PW = CS + 2;
+const PL = PW * PW;
+
+export type V3 = [number, number, number];
+
+export interface PropInstance extends PropSpawn {
+  mesh?: PropMesh;
+}
+
+export interface PropUserData {
+  prop: PropInstance;
+  chunk: Chunk;
+  /** altura de destino enquanto o objeto cai */
+  fallTo?: number;
+}
+
+export type PropMesh = THREE.Mesh & { userData: PropUserData };
+
+export interface Chunk {
+  cx: number;
+  cz: number;
+  key: string;
+  data: Uint8Array;
+  props: PropInstance[];
+  maxY: number;
+  mesh: THREE.Mesh | null;
+  propMeshes: PropMesh[];
+  dirty: boolean;
+}
+
+export interface VoxelHit {
+  x: number;
+  y: number;
+  z: number;
+  id: BlockId;
+  /** normal da face atingida */
+  normal: V3;
+  t: number;
+}
+
+export type BlockEdit = [x: number, y: number, z: number, id: BlockId];
 
 export class World {
-  constructor(scene, seed, terrainMaterial, propFactory) {
-    this.scene = scene;
+  readonly terrain: Terrain;
+  readonly chunks = new Map<string, Chunk>();
+  /** chave do chunk -> Map(índice -> id) */
+  private readonly edits = new Map<string, Map<number, BlockId>>();
+  private readonly removedProps = new Set<string>();
+  private extraProps: ExtraPropSave[] = [];
+  /** todas as malhas de objetos carregadas (para o raio de mira) */
+  readonly propMeshes: PropMesh[] = [];
+  private readonly pad = new Uint8Array(PL * CH);
+  /** raio de chunks carregados ao redor do jogador */
+  radius = 3;
+
+  constructor(
+    private readonly scene: THREE.Scene,
+    seed: number,
+    private readonly material: THREE.Material,
+    readonly props: PropFactory,
+    private readonly events?: GameBus,
+  ) {
     this.terrain = new Terrain(seed);
-    this.material = terrainMaterial;
-    this.props = propFactory;
-    this.chunks = new Map();
-    this.edits = new Map(); // chave do chunk -> Map(índice -> id)
-    this.removedProps = new Set();
-    this.extraProps = [];
-    this.propMeshes = [];
-    this.onBlockChange = null;
-    this.pad = new Uint8Array(PL * CH);
-    this.radius = 3;
   }
 
-  key(cx, cz) { return cx + ',' + cz; }
+  key(cx: number, cz: number): string {
+    return cx + ',' + cz;
+  }
 
-  chunk(cx, cz) {
+  chunk(cx: number, cz: number): Chunk {
     const k = this.key(cx, cz);
     let c = this.chunks.get(k);
     if (!c) {
       const g = this.terrain.generate(cx, cz);
       c = { cx, cz, key: k, data: g.data, props: g.props, maxY: g.maxY, mesh: null, propMeshes: [], dirty: true };
       for (const e of this.extraProps) {
-        if (Math.floor(e.wx / CS) === cx && Math.floor(e.wz / CS) === cz) c.props.push({ ...e });
+        if (Math.floor(e.wx / CS) === cx && Math.floor(e.wz / CS) === cz) c.props.push({ ...e, y: 0 });
       }
       const ed = this.edits.get(k);
-      if (ed) for (const [i, id] of ed) {
-        c.data[i] = id;
-        const y = Math.floor(i / (CS * CS));
-        if (id && y > c.maxY) c.maxY = y;
+      if (ed) {
+        for (const [i, id] of ed) {
+          c.data[i] = id;
+          const y = Math.floor(i / (CS * CS));
+          if (id && y > c.maxY) c.maxY = y;
+        }
       }
       this.chunks.set(k, c);
     }
     return c;
   }
 
-  getBlock(x, y, z) {
+  getBlock(x: number, y: number, z: number): BlockId {
     if (y < 0) return 1;
     if (y >= CH) return AIR;
     const cx = Math.floor(x / CS), cz = Math.floor(z / CS);
     return this.chunk(cx, cz).data[idx(x - cx * CS, y, z - cz * CS)];
   }
 
-  // Igual a getBlock, mas não gera chunks novos (para raios de seleção)
-  peekBlock(x, y, z) {
+  /** Igual a getBlock, mas não gera chunks novos (para raios de seleção). */
+  peekBlock(x: number, y: number, z: number): BlockId {
     if (y < 0 || y >= CH) return AIR;
     const cx = Math.floor(x / CS), cz = Math.floor(z / CS);
     const c = this.chunks.get(this.key(cx, cz));
     return c ? c.data[idx(x - cx * CS, y, z - cz * CS)] : AIR;
   }
 
-  isSolid(x, y, z) { return this.getBlock(x, y, z) !== AIR; }
+  isSolid(x: number, y: number, z: number): boolean {
+    return this.getBlock(x, y, z) !== AIR;
+  }
 
-  topY(x, z) {
+  topY(x: number, z: number): number {
     for (let y = CH - 1; y >= 0; y--) if (this.getBlock(x, y, z) !== AIR) return y;
     return 0;
   }
 
-  setBlock(x, y, z, id) {
+  setBlock(x: number, y: number, z: number, id: BlockId): boolean {
     return this.setBlocks([[x, y, z, id]]) > 0;
   }
 
-  // Altera vários blocos e reconstrói cada chunk afetado uma única vez
-  setBlocks(list) {
-    const dirty = new Set();
-    let n = 0;
-    for (const [x, y, z, id] of list) {
+  /** Altera vários blocos e reconstrói cada chunk afetado uma única vez. */
+  setBlocks(list: BlockEdit[]): number {
+    const dirty = new Set<string>();
+    const applied: BlockEdit[] = [];
+    for (const e of list) {
+      const [x, y, z, id] = e;
       if (y <= 0 || y >= CH) continue;
       const cx = Math.floor(x / CS), cz = Math.floor(z / CS);
       const c = this.chunk(cx, cz);
@@ -91,26 +149,28 @@ export class World {
       if (ex) dirty.add(this.key(cx + ex, cz));
       if (ez) dirty.add(this.key(cx, cz + ez));
       if (ex && ez) dirty.add(this.key(cx + ex, cz + ez));
-      n++;
+      applied.push(e);
     }
     for (const k of dirty) {
       const c = this.chunks.get(k);
       if (c && c.mesh) this.rebuild(c);
     }
-    for (const [x, y, z, id] of list) {
+    for (const [x, y, z, id] of applied) {
       if (id === AIR) this.settleProp(x, y, z);
-      this.onBlockChange?.(x, y, z, id);
+      this.events?.emit('world:blockChanged', { x, y, z, id });
     }
-    return n;
+    return applied.length;
   }
 
-  rebuild(c) {
+  rebuild(c: Chunk): void {
     const ox = c.cx * CS, oz = c.cz * CS;
     const pad = this.pad;
     const h = Math.min(CH, c.maxY + 2);
     // vizinhos (garante que existam)
-    const nb = {};
-    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) nb[dx + ',' + dz] = this.chunk(c.cx + dx, c.cz + dz).data;
+    const nb: Record<string, Uint8Array> = {};
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) nb[dx + ',' + dz] = this.chunk(c.cx + dx, c.cz + dz).data;
+    }
     for (let y = 0; y < h; y++) {
       for (let z = -1; z <= CS; z++) {
         const dz = z < 0 ? -1 : z >= CS ? 1 : 0;
@@ -143,21 +203,22 @@ export class World {
     c.dirty = false;
   }
 
-  propKey(p) { return p.key || p.wx + ',' + p.wz; }
+  private propKey(p: PropSpawn): string {
+    return p.key || p.wx + ',' + p.wz;
+  }
 
-  spawnProps(c) {
+  private spawnProps(c: Chunk): void {
     for (const p of c.props) this.spawnProp(c, p);
   }
 
-  spawnProp(c, p) {
+  private spawnProp(c: Chunk, p: PropInstance): PropMesh | null {
     if (this.removedProps.has(this.propKey(p))) return null;
     p.y = this.topY(p.wx, p.wz) + 1;
-    const mesh = this.props.create(p.type, p.variant);
+    const mesh = this.props.create(p.type, p.variant) as PropMesh;
     mesh.position.set(p.wx + 0.5, p.y, p.wz + 0.5);
     mesh.rotation.y = p.rot;
     mesh.scale.setScalar(p.scale);
-    mesh.userData.prop = p;
-    mesh.userData.chunk = c;
+    mesh.userData = { prop: p, chunk: c };
     p.mesh = mesh;
     c.propMeshes.push(mesh);
     this.propMeshes.push(mesh);
@@ -165,29 +226,38 @@ export class World {
     return mesh;
   }
 
-  // Objetos criados durante o jogo (ex.: meteoritos); são salvos
-  addExtraProp(e) {
-    const p = { ...e, key: 'x' + e.wx + ',' + e.wz + ',' + e.type, variant: e.variant || 0, rot: e.rot || 0, scale: e.scale || 1 };
-    this.extraProps.push({ wx: p.wx, wz: p.wz, type: p.type, variant: p.variant, rot: p.rot, scale: p.scale, key: p.key });
-    this.removedProps.delete(p.key);
-    const c = this.chunks.get(this.key(Math.floor(p.wx / CS), Math.floor(p.wz / CS)));
+  /** Objetos criados durante o jogo (ex.: meteoritos); são salvos. */
+  addExtraProp(e: { wx: number; wz: number; type: PropType; variant?: number; rot?: number; scale?: number }): PropMesh | null {
+    const save: ExtraPropSave = {
+      wx: e.wx,
+      wz: e.wz,
+      type: e.type,
+      variant: e.variant || 0,
+      rot: e.rot || 0,
+      scale: e.scale || 1,
+      key: 'x' + e.wx + ',' + e.wz + ',' + e.type,
+    };
+    this.extraProps.push(save);
+    this.removedProps.delete(save.key);
+    const c = this.chunks.get(this.key(Math.floor(save.wx / CS), Math.floor(save.wz / CS)));
     if (!c) return null;
+    const p: PropInstance = { ...save, y: 0 };
     c.props.push(p);
     return c.mesh ? this.spawnProp(c, p) : null;
   }
 
-  findProp(type) {
+  findProp(type: PropType): PropMesh | null {
     return this.propMeshes.find((m) => m.userData.prop.type === type) || null;
   }
 
-  propAt(x, z) {
+  propAt(x: number, z: number): PropMesh | null {
     const c = this.chunks.get(this.key(Math.floor(x / CS), Math.floor(z / CS)));
     if (!c) return null;
     return c.propMeshes.find((m) => m.userData.prop.wx === x && m.userData.prop.wz === z) || null;
   }
 
-  // Se o bloco embaixo de um objeto sumir, ele cai até o chão
-  settleProp(x, y, z) {
+  /** Se o bloco embaixo de um objeto sumir, ele cai até o chão. */
+  private settleProp(x: number, y: number, z: number): void {
     const m = this.propAt(x, z);
     if (!m) return;
     const p = m.userData.prop;
@@ -197,7 +267,7 @@ export class World {
     }
   }
 
-  removeProp(mesh) {
+  removeProp(mesh: PropMesh): void {
     const p = mesh.userData.prop;
     const c = mesh.userData.chunk;
     this.removedProps.add(this.propKey(p));
@@ -206,7 +276,7 @@ export class World {
     this.propMeshes.splice(this.propMeshes.indexOf(mesh), 1);
   }
 
-  unload(c) {
+  private unload(c: Chunk): void {
     if (c.mesh) {
       this.scene.remove(c.mesh);
       c.mesh.geometry.dispose();
@@ -219,10 +289,11 @@ export class World {
     this.chunks.delete(c.key);
   }
 
-  update(px, pz, budget = 2, dt = 0) {
+  /** Carrega e malha chunks perto de (px, pz), descarrega os distantes. Retorna quantos faltam. */
+  update(px: number, pz: number, budget = 2, dt = 0): number {
     const pcx = Math.floor(px / CS), pcz = Math.floor(pz / CS);
     const R = this.radius;
-    const todo = [];
+    const todo: [number, number, number][] = [];
     for (let dz = -R; dz <= R; dz++) {
       for (let dx = -R; dx <= R; dx++) {
         if (dx * dx + dz * dz > R * R + R) continue;
@@ -242,15 +313,16 @@ export class World {
 
     // objetos caindo
     for (const m of this.propMeshes) {
-      if (m.userData.fallTo === undefined) continue;
-      m.position.y = Math.max(m.userData.fallTo, m.position.y - dt * 8);
-      if (m.position.y <= m.userData.fallTo) delete m.userData.fallTo;
+      const to = m.userData.fallTo;
+      if (to === undefined) continue;
+      m.position.y = Math.max(to, m.position.y - dt * 8);
+      if (m.position.y <= to) delete m.userData.fallTo;
     }
     return todo.length;
   }
 
-  // Raio por voxels (DDA). Retorna bloco atingido e normal da face.
-  raycast(origin, dir, maxDist = 200) {
+  /** Raio por voxels (DDA). Retorna o bloco atingido e a normal da face. */
+  raycast(origin: THREE.Vector3, dir: THREE.Vector3, maxDist = 200): VoxelHit | null {
     let x = Math.floor(origin.x), y = Math.floor(origin.y), z = Math.floor(origin.z);
     const sx = Math.sign(dir.x), sy = Math.sign(dir.y), sz = Math.sign(dir.z);
     const tdx = dir.x ? Math.abs(1 / dir.x) : Infinity;
@@ -260,11 +332,11 @@ export class World {
     let tmy = dir.y > 0 ? (y + 1 - origin.y) * tdy : dir.y < 0 ? (origin.y - y) * tdy : Infinity;
     let tmz = dir.z > 0 ? (z + 1 - origin.z) * tdz : dir.z < 0 ? (origin.z - z) * tdz : Infinity;
     let t = 0;
-    const n = [0, 0, 0];
+    const n: V3 = [0, 0, 0];
     for (let i = 0; i < 600 && t <= maxDist; i++) {
       if (y < CH && y >= 0) {
         const id = this.peekBlock(x, y, z);
-        if (id !== AIR) return { x, y, z, id, normal: n.slice(), t };
+        if (id !== AIR) return { x, y, z, id, normal: [n[0], n[1], n[2]], t };
       } else if (y < 0) return null;
       if (tmx < tmy && tmx < tmz) {
         x += sx; t = tmx; tmx += tdx; n[0] = -sx; n[1] = 0; n[2] = 0;
@@ -278,18 +350,17 @@ export class World {
   }
 
   // ---------- salvar / carregar ----------
-  serialize() {
-    const edits = {};
+  serialize(): WorldSave {
+    const edits: WorldSave['edits'] = {};
     for (const [k, m] of this.edits) edits[k] = [...m];
     return { edits, removedProps: [...this.removedProps], extraProps: this.extraProps };
   }
 
-  load(s) {
+  /** Precisa ser chamado antes de qualquer chunk ser gerado. */
+  load(s: WorldSave | null | undefined): void {
     if (!s) return;
-    for (const k in s.edits || {}) this.edits.set(k, new Map(s.edits[k]));
-    for (const k of s.removedProps || []) this.removedProps.add(k);
-    this.extraProps = (s.extraProps || []).filter((e) => !this.removedProps.has(e.key));
+    for (const k in s.edits) this.edits.set(k, new Map(s.edits[k]));
+    for (const k of s.removedProps) this.removedProps.add(k);
+    this.extraProps = s.extraProps.filter((e) => !this.removedProps.has(e.key));
   }
 }
-
-export { CS, CH, BLOCKS };

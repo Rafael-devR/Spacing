@@ -1,6 +1,10 @@
 // Ruído e hashes determinísticos (sem dependências).
 
-export function mulberry32(seed) {
+export type Rand = () => number;
+export type Noise2D = (x: number, y: number) => number;
+export type Noise3D = (x: number, y: number, z: number) => number;
+
+export function mulberry32(seed: number): Rand {
   let a = seed >>> 0;
   return function () {
     a |= 0;
@@ -11,14 +15,14 @@ export function mulberry32(seed) {
   };
 }
 
-export function hash2(x, z, seed = 0) {
+export function hash2(x: number, z: number, seed = 0): number {
   let h = Math.imul(x | 0, 374761393) + Math.imul(z | 0, 668265263) + Math.imul(seed | 0, 1442695041);
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   h ^= h >>> 16;
   return (h >>> 0) / 4294967296;
 }
 
-export function hash3(x, y, z, seed = 0) {
+export function hash3(x: number, y: number, z: number, seed = 0): number {
   let h =
     Math.imul(x | 0, 374761393) +
     Math.imul(y | 0, -1028477379) +
@@ -39,7 +43,7 @@ const GRAD = new Float32Array([
   0, 1, 1, 0, -1, 1, 0, 1, -1, 0, -1, -1,
 ]);
 
-function buildPerm(rand) {
+function buildPerm(rand: Rand): { perm: Uint8Array; pg: Uint8Array } {
   const p = new Uint8Array(256);
   for (let i = 0; i < 256; i++) p[i] = i;
   for (let i = 255; i > 0; i--) {
@@ -57,9 +61,9 @@ function buildPerm(rand) {
   return { perm, pg };
 }
 
-export function createNoise2D(rand) {
+export function createNoise2D(rand: Rand): Noise2D {
   const { perm, pg } = buildPerm(rand);
-  return function (x, y) {
+  return function (x: number, y: number): number {
     let n0 = 0, n1 = 0, n2 = 0;
     const s = (x + y) * F2;
     const i = Math.floor(x + s);
@@ -67,7 +71,7 @@ export function createNoise2D(rand) {
     const t = (i + j) * G2;
     const x0 = x - (i - t);
     const y0 = y - (j - t);
-    let i1, j1;
+    let i1: number, j1: number;
     if (x0 > y0) { i1 = 1; j1 = 0; } else { i1 = 0; j1 = 1; }
     const x1 = x0 - i1 + G2, y1 = y0 - j1 + G2;
     const x2 = x0 - 1 + 2 * G2, y2 = y0 - 1 + 2 * G2;
@@ -82,15 +86,15 @@ export function createNoise2D(rand) {
   };
 }
 
-export function createNoise3D(rand) {
+export function createNoise3D(rand: Rand): Noise3D {
   const { perm, pg } = buildPerm(rand);
-  return function (x, y, z) {
+  return function (x: number, y: number, z: number): number {
     let n0 = 0, n1 = 0, n2 = 0, n3 = 0;
     const s = (x + y + z) * F3;
     const i = Math.floor(x + s), j = Math.floor(y + s), k = Math.floor(z + s);
     const t = (i + j + k) * G3;
     const x0 = x - (i - t), y0 = y - (j - t), z0 = z - (k - t);
-    let i1, j1, k1, i2, j2, k2;
+    let i1: number, j1: number, k1: number, i2: number, j2: number, k2: number;
     if (x0 >= y0) {
       if (y0 >= z0) { i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 1; k2 = 0; }
       else if (x0 >= z0) { i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 0; k2 = 1; }
@@ -116,7 +120,7 @@ export function createNoise3D(rand) {
   };
 }
 
-export function fbm2(noise, x, y, octaves = 4, lac = 2, gain = 0.5) {
+export function fbm2(noise: Noise2D, x: number, y: number, octaves = 4, lac = 2, gain = 0.5): number {
   let amp = 1, freq = 1, sum = 0, norm = 0;
   for (let o = 0; o < octaves; o++) {
     sum += noise(x * freq, y * freq) * amp;
@@ -127,7 +131,7 @@ export function fbm2(noise, x, y, octaves = 4, lac = 2, gain = 0.5) {
   return sum / norm;
 }
 
-export function smoothstep(a, b, x) {
+export function smoothstep(a: number, b: number, x: number): number {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
   return t * t * (3 - 2 * t);
 }

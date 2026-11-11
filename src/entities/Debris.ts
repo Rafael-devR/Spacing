@@ -1,22 +1,57 @@
 // Destroços com física: caem, quicam, rolam, se empilham, ficam no chão
 // e são chutados quando o astronauta passa por cima.
 import * as THREE from 'three';
+import type { GameBus } from '../app/events';
+import type { RGB } from '../core/color';
+import type { World } from '../world/World';
+import type { Player } from './Player';
+
+type Kind = 0 | 1;
+
+interface DebrisItem {
+  kind: Kind;
+  i: number;
+  size: number;
+  r: number;
+  pos: THREE.Vector3;
+  vel: THREE.Vector3;
+  prev: THREE.Vector3;
+  rx: number;
+  ry: number;
+  rz: number;
+  ax: number;
+  ay: number;
+  az: number;
+  life: number;
+  sleep: boolean;
+  still: number;
+  check: number;
+  ground: boolean;
+}
+
+export interface BurstOptions {
+  power?: number;
+  spread?: number;
+  minSize?: number;
+  maxSize?: number;
+  up?: number;
+}
 
 const PER_MESH = 150;
 const GRAVITY = 16;
 const LIFE = 50;
 const HALF_PI = Math.PI / 2;
 
-function shardGeometry() {
+function shardGeometry(): THREE.BufferGeometry {
   const g = new THREE.IcosahedronGeometry(0.55, 0);
   const p = g.attributes.position;
-  const seen = new Map();
+  const seen = new Map<string, number>();
   let s = 7;
   const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
   for (let i = 0; i < p.count; i++) {
     const k = `${p.getX(i).toFixed(3)},${p.getY(i).toFixed(3)},${p.getZ(i).toFixed(3)}`;
     if (!seen.has(k)) seen.set(k, 0.75 + rnd() * 0.5);
-    const j = seen.get(k);
+    const j = seen.get(k) ?? 1;
     p.setXYZ(i, p.getX(i) * j, p.getY(i) * j * 0.8, p.getZ(i) * j);
   }
   g.deleteAttribute('uv');
@@ -25,10 +60,25 @@ function shardGeometry() {
 }
 
 export class Debris {
-  constructor(scene, world, material) {
-    this.world = world;
-    this.items = [];
-    this.free = [[], []];
+  private readonly items: DebrisItem[] = [];
+  private readonly free: number[][] = [[], []];
+  private readonly meshes: THREE.InstancedMesh[];
+  private readonly m4 = new THREE.Matrix4();
+  private readonly q = new THREE.Quaternion();
+  private readonly e = new THREE.Euler();
+  private readonly sv = new THREE.Vector3();
+  private readonly c = new THREE.Color();
+  private readonly grid = new Map<number, DebrisItem[]>();
+  /** sons pendentes do passo atual */
+  private readonly pending: { type: 'clink' | 'kick'; speed: number }[] = [];
+  private soundCooldown = 0;
+
+  constructor(
+    scene: THREE.Scene,
+    private readonly world: World,
+    material: THREE.Material,
+    private readonly events?: GameBus,
+  ) {
     const zero = new THREE.Matrix4().makeScale(0, 0, 0);
     const white = new THREE.Color(1, 1, 1);
     this.meshes = [new THREE.BoxGeometry(1, 1, 1), shardGeometry()].map((g, k) => {
@@ -45,19 +95,13 @@ export class Debris {
       scene.add(m);
       return m;
     });
-    this.m4 = new THREE.Matrix4();
-    this.q = new THREE.Quaternion();
-    this.e = new THREE.Euler();
-    this.sv = new THREE.Vector3();
-    this.c = new THREE.Color();
-    this.grid = new Map();
-    this.events = []; // { type: 'clink' | 'kick', speed }
-    this.soundCooldown = 0;
   }
 
-  get count() { return this.items.length; }
+  get count(): number {
+    return this.items.length;
+  }
 
-  spawn(pos, vel, size, rgb, kind = 0) {
+  spawn(pos: THREE.Vector3, vel: THREE.Vector3, size: number, rgb: RGB, kind: Kind = 0): void {
     let i = this.free[kind].pop();
     if (i === undefined) {
       // recicla o mais antigo do mesmo tipo
@@ -76,11 +120,18 @@ export class Debris {
     });
     this.c.setRGB(rgb[0], rgb[1], rgb[2]);
     this.meshes[kind].setColorAt(i, this.c);
-    this.meshes[kind].instanceColor.needsUpdate = true;
+    const ic = this.meshes[kind].instanceColor;
+    if (ic) ic.needsUpdate = true;
   }
 
   // Explode um volume em pedaços
-  burst(center, count, palette, { power = 3, spread = 0.32, minSize = 0.12, maxSize = 0.3, up = 3 } = {}) {
+  /** Explode um volume em pedaços. */
+  burst(
+    center: THREE.Vector3,
+    count: number,
+    palette: RGB[],
+    { power = 3, spread = 0.32, minSize = 0.12, maxSize = 0.3, up = 3 }: BurstOptions = {},
+  ): void {
     const p = new THREE.Vector3(), v = new THREE.Vector3();
     for (let k = 0; k < count; k++) {
       const col = palette[k % palette.length];
@@ -100,7 +151,7 @@ export class Debris {
     }
   }
 
-  solid(x, y, z, r) {
+  private solid(x: number, y: number, z: number, r: number): boolean {
     const w = this.world;
     const x0 = Math.floor(x - r), x1 = Math.floor(x + r);
     const y0 = Math.floor(y - r), y1 = Math.floor(y + r);
@@ -112,7 +163,7 @@ export class Debris {
     return false;
   }
 
-  moveAxis(it, axis, amount) {
+  private moveAxis(it: DebrisItem, axis: 'x' | 'y' | 'z', amount: number): boolean {
     const p = it.pos, r = it.r;
     const steps = Math.ceil(Math.abs(amount) / 0.2) || 1;
     const d = amount / steps;
@@ -125,11 +176,16 @@ export class Debris {
     return false;
   }
 
-  wake(it) { it.sleep = false; it.still = 0; }
+  private wake(it: DebrisItem): void {
+    it.sleep = false;
+    it.still = 0;
+  }
 
-  cellKey(x, y, z) { return (Math.floor(x * 2) * 73856093) ^ (Math.floor(y * 2) * 19349663) ^ (Math.floor(z * 2) * 83492791); }
+  private cellKey(x: number, y: number, z: number): number {
+    return (Math.floor(x * 2) * 73856093) ^ (Math.floor(y * 2) * 19349663) ^ (Math.floor(z * 2) * 83492791);
+  }
 
-  buildGrid() {
+  private buildGrid(): void {
     const g = this.grid;
     g.clear();
     for (const it of this.items) {
@@ -140,7 +196,7 @@ export class Debris {
     }
   }
 
-  neighbors(it, fn) {
+  private neighbors(it: DebrisItem, fn: (o: DebrisItem) => void): void {
     const p = it.pos;
     for (let dx = -0.5; dx <= 0.5; dx += 0.5)
       for (let dy = -0.5; dy <= 0.5; dy += 0.5)
@@ -151,7 +207,7 @@ export class Debris {
   }
 
   // apoio: chão de bloco ou outro destroço logo abaixo
-  supported(it) {
+  private supported(it: DebrisItem): boolean {
     if (this.solid(it.pos.x, it.pos.y - 0.06, it.pos.z, it.r)) return true;
     let ok = false;
     this.neighbors(it, (o) => {
@@ -162,7 +218,7 @@ export class Debris {
     return ok;
   }
 
-  update(dt, player) {
+  update(dt: number, player: Player): void {
     this.soundCooldown -= dt;
     this.buildGrid();
     const pp = player.pos, pv = player.vel;
@@ -191,7 +247,7 @@ export class Debris {
         it.pos.x = pp.x + nx * (0.35 + it.r);
         it.pos.z = pp.z + nz * (0.35 + it.r);
         if (this.solid(it.pos.x, it.pos.y, it.pos.z, it.r)) { it.pos.x = ox; it.pos.z = oz; }
-        if (it.sleep || it.still > 0) this.events.push({ type: 'kick', speed: push });
+        if (it.sleep || it.still > 0) this.pending.push({ type: 'kick', speed: push });
         this.wake(it);
       }
 
@@ -221,7 +277,7 @@ export class Debris {
             it.vel.y = -vy * 0.3;
             it.ax = it.ax * 0.6 + it.vel.z * 4;
             it.az = it.az * 0.6 - it.vel.x * 4;
-            if (vy < -5) this.events.push({ type: 'clink', speed: -vy });
+            if (vy < -5) this.pending.push({ type: 'clink', speed: -vy });
           } else it.vel.y = 0;
         } else it.vel.y = 0;
       }
@@ -273,11 +329,14 @@ export class Debris {
     for (const m of this.meshes) m.instanceMatrix.needsUpdate = true;
 
     // limita sons
-    if (this.events.length && this.soundCooldown > 0) this.events.length = 0;
-    else if (this.events.length) this.soundCooldown = 0.07;
+    if (this.pending.length && this.soundCooldown <= 0) {
+      for (const ev of this.pending) this.events?.emit(ev.type === 'kick' ? 'debris:kick' : 'debris:clink', { speed: ev.speed });
+      this.soundCooldown = 0.07;
+    }
+    this.pending.length = 0;
   }
 
-  writeMatrix(it) {
+  private writeMatrix(it: DebrisItem): void {
     const fade = it.life < 0 ? Math.max(0, 1 + it.life * 2) : 1;
     const s = it.size * fade;
     this.q.setFromEuler(this.e.set(it.rx, it.ry, it.rz));
@@ -285,8 +344,8 @@ export class Debris {
     this.meshes[it.kind].setMatrixAt(it.i, this.m4);
   }
 
-  // acorda tudo perto de um bloco alterado
-  disturb(x, y, z) {
+  /** acorda tudo perto de um bloco alterado */
+  disturb(x: number, y: number, z: number): void {
     for (const it of this.items) {
       if (Math.abs(it.pos.x - x - 0.5) < 1.6 && Math.abs(it.pos.y - y - 0.5) < 1.8 && Math.abs(it.pos.z - z - 0.5) < 1.6) this.wake(it);
     }
