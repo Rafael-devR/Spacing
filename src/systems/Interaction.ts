@@ -86,6 +86,11 @@ export class Interaction {
   progress: MiningProgress | null = null;
   /** mira deslocada para o HUD; null = escondida */
   aim: AimView | null = null;
+  /**
+   * Mundo de fora travado (astronauta dentro da base): sem minerar, construir, mirar nem andar por toque.
+   * O interior é um ambiente separado (docs/adr/0006-interior-da-base-como-camada-isolada.md).
+   */
+  private locked = false;
   private walkGoal: WalkGoal | null = null;
   private readonly mine: { key: string | null; progress: number; tick: number } = { key: null, progress: 0, tick: 0 };
   private stuck = 0;
@@ -142,7 +147,24 @@ export class Interaction {
     return !!t && this.d.player.center().distanceTo(t.center) <= REACH;
   }
 
+  get worldLocked(): boolean {
+    return this.locked;
+  }
+
+  /** Trava (true) ou libera o mundo de fora. Travar cancela o que estiver em andamento e sai do modo construir. */
+  lockWorld(on: boolean): void {
+    if (this.locked === on) return;
+    this.locked = on;
+    if (!on) return;
+    this.cancel();
+    this.setBuildMode(false);
+    this.target = null;
+    this.highlight.visible = false;
+    this.ghost.visible = false;
+  }
+
   setBuildMode(on: boolean): void {
+    if (on && this.locked) return;
     if (this.buildMode === on) return;
     this.buildMode = on;
     this.d.events.emit('build:mode', { on });
@@ -150,6 +172,7 @@ export class Interaction {
 
   /** Toque rápido ou clique: constrói, ou anda até o ponto se estiver longe. */
   tap(x: number, y: number, button: number): void {
+    if (this.locked) return;
     const t = this.pick(x, y);
     if (!t) return;
     const placing = button === 2 || this.buildMode;
@@ -165,6 +188,7 @@ export class Interaction {
   }
 
   private place(t: BlockTarget): void {
+    if (this.locked) return;
     const { world, player, inventory, events, particles } = this.d;
     const item = inventory.selectedItem();
     if (!item) {
@@ -192,6 +216,7 @@ export class Interaction {
   }
 
   private breakTarget(t: Target): void {
+    if (this.locked) return;
     const { world, debris, particles, drops, events } = this.d;
     if (t.kind === 'block') {
       const def = blockDef(t.id);
@@ -215,6 +240,7 @@ export class Interaction {
   }
 
   update(dt: number, input: Input): void {
+    if (this.locked) return;
     const { player, particles, debris, camera, canvas, events } = this.d;
     const p: PointerState = input.pointer;
     const active = p.inside && (p.type === 'mouse' || p.down);
@@ -301,7 +327,7 @@ export class Interaction {
   /** Converte o objetivo de caminhada em entrada de movimento. */
   steer(input: MoveInput & { hasMoveInput: boolean }, dt: number): void {
     const g = this.walkGoal;
-    if (!g) return;
+    if (!g || this.locked) return;
     if (input.hasMoveInput) {
       this.walkGoal = null;
       return;

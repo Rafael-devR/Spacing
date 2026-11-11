@@ -74,6 +74,8 @@ export interface GameEvents {
   /** entrou ou saiu da base (depois da câmara de pressurização) */
   'base:entered': { module: string };
   'base:exited': { module: string };
+  /** a câmera passou a ver só o interior da base (true) ou voltou ao mundo de fora */
+  'base:view': { inside: boolean };
   /** a bancada começou ou terminou de fabricar */
   'craft:started': { recipe: string; seconds: number };
   'craft:finished': { recipe: string };

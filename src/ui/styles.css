@@ -121,6 +121,18 @@ body.touch #m-title { font-size: 14px; }
 #compass::after { content: ''; position: absolute; left: 50%; top: 18px; width: 1px; height: 6px; background: var(--ink); }
 #heading { position: absolute; left: 50%; top: 25px; transform: translateX(-50%); font-size: 11px; font-variant-numeric: tabular-nums; color: var(--ink-dim); }
 
+/* dentro da base: no lugar da bússola, um aviso de que o ar é respirável; sem construir nem marcadores */
+#base-chip {
+  position: absolute; left: 50%; top: calc(8px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
+  display: none; align-items: center; gap: 8px; padding: 5px 12px 5px 10px; border-radius: 999px;
+  font-size: 11px; letter-spacing: 0.06em; color: var(--ink); white-space: nowrap;
+  background: rgba(12, 20, 48, 0.72); border: 1px solid rgba(127, 231, 255, 0.45);
+}
+#base-chip .k { font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ice); }
+#base-chip i { width: 7px; height: 7px; border-radius: 50%; background: #6dffb0; box-shadow: 0 0 8px #6dffb0; }
+body.in-base #base-chip { display: flex; }
+body.in-base #compass, body.in-base #btn-build, body.in-base #mode-chip, body.in-base .wp { display: none !important; }
+
 /* ---- canto superior direito: sistema e câmera ---- */
 .hud-tr {
   position: absolute;

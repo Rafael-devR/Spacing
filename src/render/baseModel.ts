@@ -1,11 +1,13 @@
 // Modelo 3D de um módulo da base, montado a partir do mesmo layout que gera a colisão (world/baseLayout.ts).
 // Low poly como o módulo de pouso: casco branco, faixa laranja, luzes azul-gelo.
 // Corte (cutaway): com o astronauta dentro, o telhado some e as paredes viradas para a câmera abaixam,
-// mostrando o interior; o lado de fora escurece com uma máscara no chão.
+// mostrando o interior. Dentro, a câmera só vê a camada do interior (render/indoors.ts): as partes de fora
+// (pernas, degrau, círculo da porta, telhado) ficam só na camada do mundo.
 import * as THREE from 'three';
 import type { FurnitureKind, Side } from '../data/base';
 import type { ModuleLayout } from '../world/baseLayout';
 import { Fabricator } from './Fabricator';
+import { exteriorOnly, showIndoors } from './indoors';
 
 const lam = (hex: THREE.ColorRepresentation, extra: THREE.MeshLambertMaterialParameters = {}): THREE.MeshLambertMaterial =>
   new THREE.MeshLambertMaterial({ color: hex, flatShading: true, ...extra });
@@ -42,7 +44,6 @@ export class BaseModel {
   private readonly doorFrame: THREE.Group;
   private readonly doorLamps: THREE.MeshBasicMaterial;
   private readonly padMat: THREE.MeshBasicMaterial;
-  private readonly maskMat: THREE.MeshBasicMaterial;
   private readonly antennaLamp: THREE.Mesh;
   private readonly light: THREE.PointLight;
   private readonly stripMat: THREE.MeshBasicMaterial;
@@ -93,8 +94,8 @@ export class BaseModel {
     for (const [lx, lz] of [[0.5, 0.5], [SX - 0.5, 0.5], [0.5, SZ - 0.5], [SX - 0.5, SZ - 0.5], [SX / 2, 0.5], [SX / 2, SZ - 0.5]]) {
       const ground = groundAt(box.x0 + lx, box.z0 + lz) - floorY;
       if (ground < -0.05) {
-        add(g, new THREE.CylinderGeometry(0.16, 0.2, -ground, 6), dark, lx, ground / 2, lz);
-        add(g, new THREE.CylinderGeometry(0.34, 0.38, 0.1, 8), dark, lx, ground + 0.05, lz);
+        exteriorOnly(add(g, new THREE.CylinderGeometry(0.16, 0.2, -ground, 6), dark, lx, ground / 2, lz));
+        exteriorOnly(add(g, new THREE.CylinderGeometry(0.34, 0.38, 0.1, 8), dark, lx, ground + 0.05, lz));
       }
     }
 
@@ -146,11 +147,32 @@ export class BaseModel {
         band(upper, s - 0.07, s + 0.07, 0, H - 1, hullDark);
       }
       // janelas (leste e oeste): faixa de luz que atravessa a parede, visível por dentro e por fora
-      if (side === 'east' || side === 'west') {
+      const windowed = side === 'east' || side === 'west';
+      if (windowed) {
         const w = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.32, SZ - 4), this.stripMat);
         w.position.set(c0 + 0.5, 0.75, SZ / 2);
         upper.add(w);
       }
+      // por dentro: luminária no alto, nervuras do casco e rodapé escuro (deixa claro que é uma sala fechada)
+      const inn = (v: number): number => (nx + nz > 0 ? c0 - v : c0 + 1 + v);
+      const lining = (parent: THREE.Object3D, s0: number, s1: number, y0: number, y1: number, mat: THREE.Material, depth: number): void => {
+        if (s1 - s0 <= 0.001) return;
+        const [p0, p1] = [Math.min(inn(0), inn(depth)), Math.max(inn(0), inn(depth))];
+        if (along === 'x') boxAt(parent, mat, s0, y0, p0, s1, y1, p1, false);
+        else boxAt(parent, mat, p0, y0, s0, p1, y1, s1, false);
+      };
+      const [i0, i1] = along === 'x' ? [1, SX - 1] : [1, SZ - 1];
+      lining(upper, i0 + 0.25, i1 - 0.25, H - 1.24, H - 1.12, dark, 0.1);
+      lining(upper, i0 + 0.3, i1 - 0.3, H - 1.21, H - 1.15, this.stripMat, 0.12);
+      lining(lower, i0, hasDoor ? dAt : i1, 1.06, 1.2, dark, 0.03);
+      if (hasDoor) lining(lower, dAt + 1, i1, 1.06, 1.2, dark, 0.03);
+      if (!windowed)
+        for (let s = i0 + 1; s < i1; s += 2) {
+          if (hasDoor && Math.abs(s - (dAt + 0.5)) < 1.2) continue;
+          if (side === 'north' && s > SX - 3.7 && s < SX - 1.5) continue; // janela da Terra
+          lining(upper, s - 0.06, s + 0.06, 0, H - 1.3, hullDark, 0.06);
+          lining(lower, s - 0.06, s + 0.06, 1.2, 2, hullDark, 0.06);
+        }
       this.walls.push({ side, upper, lowered: 0 });
     }
 
@@ -175,7 +197,7 @@ export class BaseModel {
     add(frame, lampGeo, this.doorLamps, 0, 2.24, 0.5, false);
     add(frame, lampGeo, this.doorLamps, 0, 2.24, -0.5, false);
     // degrau e círculo de entrada do lado de fora
-    const stepW = new THREE.Group();
+    const stepW = exteriorOnly(new THREE.Group());
     stepW.position.set(dcx + dnx * 1.0, 0, dcz + dnz * 1.0);
     stepW.rotation.y = this.doorAxis === 'z' ? Math.PI / 2 : 0;
     g.add(stepW);
@@ -186,7 +208,7 @@ export class BaseModel {
     pad.rotation.x = -Math.PI / 2;
     const ol = { x: layout.outside.x - box.x0, z: layout.outside.z - box.z0 };
     pad.position.set(ol.x, groundAt(layout.outside.x, layout.outside.z) - floorY + 0.03, ol.z);
-    g.add(pad);
+    g.add(exteriorOnly(pad));
     // placa
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.42), new THREE.MeshBasicMaterial({ map: signTexture(def.name.toUpperCase()), transparent: true }));
     // placa na parede da porta, ao lado dela (fica nas fileiras de cima: abaixa junto no corte)
@@ -202,7 +224,7 @@ export class BaseModel {
       return m;
     };
     const rHull = roofMat(lam('#e4e6ec')), rMetal = roofMat(lam('#8c90a0')), rPanel = roofMat(lam('#283157', { emissive: new THREE.Color('#121c48') }));
-    g.add(this.roof);
+    g.add(exteriorOnly(this.roof));
     boxAt(this.roof, rHull, -0.05, H + 1, -0.05, SX + 0.05, H + 1.55, SZ + 0.05);
     const ridge = add(this.roof, new THREE.CylinderGeometry(1.1, 1.1, SX - 2.4, 8, 1, false, 0, Math.PI), rHull, SX / 2, H + 1.55, SZ / 2);
     ridge.rotation.z = Math.PI / 2;
@@ -231,6 +253,12 @@ export class BaseModel {
     // janela com a Terra (parede norte, por dentro)
     const north = this.walls.find((w) => w.side === 'north');
     if (north) {
+      // canos da ventilação no alto da parede do fundo
+      for (const [py, r] of [[H - 1.5, 0.07], [H - 1.68, 0.05]] as const) {
+        const pipe = add(north.upper, new THREE.CylinderGeometry(r, r, SX - 2.4, 6), metal, SX / 2, py, 1.0 + 0.1 + r, false);
+        pipe.rotation.z = Math.PI / 2;
+      }
+      for (const px of [1.6, SX / 2, SX - 1.6]) boxAt(north.upper, dark, px - 0.06, H - 1.78, 1.0, px + 0.06, H - 1.4, 1.26, false);
       const earth = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.95), new THREE.MeshBasicMaterial({ map: earthTexture(), toneMapped: false }));
       earth.position.set(SX - 2.6, 0.55, 1.002);
       north.upper.add(earth);
@@ -253,15 +281,8 @@ export class BaseModel {
       this.furniture.push({ id: f.def.id, kind: f.def.kind, group: fg });
     }
 
-    // ---- máscara que escurece o lado de fora quando o astronauta está dentro ----
-    this.maskMat = new THREE.MeshBasicMaterial({
-      map: maskTexture(SX, SZ), color: 0x000000, transparent: true, opacity: 0, depthWrite: false, fog: false, toneMapped: false,
-    });
-    const mask = new THREE.Mesh(new THREE.PlaneGeometry(MASK_SIZE, MASK_SIZE), this.maskMat);
-    mask.rotation.x = -Math.PI / 2;
-    mask.position.set(SX / 2, 1.02, SZ / 2);
-    mask.renderOrder = 5;
-    g.add(mask);
+    // dentro da base a câmera só vê esta camada (as partes de fora foram marcadas acima)
+    showIndoors(g);
   }
 
   /** A cada quadro. `camera` = posição da câmera (para saber quais paredes estão na frente). */
@@ -297,7 +318,6 @@ export class BaseModel {
       w.upper.visible = w.lowered < 0.99;
       if (w.side === this.layout.door.side) this.doorFrame.scale.y = 1 - w.lowered * 0.5;
     }
-    this.maskMat.opacity = ins * 0.62;
     this.light.intensity = ins * 22;
     this.interior.visible = ins > 0.01 || this.door > 0.02;
     this.fabricator?.update(dt, t);
@@ -310,8 +330,6 @@ export class BaseModel {
     for (const w of this.walls) w.lowered = 0;
   }
 }
-
-const MASK_SIZE = 90;
 
 interface Mats {
   hull: THREE.Material;
@@ -459,23 +477,5 @@ function consoleTexture(): THREE.CanvasTexture {
   x.beginPath();
   for (let i = 0; i <= 60; i++) x.lineTo(150 + i * 1.6, 120 - Math.sin(i * 0.4) * 18 - i * 0.3);
   x.stroke();
-  return tex(c);
-}
-
-/** máscara: preto com um buraco suave do tamanho da base no meio */
-function maskTexture(sx: number, sz: number): THREE.CanvasTexture {
-  const S = 512;
-  const [c, x] = canvas(S, S);
-  const px = S / MASK_SIZE;
-  const grad = x.createRadialGradient(S / 2, S / 2, S * 0.08, S / 2, S / 2, S / 2);
-  grad.addColorStop(0, 'rgba(0,0,0,0.75)');
-  grad.addColorStop(1, 'rgba(0,0,0,1)');
-  x.fillStyle = grad;
-  x.fillRect(0, 0, S, S);
-  x.globalCompositeOperation = 'destination-out';
-  x.filter = `blur(${Math.round(px * 0.5)}px)`;
-  x.fillStyle = '#000';
-  const pad = 0.1;
-  x.fillRect(S / 2 - (sx / 2 + pad) * px, S / 2 - (sz / 2 + pad) * px, (sx + pad * 2) * px, (sz + pad * 2) * px);
   return tex(c);
 }

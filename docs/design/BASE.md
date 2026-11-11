@@ -18,8 +18,9 @@ Proposta escolhida, pensada para parecer bem feita e não acontecer por acidente
 2. A **porta corre** para dentro da parede e o astronauta **entra andando sozinho** até a câmara.
 3. A porta fecha e **duas portas de bloqueio** (com faixas de atenção) descem sobre a tela, com a leitura
    **"Câmara de pressurização"** subindo de 0 a 100% e o chiado do ar entrando.
-4. Atrás das portas de bloqueio a câmera troca para o **corte**: o telhado some, as paredes da frente
-   abaixam, o lado de fora escurece e a luz de dentro acende. A luz da porta fica verde.
+4. Atrás das portas de bloqueio a câmera troca para o **interior**: o telhado some, as paredes da frente
+   abaixam e o mundo de fora **deixa de aparecer** (terreno, pedras, céu, módulo de pouso); fica só a sala
+   sobre um fundo escuro, com a luz de dentro acesa. A luz da porta fica verde.
 5. As portas de bloqueio abrem e a IA do traje avisa que a base está pressurizada.
 
 **Sair** é o caminho inverso: botão "Sair da base" perto da porta, "Despressurizando" de 100 a 0%, a câmera
@@ -30,10 +31,19 @@ mesmo botão serve para tudo que se usa na base (porta, bancada, beliche).
 
 ## Dentro da base
 
-- Anda-se livremente (joystick ou toque para andar); paredes e móveis bloqueiam.
+A base é um **ambiente à parte** ([ADR 0006](../adr/0006-interior-da-base-como-camada-isolada.md)):
+
+- Só a sala aparece: piso de placas, paredes com nervuras, luminárias no alto, canos da ventilação, a janela
+  com a Terra. O lado de fora some.
+- No alto da tela, no lugar da bússola, o aviso **"Habitat 01 · Pressurizado"**. Somem os marcadores de
+  objetivo e de itens e o botão de construir.
+- O mundo de fora fica **travado**: não se minera, não se constrói e não se mira nada.
+- Som: o fundo da cratera quase some, o eco encurta e entra a ventilação. Meteoros não nascem enquanto se está
+  dentro; um que já estava caindo chega como um tremor grave pelo casco.
+
+- Anda-se livremente pelo joystick ou teclado; paredes e móveis bloqueiam.
 - **Pressurizado:** oxigênio, bateria e integridade recarregam, como perto do módulo de pouso.
 - **Abrigado:** meteoros não causam dano, e nenhum meteoro cai a menos de 5 blocos da base.
-- Não se minera nem se constrói dentro.
 - Móveis: **bancada de fabricação**, **beliche**, armário e console (os dois últimos, por enquanto, só
   decoram). Na parede, uma janela com a Terra.
 

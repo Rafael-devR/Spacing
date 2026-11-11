@@ -29,7 +29,7 @@ src/
   entities/          jogador, destroços, meteoros, itens soltos, itens caídos na morte (LootPiles)
   systems/           interação (minerar/construir), inventário, missões, sobrevivência, fabricação, equipamento
   render/            materiais e shaders, céu, luzes, pós-processamento, partículas, modelos, câmera, ícones,
-                     modelo da base e bancada com laser (Fabricator)
+                     modelo da base, bancada com laser (Fabricator) e camada do interior (indoors)
   ui/                HUD, menu de pausa, mochila, bancada, botão de ação e transições da base, estilos
   audio/             sons sintetizados e áudio posicional (design/AUDIO.md)
   i18n/              textos da interface (pt-BR)

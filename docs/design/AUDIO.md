@@ -47,6 +47,12 @@ do capacete, indicando de onde ela veio. Essa é a mesma ficção leve da IA do 
 O módulo zumbe o tempo todo: bombas (um "tum" lento), ventilação (chiado leve) e um grave elétrico. Perto dele
 o zumbido aparece e, de longe, some. Isso ajuda a achar o caminho de volta para recarregar o traje.
 
+### Dentro da base
+
+Ao passar para o interior, o fundo grave da cratera quase some, o eco fica curto (sala pequena) e entra a
+ventilação da base: chiado de ar que "respira" devagar e um zumbido grave de máquinas, sem posição
+(`Sfx.setIndoors`). Meteoros que já estavam caindo chegam mais graves e com menos tremor.
+
 ## Testar
 
 - `tests/spatial.test.ts`: volume, filtro e eco pela distância, e lado do som com a câmera em vários giros.

@@ -12,6 +12,7 @@ import type { Player } from '../entities/Player';
 import { t } from '../i18n';
 import type { BaseModel } from '../render/baseModel';
 import { createEquipModel } from '../render/equipModels';
+import { showIndoors } from '../render/indoors';
 import type { IsoRig } from '../render/IsoRig';
 import type { Particles } from '../render/particles';
 import type { Crafting } from '../systems/Crafting';
@@ -62,6 +63,11 @@ export class BaseDirector {
   respawn: 'lander' | 'base' = 'lander';
   /** já viu a base (o aviso da IA aparece uma vez) */
   visited = false;
+  /**
+   * Câmera no ambiente de dentro (só a base, mundo de fora travado). Troca atrás das portas da câmara de
+   * pressurização, um pouco depois de entrar e um pouco antes de sair (o Game aplica a troca).
+   */
+  indoorView = false;
   private seqT = 0;
   private step = 0;
   private outsideZoom = 30;
@@ -128,6 +134,7 @@ export class BaseDirector {
 
   private setInsideView(on: boolean, instant: boolean): void {
     const { model, layout, rig } = this.d;
+    this.indoorView = on;
     model.insideTarget = on ? 1 : 0;
     model.doorGreen = on;
     layout.structure.cutaway = on;
@@ -342,6 +349,7 @@ export class BaseDirector {
         const obj = fab?.takePiece();
         const recipe = d.crafting.lastFinished;
         if (obj && recipe) {
+          showIndoors(obj);
           d.scene.add(obj);
           const out = recipe.output;
           const name = out.kind === 'equip' ? EQUIPMENT[out.equip].name : '';

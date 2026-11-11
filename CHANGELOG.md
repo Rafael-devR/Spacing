@@ -36,6 +36,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
   - Estrutura para comida, fome e energia, ainda desligada.
   - Salvamento versão 5 (equipamento e estado da base), com migração.
   - Teste `tools/visual-check/base.mjs`.
+- **Interior da base como ambiente isolado** ([ADR 0006](docs/adr/0006-interior-da-base-como-camada-isolada.md)):
+  dentro, a câmera só vê a sala (terreno, céu e módulo somem), com fundo escuro, luz de dentro, nervuras,
+  luminárias e canos; o mundo de fora fica travado (sem minerar, construir ou mirar); aviso "Habitat 01 ·
+  Pressurizado" no lugar da bússola; ventilação no som e meteoros suspensos. A máscara escura do chão saiu.
 - Itens no chão com **contorno branco**.
 - **Inventário em espaços livres** ([design/INVENTARIO.md](docs/design/INVENTARIO.md)): barra de 8
   espaços e mochila de 24, sem espaço preso a tipo de item. O item coletado completa uma pilha igual (até 64)

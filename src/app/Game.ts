@@ -44,6 +44,7 @@ import { BaseDirector } from './BaseDirector';
 import { HAB_MODULE } from '../data/base';
 import { EQUIP_SLOTS, type EquipId } from '../data/equipment';
 import { BaseModel } from '../render/baseModel';
+import { IndoorView, showIndoors } from '../render/indoors';
 import { createEquipModel } from '../render/equipModels';
 import { Crafting } from '../systems/Crafting';
 import { Equipment } from '../systems/Equipment';
@@ -95,6 +96,8 @@ export class Game {
   readonly crafting: Crafting;
   readonly base: BaseDirector;
   readonly baseModel: BaseModel;
+  /** ambiente de dentro da base: câmera, luz e fundo (render/indoors.ts) */
+  private readonly indoors: IndoorView;
   private readonly craftPanel: CraftPanel;
   private readonly baseHud = new BaseHud();
   /** último aviso de mochila cheia (para não repetir a cada item) */
@@ -288,6 +291,11 @@ export class Game {
       },
       persist: () => this.persist(),
     });
+
+    // dentro da base a câmera só vê a camada do interior: o astronauta e as faíscas também estão nela
+    showIndoors(this.player.model.root);
+    showIndoors(this.particles.mesh);
+    this.indoors = new IndoorView(scene, this.camera, this.lights); // depois de todas as luzes existirem
 
     this.wireEvents();
     this.wireControls();
@@ -516,9 +524,11 @@ export class Game {
     });
     e.on('meteor:impact', ({ id, x, y, z, distance }) => {
       this.meteorVoices.delete(id);
-      sfx.play('boom', 1, { x, y, z });
-      rig.shake(Math.max(0.15, 1.1 - distance / 30));
-      if (distance < 30) haptics.play('heavy');
+      // dentro da base: um tremor grave que chega pelo casco
+      const indoors = this.indoors.on;
+      sfx.play('boom', indoors ? 0.6 : 1, { x, y, z });
+      rig.shake(Math.max(0.15, 1.1 - distance / 30) * (indoors ? 0.35 : 1));
+      if (distance < 30) haptics.play(indoors ? 'medium' : 'heavy');
     });
     e.on('mission:updated', () => hud.setMission(missions.view()));
     e.on('mission:started', ({ hint }) => {
@@ -642,6 +652,23 @@ export class Game {
       this.pause();
     });
     addEventListener('pagehide', () => this.persist());
+  }
+
+  // ---------- dentro e fora da base ----------
+
+  /**
+   * Troca entre o mundo de fora e o interior da base (docs/adr/0006-interior-da-base-como-camada-isolada.md):
+   * câmera, luz e fundo; mundo de fora travado; sem novos meteoros; som de dentro; HUD sem os marcadores.
+   */
+  private setIndoors(on: boolean): void {
+    this.indoors.set(on);
+    this.interaction.lockWorld(on);
+    this.meteors.holdSpawns = on;
+    this.sfx.setIndoors(on);
+    document.body.classList.toggle('in-base', on);
+    this.hud.setProgress(null);
+    this.hud.setAim(null);
+    this.events.emit('base:view', { inside: on });
   }
 
   // ---------- qualidade e tela ----------
@@ -792,6 +819,8 @@ export class Game {
       else this.meteorVoices.delete(id);
     }
 
+    if (this.base.indoorView !== this.indoors.on) this.setIndoors(this.base.indoorView);
+
     const rp = player.model.root.position;
     this.focus.set(rp.x, rp.y + 0.8, rp.z);
     rig.update(dt, this.focus);
@@ -816,15 +845,16 @@ export class Game {
     const extent = Math.max(14, rig.dist * 0.8);
     if (Math.abs(this.lights.extent - extent) > 2) this.lights.setShadowSize(QUALITY[this.qualityName].shadow, extent);
     this.lights.follow(rig.target);
-    this.fog.near = rig.dist * 1.15;
-    this.fog.far = rig.dist * 2.1;
+    // dentro da base não há neblina (desligar recompilaria os shaders: só fica longe)
+    this.fog.near = this.indoors.on ? 1e4 : rig.dist * 1.15;
+    this.fog.far = this.indoors.on ? 2e4 : rig.dist * 2.1;
 
     // marcadores: objetivo da missão e itens caídos
-    const tp = playing ? this.missions.target() : null;
+    const tp = playing && !this.indoors.on ? this.missions.target() : null;
     this.waypoint.group.visible = !!tp;
     if (tp) this.waypoint.group.position.copy(tp);
     hud.setWaypoint(tp);
-    const lp = playing ? this.loot.latest() : null;
+    const lp = playing && !this.indoors.on ? this.loot.latest() : null;
     this.lootMarker.group.visible = !!lp;
     if (lp) this.lootMarker.group.position.copy(lp);
     hud.setLootMarker(lp);

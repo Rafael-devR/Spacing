@@ -64,6 +64,30 @@ await shot('4-dentro');
 const inside = await g(() => ({ sheltered: window.spacing.survival.inPressure, cut: window.spacing.base.d.layout.structure.cutaway }));
 check('dentro: pressurizado e com corte', inside.sheltered && inside.cut, JSON.stringify(inside));
 
+// dentro é um ambiente à parte: a câmera só vê o interior e o mundo de fora não pode ser mexido
+const iso = await g(() => {
+  const s = window.spacing;
+  return {
+    layers: s.camera.layers.mask, locked: s.interaction.worldLocked, body: document.body.classList.contains('in-base'),
+    build: getComputedStyle(document.querySelector('#btn-build')).display, chip: getComputedStyle(document.querySelector('#base-chip')).display,
+    bg: !!s.scene.background,
+  };
+});
+check('dentro: só o interior aparece, com fundo da base e aviso de pressurizado', iso.layers === 2 && iso.bg && iso.body && iso.chip !== 'none', JSON.stringify(iso));
+const world0 = await g(() => JSON.stringify(window.spacing.world.serialize()));
+await g(() => window.spacing.interaction.setBuildMode(true));
+const box = await page.locator('canvas').boundingBox();
+for (const [fx, fy] of [[0.15, 0.8], [0.85, 0.2], [0.5, 0.9]]) {
+  await page.mouse.move(box.x + box.width * fx, box.y + box.height * fy);
+  await page.mouse.down();
+  await page.waitForTimeout(1500);
+  await page.mouse.up();
+  await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy, { button: 'right' });
+}
+const world1 = await g(() => JSON.stringify(window.spacing.world.serialize()));
+const build = await g(() => window.spacing.interaction.buildMode);
+check('dentro: não minera nem constrói no mundo de fora', world0 === world1 && !build && iso.locked && iso.build === 'none', `mudou: ${world0 !== world1}, construir: ${build}`);
+
 // anda livre por dentro (joystick por teclado) e não atravessa a parede
 const before = await g(() => window.spacing.player.pos.clone());
 await page.keyboard.down('d');
@@ -143,6 +167,8 @@ const outside = await g(() => {
   return { inBox: p.x >= b.x0 && p.x < b.x1 + 1 && p.z >= b.z0 && p.z < b.z1 + 1, cut: s.base.d.layout.structure.cutaway };
 });
 check('do lado de fora, sem corte', !outside.inBox && !outside.cut, JSON.stringify(outside));
+const back = await g(() => ({ layers: window.spacing.camera.layers.mask, locked: window.spacing.interaction.worldLocked, body: document.body.classList.contains('in-base') }));
+check('fora: o mundo volta a aparecer e a ser editável', back.layers === 1 && !back.locked && !back.body, JSON.stringify(back));
 
 check('sem erros no console', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(results.join('\n'));

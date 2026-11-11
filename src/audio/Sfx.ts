@@ -13,6 +13,9 @@ export type SoundName =
 const MASTER = 0.55;
 /** volume do eco da cratera */
 const REVERB = 0.55;
+/** volume do fundo grave da cratera (lá fora) e da ventilação (dentro da base) */
+const AMBIENT = 0.05;
+const INDOOR_AMBIENT = 0.035;
 
 type AudioCtor = typeof AudioContext;
 
@@ -53,6 +56,11 @@ export class Sfx {
   private readonly ear: Vec3 = { x: 0, y: 0, z: 0 };
   /** sons do mundo que duram mais que um instante e precisam acompanhar o ouvinte */
   private readonly live = new Set<Emitter>();
+  /** dentro da base: lá fora fica abafado, o eco da cratera some e entra o ar da ventilação */
+  private indoors = false;
+  private outdoorBed: GainNode | null = null;
+  private indoorBed: GainNode | null = null;
+  private wet: GainNode | null = null;
 
   init(): void {
     if (this.ctx) {
@@ -76,11 +84,13 @@ export class Sfx {
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     this.reverb = ctx.createConvolver();
     this.reverb.buffer = craterImpulse(ctx);
-    const wet = ctx.createGain();
+    const wet = (this.wet = ctx.createGain());
     wet.gain.value = REVERB;
     this.reverb.connect(wet);
     wet.connect(this.master);
     this.ambient(ctx, this.master);
+    this.indoorAmbient(ctx, this.master);
+    this.setIndoors(this.indoors, true);
     this.onReady?.();
   }
 
@@ -327,9 +337,61 @@ export class Sfx {
     void (paused ? this.ctx.suspend() : this.ctx.resume());
   }
 
+  /**
+   * Dentro (true) ou fora da base. Dentro: o fundo da cratera quase some, o eco fica curto e entra o ar
+   * da ventilação. Os sons de lá fora (meteoros) continuam, mas a distância e a parede os deixam baixos.
+   */
+  setIndoors(on: boolean, instant = false): void {
+    this.indoors = on;
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const tc = instant ? 0.001 : 0.5;
+    this.outdoorBed?.gain.setTargetAtTime(on ? 0.008 : AMBIENT, t, tc);
+    this.indoorBed?.gain.setTargetAtTime(on ? INDOOR_AMBIENT : 0, t, tc);
+    this.wet?.gain.setTargetAtTime(on ? REVERB * 0.25 : REVERB, t, tc);
+  }
+
+  /** ventilação da base: chiado de ar filtrado e um zumbido grave de máquinas, sem posição */
+  private indoorAmbient(ctx: AudioContext, master: GainNode): void {
+    if (!this.noise) return;
+    const out = (this.indoorBed = ctx.createGain());
+    out.gain.value = 0;
+    out.connect(master);
+    const air = ctx.createBufferSource();
+    air.buffer = this.noise;
+    air.loop = true;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 900;
+    bp.Q.value = 0.6;
+    const ag = ctx.createGain();
+    ag.gain.value = 0.55;
+    air.connect(bp);
+    bp.connect(ag);
+    ag.connect(out);
+    air.start();
+    const hum = ctx.createOscillator();
+    hum.type = 'sine';
+    hum.frequency.value = 96;
+    const hg = ctx.createGain();
+    hg.gain.value = 0.6;
+    hum.connect(hg);
+    hg.connect(out);
+    hum.start();
+    // o ar "respira" devagar
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.18;
+    const lg = ctx.createGain();
+    lg.gain.value = 0.2;
+    lfo.connect(lg);
+    lg.connect(ag.gain);
+    lfo.start();
+  }
+
   private ambient(ctx: AudioContext, master: GainNode): void {
-    const out = ctx.createGain();
-    out.gain.value = 0.05;
+    const out = (this.outdoorBed = ctx.createGain());
+    out.gain.value = AMBIENT;
     const lp = ctx.createBiquadFilter();
     lp.type = 'lowpass';
     lp.frequency.value = 380;

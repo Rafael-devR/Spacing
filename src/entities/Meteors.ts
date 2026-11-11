@@ -116,8 +116,11 @@ export class Meteors {
     return m ? m.head.position : null;
   }
 
+  /** sem novas quedas (astronauta dentro da base); as que já estão no ar terminam */
+  holdSpawns = false;
+
   update(dt: number, t: number): void {
-    this.timer -= dt;
+    if (!this.holdSpawns) this.timer -= dt;
     if (this.timer <= 0) {
       this.timer = 90 + Math.random() * 80;
       this.launch(this.pickTarget(12, 22), { radius: 1.6 + Math.random() * 0.8, meteorite: Math.random() < 0.6 });
