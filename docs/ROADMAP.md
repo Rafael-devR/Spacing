@@ -9,18 +9,20 @@ Marcos em ordem de execução. Cada marco vira uma versão (`v0.N.0`) com tag no
 - Visual com shaders, destroços com física, meteoros, pegadas.
 - Cadeia de missões provisória e salvamento no navegador.
 
-## v0.2: Fundação (próximo)
+## v0.2: Fundação (em revisão)
 
 Organizar antes de crescer. Sem mecânica nova, mas com menu de pausa.
 
-- [ ] Migrar `src/` para TypeScript e para a estrutura de pastas alvo.
-- [ ] Barramento de eventos entre sistemas.
-- [ ] Conteúdo em `data/` (blocos, itens, objetos, missões), com os sistemas lendo os dados.
-- [ ] Estados do jogo: carregando, menu, jogando, pausa.
-- [ ] Menu de pausa com configurações: gráficos, som, tremor de tela, vibração.
-- [ ] Salvamento com versão e migração do formato antigo.
-- [ ] Estilos em arquivo próprio; textos da interface em `i18n/`.
-- [ ] Passo fixo de física.
+- [x] Migrar `src/` para TypeScript e para a estrutura de pastas alvo.
+- [x] Barramento de eventos entre sistemas.
+- [x] Conteúdo em `data/` (blocos, itens, objetos, missões), com os sistemas lendo os dados.
+- [x] Estados do jogo: carregando, menu, jogando, pausa.
+- [x] Menu de pausa com configurações: gráficos, som, tremor de tela, vibração.
+- [x] Salvamento com versão e migração do formato antigo.
+- [x] Estilos em arquivo próprio; textos da interface em `i18n/` (os textos fixos do `index.html` ficam para depois).
+- [x] Passo fixo de física, com renderização interpolada.
+- [x] Inventário como sistema próprio (base para perder os itens na morte).
+- [x] Teste jogado automático no navegador (`tools/visual-check/play.mjs`).
 
 ## v0.3: Sobrevivência I
 

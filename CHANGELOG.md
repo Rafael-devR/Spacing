@@ -12,6 +12,11 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - Design da sobrevivência (`docs/design/SOBREVIVENCIA.md`): oxigênio, bateria, integridade, morte com
   perda de todos os itens e Gerador de Domo.
 - Catálogo de game juice (`docs/design/GAME_JUICE.md`).
+- Menu de pausa (Esc, P ou botão Pausa) com configurações de gráficos, som, tremor de tela e vibração.
+- Vibração no celular ao quebrar blocos, em impactos de meteoro e ao concluir objetivos.
+- O jogo salva e pausa sozinho ao trocar de aplicativo ou esconder a aba.
+- Teste jogado automático no navegador (`tools/visual-check/play.mjs`) e testes de eventos, salvamento,
+  passo fixo, inventário e consistência dos dados (33 testes no total).
 
 ### Corrigido
 
@@ -23,6 +28,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - `GAME_DESIGN.md`, `ROADMAP.md`, `STORY.md` e `ART_DIRECTION.md` atualizados com as decisões de
   sobrevivência, tom científico e game juice. O roadmap ganhou as etapas Sobrevivência I (v0.3) e II (v0.4).
 - `CLAUDE.md` descreve o ambiente atual (GitHub Codespace) e o uso do `visual-check`.
+- **Fundação (v0.2):** todo o código migrou para TypeScript estrito, organizado em `app/`, `core/`, `data/`,
+  `world/`, `entities/`, `systems/`, `render/`, `ui/`, `audio/` e `i18n/`.
+- Sistemas conversam por um barramento de eventos tipado; som, tremor, vibração e HUD reagem a eventos.
+- Blocos, itens, objetos e missões viraram dados em `src/data/`.
+- Física em passo fixo de 1/60 s, com a animação do astronauta interpolada.
+- Salvamento com versão (chave `spacing.save`); o salvamento da v0.1 é migrado automaticamente.
+- Os botões de gráficos, som e controles do topo foram para o menu de pausa.
+- Estilos em `src/ui/styles.css` e textos da interface em `src/i18n/`.
 
 ## [0.1.0] - 2026-11-11
 

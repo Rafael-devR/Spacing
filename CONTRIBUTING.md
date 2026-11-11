@@ -12,6 +12,14 @@ npm run dev        # http://localhost:5173
 O jogo **não é publicado em nenhum site para teste**. Para testar, sobe-se o servidor local e abre-se no
 navegador do mesmo aparelho (`localhost:5173`) ou de outro na mesma rede (o endereço aparece no terminal).
 
+Para conferir o jogo de verdade, com o servidor rodando:
+
+```bash
+cd tools/visual-check && npm install           # uma vez
+node play.mjs http://localhost:5173/ /tmp       # teste jogado: começa, minera, pausa, salva
+node shot.mjs http://localhost:5173/ /tmp 390 844 medio mobile   # capturas de tela
+```
+
 Antes de cada commit, tudo isto precisa passar:
 
 ```bash
@@ -71,8 +79,11 @@ Para lançar uma versão:
 
 ## Código
 
-- TypeScript estrito para arquivo novo. Arquivo `.js` que for tocado é convertido para `.ts`
-  ([ADR 0002](docs/adr/0002-typescript-e-vite.md)).
+- TypeScript estrito ([ADR 0002](docs/adr/0002-typescript-e-vite.md)).
+- Arquivo cuja exportação principal é uma classe usa PascalCase (`World.ts`); os outros, camelCase.
+- Sistemas conversam por eventos (`src/app/events.ts`); conteúdo novo entra em `src/data/`
+  ([ADR 0004](docs/adr/0004-conteudo-como-dados-e-eventos.md)).
+- Texto de interface novo entra em `src/i18n/pt-BR.ts`.
 - Identificadores em inglês; comentários e textos de interface em português.
 - Todo efeito visual novo informa o custo de desempenho e tem versão barata para a qualidade baixa.
 - Teste em celular, não só no computador.

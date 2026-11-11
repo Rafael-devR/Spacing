@@ -53,6 +53,7 @@ Outros comandos:
 | Girar a câmera (90°)      | Q / E               | Setas curvas                                |
 | Zoom                      | Roda do mouse       | Pinça ou botões + e −                       |
 | Escolher item             | 1 a 8               | Toque na barra de itens                     |
+| Pausar e configurações    | Esc ou P            | Botão Pausa                                 |
 
 ## Documentação
 

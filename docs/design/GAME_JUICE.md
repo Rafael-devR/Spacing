@@ -23,25 +23,25 @@ Legenda: **feito** já está no jogo; **v0.2**, **v0.3** e **v0.4** indicam em q
 | Evento                | Imagem                                             | Câmera                  | Som                      | Vibração | Estado |
 | --------------------- | -------------------------------------------------- | ----------------------- | ------------------------ | -------- | ------ |
 | Golpe de mineração    | Faísca, lasca, anel de progresso                    | Tremor leve             | Clique                   | Curta    | feito; vibração v0.3 |
-| Bloco quebrado        | 15+ destroços com física, poeira, bloco "encolhe"   | Tremor + pausa de 40 ms | Estalo grave             | Média    | feito; pausa e encolher v0.3 |
+| Bloco quebrado        | 15+ destroços com física, poeira, bloco "encolhe"   | Tremor + pausa de 40 ms | Estalo grave             | Curta    | feito (vibração na v0.2); pausa e encolher v0.3 |
 | Item coletado         | Item voa, ícone pula, "+1"                          |                         | Pop com tom subindo em sequência | |  feito; tom em sequência v0.3 |
 | Bloco colocado        | Bloco surge esticando e assenta, poeira             | Tremor mínimo           | Batida                   | Curta    | poeira feito; animação v0.3 |
 | Passo / pulo / pouso  | Poeira, pegadas, astronauta achata ao pousar        | Tremor no pouso forte   | Passo, pulo, pouso       |          | feito; achatar v0.3 |
 | Detrito chutado       | Destroço voa e gira                                 |                         | Tilintar                 |          | feito |
-| Meteoro               | Aviso no chão, rastro, clarão, cratera              | Tremor forte            | Assobio + explosão       | Longa    | feito; vibração v0.3 |
+| Meteoro               | Aviso no chão, rastro, clarão, cratera              | Tremor forte            | Assobio + explosão       | Longa    | feito (vibração na v0.2) |
 | Oxigênio baixo        | Medidor pisca, vinheta pulsa                        |                         | Bip, respiração rápida   | Curta    | v0.3 |
 | Dano                  | Tela pisca vermelho, número de dano, astronauta pisca | Tremor proporcional   | Impacto + alarme do traje | Média   | v0.3 |
 | Asfixia               | Tela perde cor, vinheta fecha                       | Zoom lento              | Batimento cardíaco       | Pulsada  | v0.3 |
 | Morte                 | Itens explodem para fora e flutuam, tela escurece   | Câmera lenta + zoom     | Som abafa e some         | Longa    | v0.3 |
 | Renascer              | Feixe de luz no módulo, medidores enchem com animação | Afasta suave           | Sistema ligando          | Curta    | v0.3 |
 | Recarga no módulo     | Medidores sobem com brilho, partículas entre módulo e traje |                  | Zumbido de carga         |          | v0.3 |
-| Objetivo concluído    | Banner, painel da missão pisca                      |                         | Acorde                   | Curta    | feito; vibração v0.3 |
+| Objetivo concluído    | Banner, painel da missão pisca                      |                         | Acorde                   | Curta    | feito (vibração na v0.2) |
 | Domo ligando          | Esfera cresce do gerador com ondulação              | Tremor leve             | Zumbido de campo         | Média    | v0.4 |
 
 ## Configurações
 
-Ficam no menu de pausa (v0.2):
+Ficam no menu de pausa (feito na v0.2):
 
-- Tremor de tela: desligado, baixo, normal.
+- Tremor de tela: desligado, baixo, normal. Com `prefers-reduced-motion`, começa em baixo.
 - Vibração: ligada ou desligada (só aparece em aparelhos que vibram).
-- Gráficos e som (já existem hoje nos botões do topo).
+- Gráficos (automática, baixa, média, alta) e som.

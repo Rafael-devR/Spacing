@@ -5,141 +5,134 @@
 | Camada            | Escolha                          | Motivo (ver [ADRs](adr))                                  |
 | ----------------- | -------------------------------- | --------------------------------------------------------- |
 | Renderização      | Three.js `0.160.0` (fixado)      | Controle total de shader, roda em celular, sem instalar   |
-| Linguagem         | TypeScript (migração gradual)    | Projeto grande precisa de tipos                           |
+| Linguagem         | TypeScript estrito               | Projeto grande precisa de tipos                           |
 | Build e servidor  | Vite                             | Recarga rápida, build simples, sem configuração pesada    |
-| Testes            | Vitest                           | Mesma configuração do Vite, roda em Node                  |
+| Testes            | Vitest + teste jogado no navegador | Lógica em Node; jogo real em Chromium headless          |
 | Qualidade         | ESLint + Prettier                | Padrão único de código                                    |
-| Persistência      | `localStorage` hoje              | Simples; migrar para IndexedDB (ver "Dívidas")            |
+| Persistência      | `localStorage`, com versão       | Simples; migrar para IndexedDB (ver "Dívidas")            |
 | Distribuição      | Web; PWA e Capacitor depois      | Navegador agora, app instalável quando fizer sentido      |
 
 O Three.js está fixado numa versão exata porque o material dos blocos injeta código GLSL nos blocos internos
-do `MeshLambertMaterial`. Atualizar exige revisar `src/graphics.js`.
+do `MeshLambertMaterial` (`src/render/materials.ts`). Atualizar exige revisar esse arquivo.
 
-## Visão geral em tempo de execução
-
-```
- input ─────┐
-            ▼
-        interaction ──► world (chunks, blocos, objetos) ──► mesher ──► render
-            │                ▲                                  ▲
-            ▼                │                                  │
-  player / debris / meteors ─┘      missions ─► ui (HUD)        │
-            │                                                   │
-            └───────────────► particles, footprints, audio ─────┘
-```
-
-Laço principal (`main.js`, uma vez por quadro): entrada → jogador → destroços, pegadas, meteoros e missões →
-câmera → carregar e descarregar chunks → interação → partículas → sombra → HUD → pós-processamento.
-
-## Estado atual do código
-
-Tudo em `src/`, ainda em JavaScript e sem subpastas.
-
-| Arquivo          | Responsabilidade                                                                       |
-| ---------------- | -------------------------------------------------------------------------------------- |
-| `main.js`        | Inicialização, ligação dos módulos, laço principal, salvar e carregar, qualidade       |
-| `world.js`       | Gerência de chunks, blocos, raycast por voxel, objetos soltos, edições salvas          |
-| `terrain.js`     | Geração procedural determinística por semente (relevo, crateras, minérios, objetos)    |
-| `noise.js`       | Gerador pseudoaleatório, hashes, ruído simplex 2D/3D, fbm                              |
-| `mesher.js`      | Malha do chunk: só faces visíveis, oclusão por vértice, pepitas de minério             |
-| `blocks.js`      | Definições de blocos, itens e objetos (dados dentro do código)                         |
-| `models.js`      | Modelos low poly procedurais: pedras, cristais, astronauta, módulo, marcador           |
-| `player.js`      | Física, colisão, subida de degraus, animação do astronauta                             |
-| `rig.js`         | Câmera isométrica: giro de 90°, zoom, tremor                                           |
-| `graphics.js`    | Shaders, céu, luzes, pós-processamento, partículas, ícones, qualidade                  |
-| `input.js`       | Teclado, mouse, toque, joystick e pinça                                                |
-| `interaction.js` | Mira, mineração, construção, itens soltos, andar até um ponto                          |
-| `debris.js`      | Física de destroços instanciados (quique, empilhar, chute)                             |
-| `meteors.js`     | Meteoros: aviso, queda, cratera, meteorito                                             |
-| `footprints.js`  | Pegadas desenhadas por shader                                                          |
-| `missions.js`    | Objetivos da missão 01 (lista fixa no código)                                          |
-| `ui.js`          | HUD em DOM: barra de itens, avisos, missão, bússola, seta de objetivo                  |
-| `audio.js`       | Sons sintetizados com WebAudio                                                         |
-
-## Estrutura alvo
-
-Ela é aplicada junto com a migração para TypeScript, módulo por módulo, sem parar o jogo.
+## Estrutura do código
 
 ```
 src/
-  main.ts            ponto de entrada, só liga as peças
-  app/               Game (laço e estados: menu, jogando, pausa), configuração
-  core/              eventos (barramento), ruído e aleatoriedade, tempo, salvar, assets
-  world/             terreno, chunks, mesher, raycast, registro de blocos
-  entities/          jogador, objetos soltos, itens no chão, destroços, meteoros, veículos
-  systems/           mineração, construção, crafting, missões, ambientação
-  render/            renderer, pós-processamento, materiais e shaders, luzes, partículas, modelos
-  ui/                HUD, menus, inventário, tela de crafting, diálogos, estilos
-  audio/             sintetizador e música
-  data/              conteúdo como dados: blocos, itens, receitas, missões, falas
-  i18n/              textos (pt-BR primeiro, outros idiomas depois)
-tests/               testes automatizados
-public/              arquivos estáticos (modelos glTF, áudio, ícones, manifest)
+  main.ts            ponto de entrada: cria o renderizador e o Game
+  app/               Game (laço, estados, ligação dos sistemas), eventos do jogo, configuração, passo fixo
+  core/              barramento de eventos, entrada, salvamento, preferências, ruído, cor, vibração
+  data/              conteúdo como dados: blocos, itens, objetos, missões
+  world/             terreno, chunks (World), mesher, registro de blocos
+  entities/          jogador, destroços, meteoros, itens soltos
+  systems/           interação (minerar/construir), inventário, missões
+  render/            materiais e shaders, céu, luzes, pós-processamento, partículas, modelos, câmera, ícones
+  ui/                HUD, menu de pausa, estilos
+  audio/             sons sintetizados
+  i18n/              textos da interface (pt-BR)
+tests/               testes automatizados (Vitest)
+tools/visual-check/  capturas de tela e teste jogado em Chromium headless (package.json próprio)
+public/              arquivos estáticos (modelos, áudio, ícones, quando houver)
 docs/                documentação e referências de arte
 ```
 
-Mapeamento do que existe para o alvo:
+Convenção de nomes: arquivo cuja exportação principal é uma classe usa PascalCase (`World.ts`, `Player.ts`);
+os demais usam camelCase (`terrain.ts`, `materials.ts`).
 
-| Hoje                              | Alvo                                                    |
-| --------------------------------- | ------------------------------------------------------- |
-| `main.js`                         | `main.ts` + `app/Game.ts`                               |
-| `noise.js`                        | `core/noise.ts`                                         |
-| `world.js`, `terrain.js`, `mesher.js` | `world/`                                            |
-| `blocks.js`                       | `data/blocks.ts`, `data/items.ts` + `world/registry.ts` |
-| `player.js`, `debris.js`, `meteors.js` | `entities/`                                        |
-| `interaction.js`, `missions.js`   | `systems/`                                              |
-| `graphics.js`, `models.js`, `rig.js`, `footprints.js` | `render/`                           |
-| `ui.js`, CSS do `index.html`      | `ui/`                                                   |
-| `input.js`                        | `core/input.ts`                                         |
-| `audio.js`                        | `audio/`                                                |
+## Como as peças conversam
+
+```
+             ┌──────────── barramento de eventos (app/events.ts) ────────────┐
+             │                                                               │
+ Input ─► Interaction ─► World / Debris / ItemDrops ─► Inventory     Missions
+             │   publica: mine:hit, block:broken, prop:broken,        assina: item:collected,
+             │            block:placed, action:denied, build:mode       prop:broken, inventory:changed
+             │                                                       publica: mission:*
+ Player ─────┤   publica: player:step, player:jump, player:land
+ Meteors ────┤   publica: meteor:incoming, meteor:impact
+ World ──────┘   publica: world:blockChanged
+                                    │
+                                    ▼
+                  app/Game.ts assina e decide a resposta:
+                  som (Sfx), tremor (IsoRig), vibração (Haptics), HUD, pegadas
+```
+
+Regra: **um sistema nunca chama outro sistema para avisar algo**. Ele publica um evento. Quem precisa reagir
+assina. O catálogo completo, com o formato de cada evento, fica em `src/app/events.ts`. Para ver os eventos
+no console, abra o jogo com `?eventos` no endereço.
+
+## Laço principal e estados
+
+Estados (`app/Game.ts`): `loading` → `menu` → `playing` ⇄ `paused`.
+
+A cada quadro, em `playing`:
+
+1. Entrada.
+2. **Simulação em passo fixo de 1/60 s** (`FixedStep`): caminhada automática, física do jogador e dos destroços.
+   No máximo 5 passos por quadro; se o aparelho atrasar mais que isso, o jogo desacelera em vez de travar.
+3. Animação do jogador, **interpolada** entre os dois últimos passos (sem tremor em telas de 90/120 Hz).
+4. Itens soltos, pegadas, meteoros, missões.
+5. Câmera, carregar e descarregar chunks, interação, partículas, sombra, neblina.
+6. HUD e pós-processamento.
+
+Em `paused` nada é simulado nem desenhado (o canvas mantém o último quadro) e o áudio é suspenso. Ao esconder
+a aba, o jogo salva e pausa sozinho.
 
 ## Princípios
 
-1. **Conteúdo é dado, comportamento é código.** Blocos, itens, receitas, missões e falas ficam em `data/`.
-   Adicionar uma missão não deve exigir mexer em sistema nenhum.
-2. **Sistemas conversam por eventos.** Em vez de `interaction` chamar `missions` direto, ele emite
-   `block:broken`, `item:collected`, `prop:broken`, e quem se interessa escuta. Hoje essa ligação é feita
-   por callbacks em `main.js` e é a primeira coisa a trocar.
-3. **Simulação separada da renderização.** Lógica não conhece Three.js sempre que possível. Isso facilita
-   testar e mantém a porta aberta para multiplayer ou servidor no futuro.
+1. **Conteúdo é dado, comportamento é código.** Blocos, itens, objetos e missões ficam em `data/`. Os
+   sistemas só interpretam. Testes em `tests/data.test.ts` garantem que tudo que um dado referencia existe.
+2. **Sistemas conversam por eventos** ([ADR 0004](adr/0004-conteudo-como-dados-e-eventos.md)).
+3. **Simulação separada da renderização** sempre que possível: física em `step()`, aparência em `animate()`.
 4. **Determinismo.** O mundo vem da semente; só as edições do jogador são salvas.
 5. **Celular é o alvo de desempenho.** Todo recurso novo informa o custo e tem um modo barato.
+6. **Textos da interface em `i18n/`.** Nomes de conteúdo ficam nos dados.
 
 ## Mundo e chunks
 
 - Chunk de **16 × 16** blocos de largura e **48** de altura; cada bloco ocupa 1 byte (até 255 tipos).
 - Chunks são gerados em um anel ao redor do jogador. O raio (2 a 5) depende do zoom da câmera.
 - A malha de cada chunk tem só as faces visíveis. Oclusão ambiente e variação de cor entram no vértice.
-- Ao editar um bloco, o chunk e os vizinhos de borda são refeitos uma única vez (`setBlocks` em lote).
-- Objetos soltos (pedras e minérios) não são blocos: são malhas separadas, posicionadas sobre o terreno.
+- Ao editar blocos, cada chunk afetado é refeito uma única vez (`World.setBlocks` em lote).
+- Objetos soltos (pedras, minérios, meteoritos) não são blocos: são malhas separadas, sobre o terreno.
 - Decisão completa em [ADR 0003](adr/0003-mundo-em-voxels-por-chunks.md).
 
 ## Salvamento
 
-Chave `spacing.save.v1` no `localStorage`, em JSON:
+Chave `spacing.save` no `localStorage`, em JSON, formato **versão 2** (`src/core/save.ts`):
 
 ```
-{ world: { edits: { "cx,cz": [[índice, bloco], ...] }, removedProps: [...], extraProps: [...] },
+{ version: 2, seed, savedAt,
+  world: { edits: { "cx,cz": [[índice, bloco], ...] }, removedProps: [...], extraProps: [...] },
   inventory: { item: quantidade },
   player: { x, y, z },
   missions: { step, count } }
 ```
 
-Salva a cada 5 segundos, ao esconder a aba e ao sair. Preferências (qualidade, som) ficam em
-`spacing.prefs.v1`. O sufixo `v1` existe para permitir migração: toda mudança de formato precisa de uma
-função de migração e de um teste.
+- O salvamento da v0.1 (chave `spacing.save.v1`, sem versão) é migrado na primeira carga e apagado.
+- Dados inválidos são limpos (itens desconhecidos, quantidades negativas); versões futuras são recusadas.
+- Salva a cada 5 segundos jogando, ao pausar, ao esconder a aba e ao sair.
+- Preferências (qualidade, som, tremor, vibração) ficam em `spacing.prefs.v1`.
+- **Toda mudança de formato** ganha nova versão, função de migração e teste em `tests/save.test.ts`.
+
+## Testes
+
+| Onde                          | O que cobre                                                         |
+| ----------------------------- | ------------------------------------------------------------------- |
+| `tests/terrain.test.ts`       | Determinismo e regras do gerador                                    |
+| `tests/world.test.ts`         | Quebrar blocos, raycast, edições salvas, mesher                     |
+| `tests/core.test.ts`          | Eventos, passo fixo, inventário                                     |
+| `tests/save.test.ts`          | Migração da v0.1, limpeza de dados, gravar e ler                    |
+| `tests/data.test.ts`          | Consistência do conteúdo e dos textos                               |
+| `tools/visual-check/play.mjs` | Jogo real no navegador: começar, minerar, coletar, pausar, salvar   |
 
 ## Dívidas técnicas conhecidas
 
 | Dívida                                                     | Plano                                                       |
 | ---------------------------------------------------------- | ----------------------------------------------------------- |
-| Geração e malha de chunks na thread principal              | Web Worker; dá engasgo em celular fraco ao andar rápido     |
-| Passo de física variável (limitado a 50 ms)                | Passo fixo para jogador e destroços                         |
-| Missões e conteúdo dentro do código                        | `data/` + eventos (princípios 1 e 2)                        |
-| Textos em português espalhados pelo código                 | `i18n/`                                                     |
+| Geração e malha de chunks na thread principal              | Web Worker (v0.7); engasga em celular fraco ao andar rápido |
 | Salvamento em `localStorage` (limite de cerca de 5 MB)     | IndexedDB quando as edições crescerem                       |
-| CSS inteiro dentro do `index.html`                         | Arquivos de estilo em `ui/`                                 |
-| Tudo em JavaScript                                         | Migração para TypeScript, um módulo por vez                 |
-| Poucos testes (mundo, terreno, mesher)                     | Testes para jogador, destroços, interação e missões         |
-| Pacote de 580 kB (155 kB comprimido)                       | Dividir em partes e carregar efeitos opcionais sob demanda  |
-| Não há menu inicial nem pausa de verdade                   | Máquina de estados em `app/`                                |
+| Textos estáticos do `index.html` fora do `i18n/`           | Gerar o HTML dos menus a partir do `i18n/`                  |
+| Prettier ainda não aplicado a todo o código                | Formatar arquivo por arquivo ao mexer                       |
+| Pacote de 596 kB (161 kB comprimido)                       | Dividir em partes e carregar efeitos opcionais sob demanda  |
+| `app/Game.ts` concentra a resposta a todos os eventos      | Separar em "reações" (som, câmera, HUD) quando crescer      |

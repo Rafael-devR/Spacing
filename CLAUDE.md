@@ -21,7 +21,7 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). Leia o [README]
 - Siga o fluxo de [CONTRIBUTING.md](CONTRIBUTING.md): branches, Conventional Commits, PR.
 - Ações visíveis fora da máquina (criar repositório, abrir PR, push, release) só quando o dono pedir.
 - Mudou decisão técnica, design, história ou arte? Atualize o documento ou escreva um ADR na mesma mudança.
-- Não migre nem reorganize o código do jogo sem o dono pedir. A estrutura alvo está em
+- Não reorganize a estrutura do código sem o dono pedir. Ela está descrita em
   [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - O Three.js está fixado em `0.160.0`: o material dos blocos depende dos nomes internos dos shaders.
 - Depois de mudança visual, **olhe o jogo**: `tools/visual-check` tira capturas num Chromium headless
@@ -40,8 +40,12 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). Leia o [README]
 
 ## Mapa rápido
 
-- Código do jogo: `src/` (hoje plano, em JavaScript; estrutura alvo em `docs/ARCHITECTURE.md`).
-- Testes: `tests/`. Capturas de tela: `tools/visual-check/` (ferramenta à parte, com `package.json` próprio).
+- Código do jogo: `src/`, em TypeScript, organizado por pastas (ver `docs/ARCHITECTURE.md`). Entrada em
+  `src/main.ts`; laço, estados e ligação dos sistemas em `src/app/Game.ts`; eventos em `src/app/events.ts`.
+- Testes: `tests/`. Capturas de tela e teste jogado: `tools/visual-check/` (`shot.mjs`, `play.mjs`;
+  ferramenta à parte, com `package.json` próprio). Rode o `play.mjs` depois de mudar jogabilidade.
+- Depuração em `npm run dev`: `window.spacing` é o objeto do jogo; `?eventos` no endereço mostra os eventos.
 - Decisões: `docs/adr/`. Referências de arte: `docs/art/reference/`.
-- Salvamento: `localStorage`, chaves `spacing.save.v1` e `spacing.prefs.v1`.
-- Semente do mundo: `20261111` em `src/main.js`. Mudar o gerador em `src/terrain.js` invalida saves.
+- Salvamento: `localStorage`, chave `spacing.save` (com versão e migração em `src/core/save.ts`) e
+  `spacing.prefs.v1`. Mudou o formato? Nova versão, migração e teste.
+- Semente do mundo: `SEED` em `src/app/config.ts`. Mudar o gerador em `src/world/terrain.ts` invalida saves.
