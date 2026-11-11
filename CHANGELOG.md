@@ -14,8 +14,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
   traje avisa qual broca fabricar. A ponta no astronauta muda com a broca. Tudo em `data/drills.ts`.
 - Teste `tools/visual-check/drill.mjs`.
 - **Mapa no tablet** ([design/MAPA.md](docs/design/MAPA.md)): com o Mapa equipado, o botão do tablet (ou M) traz
-  o tablet do pulso até a câmera até a tela dele ocupar a tela. Nela, um holograma embaçado do relevo visto de cima,
-  com você, a sonda, a base, o objetivo, seus itens, meteoritos e minérios. Arrastar move, pinçar dá zoom.
+  o tablet do pulso até a câmera até a tela dele ocupar a tela. Nela, o terreno em blocos, na mesma perspectiva da
+  câmera do jogo e na resolução da tela, com a forma real do relevo mas sem minérios, pedras soltas nem cavernas.
+  Mostra você, a sonda, a base, o objetivo, seus itens, meteoritos e minérios vistos. Arrastar move, pinçar dá
+  zoom, os botões giram como a câmera do jogo.
+- **Mapa descoberto aos poucos**: só aparece onde o astronauta já andou (raio de 22 blocos, em ladrilhos de 4×4).
+  Salvamento versão 6, com migração.
 - Teste `tools/visual-check/tablet.mjs`.
 
 ### Alterado

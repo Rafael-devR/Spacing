@@ -107,6 +107,21 @@ describe('salvamento', () => {
     expect(s.suit?.energy).toBe(100);
   });
 
+  it('v5 → v6: mapa ainda não descoberto', () => {
+    const s = migrate({ ...V1, version: 5, inventory: { slots: [], selected: 0 }, equipment: { map: 'map' } }, 1)!;
+    expect(s.version).toBe(6);
+    expect(s.explored).toEqual({});
+    expect(s.equipment).toEqual({ map: 'map' });
+  });
+
+  it('v6: limpa o mapa descoberto inválido', () => {
+    const s = migrate({
+      ...V1, version: SAVE_VERSION, inventory: { slots: [], selected: 0 },
+      explored: { '1,2': 5, '-3,-4': 65535, 'x,1': 3, '0,0': 0, '5,5': 70000, '6,6': 1.5, '7,7': 'a' },
+    }, 1)!;
+    expect(s.explored).toEqual({ '1,2': 5, '-3,-4': 65535 });
+  });
+
   it('recusa lixo e versões futuras', () => {
     expect(migrate(null, 1)).toBeNull();
     expect(migrate('texto', 1)).toBeNull();
@@ -129,6 +144,7 @@ describe('salvamento', () => {
       loot: [{ item: 'iron' as const, amount: 3, x: 1, y: 18, z: 2, pile: 1 }],
       equipment: { map: 'map' as const },
       base: { inside: true, respawn: 'base' as const, visited: true },
+      explored: { '0,0': 0xffff, '-2,5': 0b1010 },
     };
     expect(writeSave(store, data)).toBe(true);
     const back = loadSave(store, 3);
@@ -139,6 +155,7 @@ describe('salvamento', () => {
     expect(back?.loot).toEqual([{ item: 'iron', amount: 3, x: 1, y: 18, z: 2, pile: 1 }]);
     expect(back?.equipment).toEqual({ map: 'map' });
     expect(back?.base).toEqual({ inside: true, respawn: 'base', visited: true });
+    expect(back?.explored).toEqual({ '0,0': 0xffff, '-2,5': 0b1010 });
   });
 
   it('sem armazenamento (navegador bloqueado) não quebra', () => {
@@ -147,7 +164,7 @@ describe('salvamento', () => {
       writeSave(null, {
         seed: 1, world: { edits: {}, removedProps: [], extraProps: [] }, inventory: slots({}), player: null,
         missions: { step: 0, count: 0 }, suit: null, loot: [], equipment: {},
-        base: { inside: false, respawn: 'lander', visited: false },
+        base: { inside: false, respawn: 'lander', visited: false }, explored: {},
       }),
     ).toBe(false);
   });

@@ -67,7 +67,7 @@ astronauta morrer, acorda dentro da base em vez de no módulo de pouso.
 - **Materiais:** 6 regolito + 2 minério de ferro (ajustável em `src/data/recipes.ts`).
 - **Equipamento**, não item: não ocupa espaço no inventário. Ao terminar já fica **equipado** no traje e
   aparece em "Equipamento no traje", na mochila.
-- **Uso:** libera o botão do tablet, que abre o mapa em holograma ([MAPA.md](MAPA.md)).
+- **Uso:** libera o botão do tablet, que abre o mapa da cratera ([MAPA.md](MAPA.md)).
 
 ## Comida, fome e energia (preparado, desligado)
 

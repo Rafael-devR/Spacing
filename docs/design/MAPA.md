@@ -6,48 +6,71 @@ ao lado da mochila (no computador, também a tecla **M**).
 ## Abrir e fechar
 
 1. Toque no botão do tablet. O tablet **sobe do canto de baixo**, deitado como se viesse do pulso, e vem até a câmera
-   endireitando até a tela dele **ocupar a tela do celular** (0,6 s). A tela já mostra o holograma enquanto sobe.
-2. Com o tablet em tela cheia aparecem o título, a legenda, os nomes dos lugares e os botões. O HUD do jogo some.
+   endireitando até a tela dele **ocupar a tela do celular** (0,6 s). A tela já mostra o mapa enquanto sobe.
+2. Com o tablet em tela cheia aparecem o título, a bússola, a legenda, os nomes dos lugares e os botões. O HUD do
+   jogo some.
 3. Fechar (✕, M ou Esc, que fecha o mapa sem pausar) faz o caminho de volta (0,4 s).
 
 Enquanto o mapa está aberto o astronauta fica parado, mas o tempo corre: o traje continua gastando oxigênio. Morrer
 fecha o mapa na hora. Não abre durante a câmara de pressurização nem com a mochila ou a bancada abertas.
 
-## O holograma
+## O mapa
 
-- **Visão de cima**, inclinada (64°) para o relevo aparecer em 3D, com o **norte para cima**.
-- **Terreno em holograma embaçado, sem detalhe:** o relevo vem do gerador do mundo (não das edições do jogador),
-  amostrado de 2 em 2 blocos e suavizado. Curvas de nível nas encostas, grade a cada 16 blocos, linhas de varredura,
-  tremulação leve e borda que some em círculo. A imagem é desenhada em baixa resolução (42% da tela), o que a deixa
-  macia, e o bloom do jogo faz brilhar.
-- Cobre 160 × 160 blocos em volta do centro da vista. Arrastar com o dedo move o mapa (o relevo é refeito quando a
-  vista anda longe); pinçar, a roda do mouse ou os botões + e − mudam o zoom; ◎ volta para você.
+- **Mesma perspectiva da câmera do jogo:** mesma inclinação, mesma abertura e o mesmo giro. O mapa abre olhando para
+  o lado que a câmera olhava, e os botões de girar giram de 90° em 90°, como no jogo. A bússola no alto mostra o norte.
+- **Feito de blocos:** cada coluna descoberta aparece como no mundo, com o topo na altura real e paredes até a
+  coluna vizinha. Dá para ler o formato do terreno: crateras, degraus, buracos que o jogador cavou, a base.
+- **Sem revelar detalhes:** a superfície é desenhada com uma paleta de mapa por tipo de chão (regolito, rocha,
+  basalto, gelo, casco da base). Minério aparece com a cor da rocha em volta, e não há pedras soltas nem cavernas;
+  só o topo de cada coluna.
+- **Qualidade:** desenhado numa textura do tamanho real da tela (com a densidade de pixels do celular, até 2560
+  pixels), com antisserrilhado, sol com sombra, contorno em cada bloco e névoa ao longe. Em tela cheia, a textura cai
+  pixel a pixel na tela.
+
+## Descoberto ao explorar
+
+O mapa começa vazio e vai sendo descoberto conforme o astronauta anda (`src/systems/Exploration.ts`):
+
+- O mundo é dividido em **ladrilhos de 4 × 4 blocos**. A cada 0,3 s, os ladrilhos num raio de **22 blocos** em volta
+  do astronauta ficam descobertos.
+- O que não foi descoberto não é desenhado: fica o fundo escuro com uma grade. A borda do que foi descoberto desce
+  numa saia que some no escuro, como uma maquete.
+- Fica salvo (`explored` no salvamento, versão 6). Salvamentos antigos começam com o mapa vazio, e o jogo revela em
+  volta do astronauta ao carregar.
+- Blocos quebrados ou colocados aparecem no mapa (o trecho é refeito).
 
 ## O que aparece
 
-| Marcador     | Como            | De onde                                           |
-| ------------ | --------------- | ------------------------------------------------- |
-| Você         | seta laranja que gira com o astronauta, anel pulsando | posição e direção do astronauta |
-| Sonda        | pino com nome   | o módulo de pouso                                 |
-| Base         | pino com nome   | centro do habitat                                 |
-| Objetivo     | pino com nome   | o alvo da missão atual, quando ela tem um         |
-| Seus itens   | pino com nome   | cada pilha de itens caídos na morte               |
-| Meteorito    | pino com nome   | meteoritos caídos por perto                       |
-| Cristal, ouro, ilmenita | pontos | minérios soltos nos trechos já carregados   |
+| Marcador     | Como                         | Quando aparece                                  |
+| ------------ | ---------------------------- | ----------------------------------------------- |
+| Você         | seta laranja e anel pulsando | sempre                                          |
+| Sonda        | pino com nome                | sempre (você sabe onde pousou)                  |
+| Base         | pino com nome                | sempre                                          |
+| Objetivo     | pino com nome                | quando a missão atual tem um lugar              |
+| Seus itens   | pino com nome                | cada pilha de itens caídos na morte             |
+| Meteorito    | pino com nome                | só em trecho descoberto                         |
+| Cristal, ouro, ilmenita | cubinho brilhante | só em trecho descoberto e já carregado      |
 
-Os nomes ficam em HTML por cima do holograma, nítidos; os pinos e pontos fazem parte do holograma.
+Os nomes ficam em HTML por cima do mapa.
+
+## Controles
+
+Arrastar move o mapa nos eixos da câmera; pinçar, a roda do mouse ou + e − mudam o zoom; os botões de girar giram;
+◎ volta para você.
 
 ## Técnica
 
-- `src/render/holoMap.ts`: a cena do holograma (relevo, pinos, pontos, seta) desenhada numa textura.
-- `src/app/MapDirector.ts`: abrir e fechar, o tablet 3D na frente da câmera, arrastar e pinçar, nomes e legenda.
-- O tablet usa o mesmo modelo do ícone (`buildTablet` em `render/equipModels.ts`), com a tela mostrando a textura
-  ao vivo. Ele é desenhado por cima de tudo e fica numa camada própria do three.js: em tela cheia a câmera só vê
-  essa camada, então o mundo não é desenhado enquanto o mapa está aberto (no celular, isso economiza).
-- Teste no navegador: `tools/visual-check/tablet.mjs`. Teste do relevo: `tests/map.test.ts`.
+- `src/systems/Exploration.ts`: ladrilhos descobertos, por chunk de 16 × 16 (máscara de 16 bits).
+- `src/render/blockMap.ts`: lê a superfície do mundo (`World.topY` e o bloco do topo, com cache por chunk), monta a
+  malha de cada chunk descoberto (`buildMapChunk`), desenha com luz, sombra e contorno, e os marcadores.
+- `src/app/MapDirector.ts`: abrir e fechar, o tablet 3D na frente da câmera, montar os chunks aos poucos (6 por
+  quadro, 60 ao abrir), arrastar e pinçar, nomes, legenda e bússola.
+- O tablet usa o mesmo modelo do ícone (`buildTablet` em `render/equipModels.ts`). Ele fica numa camada própria do
+  three.js: em tela cheia a câmera só vê essa camada, então o mundo não é desenhado enquanto o mapa está aberto.
+- Testes: `tests/map.test.ts` (exploração e malha) e `tools/visual-check/tablet.mjs` (no navegador).
 
 ## Em aberto
 
 - Marcar pontos no mapa e seguir um marcador.
-- Áreas exploradas e não exploradas (névoa de guerra).
 - Lugares com nome (crateras, depósitos de gelo) quando a história da v0.6 chegar.
+- Desempenho no celular ao abrir o mapa depois de explorar muito (a primeira abertura monta até 60 chunks).

@@ -8,7 +8,7 @@ export type SoundName =
   | 'hit' | 'break' | 'pop' | 'step' | 'land' | 'jump' | 'place' | 'deny' | 'ui'
   | 'clink' | 'kick' | 'whoosh' | 'boom' | 'chime'
   | 'beep' | 'alarm' | 'breath' | 'heartbeat' | 'hurt' | 'death' | 'respawn' | 'charge' | 'powerDown' | 'pickupBig'
-  | 'door' | 'pressurize' | 'depressurize' | 'rest' | 'craftDone' | 'equip' | 'holoOpen' | 'holoClose';
+  | 'door' | 'pressurize' | 'depressurize' | 'rest' | 'craftDone' | 'equip' | 'tabletOpen' | 'tabletClose';
 
 const MASTER = 0.55;
 /** volume do eco da cratera */
@@ -540,13 +540,13 @@ export class Sfx {
         N(0.35, 'bandpass', 2400, 0.25, 2, 0.3);
         T(1400, 700, 0.3, 0.08, 'triangle');
         break;
-      case 'holoOpen':
-        // o tablet liga: varredura que sobe e um chiado de holograma
+      case 'tabletOpen':
+        // o tablet liga: varredura que sobe e um chiado de tela
         T(380, 1320, 0.32, 0.06);
         N(0.4, 'bandpass', 2400, 0.05, 3, 1.8);
         setTimeout(() => T(1320, 1320, 0.08, 0.04, 'triangle'), 300);
         break;
-      case 'holoClose':
+      case 'tabletClose':
         T(1100, 360, 0.24, 0.05);
         N(0.18, 'bandpass', 1800, 0.035, 3, 0.5);
         break;

@@ -103,23 +103,25 @@ a aba, o jogo salva e pausa sozinho.
 
 ## Salvamento
 
-Chave `spacing.save` no `localStorage`, em JSON, formato **versão 5** (`src/core/save.ts`):
+Chave `spacing.save` no `localStorage`, em JSON, formato **versão 6** (`src/core/save.ts`):
 
 ```
-{ version: 5, seed, savedAt,
+{ version: 6, seed, savedAt,
   world: { edits: { "cx,cz": [[índice, bloco], ...] }, removedProps: [...], extraProps: [...] },
   inventory: { slots: [{ item, n } | null, ...32], selected },
   player: { x, y, z },
   missions: { step, count },
   suit: { suit, o2, battery, integrity },
   loot: [{ item, amount, x, y, z, pile }],
-  equipment: { map: "map" },
-  base: { inside, respawn: "lander" | "base", visited } }
+  equipment: { map: "map", drill: "drill_iron" },
+  base: { inside, respawn: "lander" | "base", visited },
+  explored: { "cx,cz": máscara de 16 bits dos ladrilhos 4×4 vistos } }
 ```
 
 - O salvamento da v0.1 (chave `spacing.save.v1`, sem versão) é migrado na primeira carga e apagado.
 - Da versão 2 para a 3: o traje começa cheio e não há itens no chão.
 - Da versão 4 para a 5: sem equipamento, fora da base, renasce no módulo de pouso.
+- Da versão 5 para a 6: mapa ainda não descoberto; o jogo revela em volta do astronauta ao carregar ([design/MAPA.md](design/MAPA.md)).
 - Da versão 3 para a 4: as quantidades viram espaços do inventário ([design/INVENTARIO.md](design/INVENTARIO.md)).
 - Dados inválidos são limpos (itens desconhecidos, quantidades negativas); versões futuras são recusadas.
 - Salva a cada 5 segundos jogando, ao pausar, ao esconder a aba e ao sair.

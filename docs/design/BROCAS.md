@@ -44,7 +44,7 @@ paga a de cristal, e a de cristal abre o ouro.
 
 ## Salvamento
 
-A broca é o encaixe `drill` de `equipment` (formato 5, campo aditivo): salvamentos antigos continuam valendo e
+A broca é o encaixe `drill` de `equipment` (campo aditivo desde o formato 5): salvamentos antigos continuam valendo e
 abrem com a broca do traje.
 
 ## Como acrescentar uma broca

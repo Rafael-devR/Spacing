@@ -1,6 +1,7 @@
 // Teste do mapa do tablet e do tremor ao minerar: equipa o Mapa, abre pelo botão (o tablet sobe até a tela),
-// confere o holograma, os nomes (sonda, base, você), arrasta, fecha; depois minera em sequência com a broca de
-// cristal e confere que o tremor não acumula. Usa `window.spacing` (só em `npm run dev`).
+// confere o mapa em blocos (mesma perspectiva do jogo, resolução da tela, só o que foi descoberto), os nomes,
+// arrasta, fecha, anda e confere que mais terreno aparece; depois minera em sequência com a broca de cristal e
+// confere que o tremor não acumula. Usa `window.spacing` (só em `npm run dev`).
 // Uso: node tablet.mjs <url> <pasta-de-saída>
 import chromium from '@sparticuz/chromium';
 import { chromium as pw } from 'playwright-core';
@@ -60,6 +61,17 @@ const st = await g(() => ({
 check('em tela cheia a câmera só desenha o tablet', st.layers === 4, 'máscara ' + st.layers);
 check('mostra você, a sonda e a base', ['Você', 'Sonda', 'Base'].every((k) => st.labels.includes(k)), st.labels.join(', '));
 check('o HUD do jogo some', st.hud === '0', 'opacidade ' + st.hud);
+const mapInfo = await g(() => {
+  const s = window.spacing, m = s.map.map;
+  return {
+    chunks: m.chunkMeshes.size, revealed: s.exploration.revealed, yaw: m.yaw, rigYaw: s.rig.yaw,
+    tex: [m.target.width, m.target.height], canvas: [s.renderer.domElement.width, s.renderer.domElement.height],
+    fov: m.camera.fov, gameFov: s.camera.fov,
+  };
+});
+check('mapa em blocos montado só com o que foi descoberto', mapInfo.chunks > 0 && mapInfo.revealed > 0, `${mapInfo.chunks} chunks, ${mapInfo.revealed} ladrilhos`);
+check('mesma perspectiva da câmera do jogo (giro e abertura)', Math.abs(mapInfo.yaw - mapInfo.rigYaw) < 1e-6 && mapInfo.fov === mapInfo.gameFov, `giro ${mapInfo.yaw.toFixed(2)}, fov ${mapInfo.fov}`);
+check('textura do mapa no tamanho da tela (nítido)', mapInfo.tex[0] === mapInfo.canvas[0] && mapInfo.tex[1] === mapInfo.canvas[1], `${mapInfo.tex.join('×')} / tela ${mapInfo.canvas.join('×')}`);
 
 // astronauta parado com o mapa aberto
 const p0 = await g(() => window.spacing.player.pos.clone());
@@ -70,12 +82,12 @@ const p1 = await g(() => window.spacing.player.pos.clone());
 check('com o mapa aberto o astronauta não anda', Math.hypot(p1.x - p0.x, p1.z - p0.z) < 0.05);
 
 // arrastar move o mapa
-const v0 = await g(() => window.spacing.map.holo.view.clone());
+const v0 = await g(() => window.spacing.map.map.view.clone());
 await page.mouse.move(420, 200);
 await page.mouse.down();
 await page.mouse.move(300, 160, { steps: 6 });
 await page.mouse.up();
-const v1 = await g(() => window.spacing.map.holo.view.clone());
+const v1 = await g(() => window.spacing.map.map.view.clone());
 check('arrastar com o dedo move o mapa', Math.hypot(v1.x - v0.x, v1.y - v0.y) > 3, `${v0.x.toFixed(1)},${v0.y.toFixed(1)} → ${v1.x.toFixed(1)},${v1.y.toFixed(1)}`);
 await page.click('#map-in');
 await page.click('#map-me');
@@ -89,6 +101,31 @@ await page.screenshot({ path: `${out}/tablet-4-fechando.png` });
 const closed = await page.waitForFunction(() => document.querySelector('#map')?.hidden, null, { timeout: 30000, polling: 100 }).then(() => true, () => false);
 const back = await g(() => window.spacing.camera.layers.mask);
 check('fecha e o mundo volta', closed && back === 1, 'máscara ' + back);
+
+// andar descobre mais terreno
+const before = await g(() => window.spacing.exploration.revealed);
+const far = await g(() => {
+  const s = window.spacing;
+  const x = s.player.pos.x + 70, z = s.player.pos.z;
+  const out = s.exploration.at(x, z);
+  s.player.pos.set(x, s.world.topY(Math.floor(x), Math.floor(z)) + 1.05, z);
+  s.player.prevPos.copy(s.player.pos);
+  return { x, z, seenBefore: out };
+});
+await page.waitForFunction(([x, z]) => window.spacing.exploration.at(x, z), [far.x, far.z], { timeout: 60000, polling: 250 }).catch(() => {});
+const after = await g(([x, z]) => ({ n: window.spacing.exploration.revealed, seen: window.spacing.exploration.at(x, z) }), [far.x, far.z]);
+check('o mapa vai sendo descoberto ao andar', !far.seenBefore && after.seen && after.n > before, `${before} → ${after.n} ladrilhos`);
+await page.click('#btn-map');
+await page.waitForFunction(() => document.querySelector('#map')?.classList.contains('full'), null, { timeout: 30000, polling: 100 });
+await page.click('#map-out');
+await page.click('#map-out');
+await page.waitForTimeout(1500);
+await page.screenshot({ path: `${out}/tablet-5-descoberto.png` });
+await page.click('#map-rot-r');
+await page.waitForTimeout(1200);
+await page.screenshot({ path: `${out}/tablet-6-girado.png` });
+await page.click('#map-close');
+await page.waitForFunction(() => window.spacing.map.state === 'closed', null, { timeout: 30000, polling: 100 });
 
 // M abre e Esc fecha
 await page.keyboard.press('m');

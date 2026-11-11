@@ -1,13 +1,15 @@
 // Mapa do tablet (docs/design/MAPA.md): o botão do tablet (ou M) traz o tablet do pulso até a câmera, até a tela
-// dele ocupar a tela do celular; ali fica o holograma do terreno (render/holoMap.ts) com os lugares, a sonda, a
-// base, o objetivo, os itens e os minérios por perto. Fechar faz o caminho de volta.
+// dele ocupar a tela do celular; ali fica o mapa em blocos (render/blockMap.ts), na mesma perspectiva da câmera do
+// jogo, só com o que o astronauta já descobriu (systems/Exploration.ts), mais os lugares, a sonda, a base, o
+// objetivo, os itens e os minérios vistos. Fechar faz o caminho de volta.
 // Enquanto o mapa está aberto o astronauta fica parado (o traje continua gastando oxigênio).
 import * as THREE from 'three';
 import type { Sfx } from '../audio/Sfx';
 import type { Haptics } from '../core/haptics';
 import type { PropType } from '../data/props';
 import { buildTablet } from '../render/equipModels';
-import { HoloMap, MAP_RADIUS, MARKER_COLOR, MARKER_PINNED, type MapMarker, type MarkerKind } from '../render/holoMap';
+import { BlockMap, MARKER_COLOR, MARKER_PINNED, type MapMarker, type MarkerKind, type SurfaceCell } from '../render/blockMap';
+import type { Exploration } from '../systems/Exploration';
 import { INTERIOR_LAYER } from '../render/indoors';
 import { t } from '../i18n';
 import { el } from '../ui/dom';
@@ -21,8 +23,10 @@ const OPEN_SECONDS = 0.6;
 const CLOSE_SECONDS = 0.42;
 /** distância do tablet à câmera, em unidades do mundo (a câmera enxerga a partir de 1) */
 const TABLET_DIST = 4;
-/** resolução do holograma em relação à tela (baixa = embaçado e barato) */
-const MAP_RES = 0.42;
+/** maior lado da textura do mapa, em pixels (a textura tem o tamanho real da tela) */
+const MAX_TEXTURE = 2560;
+/** chunks do mapa montados por quadro com o mapa aberto (o primeiro quadro monta mais) */
+const BUILD_PER_FRAME = 6;
 
 const ORE_KINDS: Partial<Record<PropType, MarkerKind>> = { crystal: 'crystal', gold: 'gold', ilmenite: 'ilmenite', meteorite: 'meteorite' };
 
@@ -33,8 +37,14 @@ export interface MapDeps {
   renderer: THREE.WebGLRenderer;
   sfx: Sfx;
   haptics: Haptics;
-  /** altura do terreno gerado (sem as edições do jogador) */
-  heightAt(x: number, z: number): number;
+  /** bloco do topo da coluna (com as edições do jogador e a base) */
+  surface(x: number, z: number): SurfaceCell;
+  /** o que já foi descoberto */
+  exploration: Exploration;
+  /** altura de referência (o planalto do pouso): o mapa clareia acima dela e escurece abaixo */
+  refY: number;
+  /** giro atual da câmera do jogo (o mapa abre olhando para o mesmo lado) */
+  cameraYaw(): number;
   player(): { x: number; y: number; z: number; facing: number };
   lander(): THREE.Vector3;
   base(): { x: number; z: number };
@@ -53,13 +63,15 @@ export class MapDirector {
   state: MapState = 'closed';
   /** 0 = tablet no pulso, 1 = tela cheia */
   private k = 0;
-  private readonly holo: HoloMap;
+  private readonly map: BlockMap;
   private readonly pivot = new THREE.Group();
   private tablet: THREE.Group | null = null;
   private tabletAspect = 0;
   private readonly screenMat: THREE.MeshBasicMaterial;
   private readonly root = el('#map');
   private readonly labels = el('#map-labels');
+  private readonly north = el('.map-north');
+  private dt = 0;
   private readonly labelEls = new Map<string, HTMLElement>();
   private markers: MapMarker[] = [];
   private markerT = 0;
@@ -69,17 +81,21 @@ export class MapDirector {
   private readonly v = new THREE.Vector3();
 
   constructor(private readonly d: MapDeps) {
-    this.holo = new HoloMap(d.heightAt);
-    this.screenMat = new THREE.MeshBasicMaterial({ map: this.holo.target.texture, toneMapped: false, depthTest: false, fog: false });
+    this.map = new BlockMap(d.surface, (x, z) => d.exploration.at(x, z), d.refY);
+    d.events.on('map:revealed', ({ chunks }) => this.map.invalidate(chunks));
+    d.events.on('world:blockChanged', ({ x, z }) => this.map.blockChanged(x, z));
+    this.screenMat = new THREE.MeshBasicMaterial({ map: this.map.target.texture, toneMapped: false, depthTest: false, fog: false });
     this.pivot.visible = false;
     d.scene.add(this.pivot);
     this.buildLegend();
     el('#map-close').addEventListener('click', () => this.close());
     el('#map-in').addEventListener('click', () => this.zoom(1 / 1.3));
     el('#map-out').addEventListener('click', () => this.zoom(1.3));
+    el('#map-rot-l').addEventListener('click', () => (this.map.yawTarget -= Math.PI / 2));
+    el('#map-rot-r').addEventListener('click', () => (this.map.yawTarget += Math.PI / 2));
     el('#map-me').addEventListener('click', () => {
       const p = d.player();
-      this.holo.center(p.x, p.z);
+      this.map.view.set(p.x, p.z);
       this.refreshMarkers();
     });
     for (const b of this.root.querySelectorAll('button')) b.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -110,7 +126,12 @@ export class MapDirector {
   open(): void {
     if (this.state === 'open' || this.state === 'opening' || !this.d.canOpen()) return;
     const p = this.d.player();
-    this.holo.center(p.x, p.z);
+    const m = this.map;
+    m.view.set(p.x, p.z);
+    // abre olhando para o mesmo lado que a câmera do jogo
+    m.yaw = m.yawTarget = this.d.cameraYaw();
+    this.d.exploration.revealAround(p.x, p.z);
+    m.sync(this.d.exploration.chunks(), 60);
     this.refreshMarkers();
     this.ensureTablet();
     this.state = 'opening';
@@ -118,7 +139,7 @@ export class MapDirector {
     this.root.hidden = false;
     this.root.classList.remove('full');
     document.body.classList.add('map-open');
-    this.d.sfx.play('holoOpen');
+    this.d.sfx.play('tabletOpen');
     this.d.haptics.play('tap');
     this.d.events.emit('map:toggled', { open: true });
   }
@@ -136,7 +157,7 @@ export class MapDirector {
     }
     if (this.state === 'closing') return;
     this.state = 'closing';
-    this.d.sfx.play('holoClose');
+    this.d.sfx.play('tabletClose');
     this.d.events.emit('map:toggled', { open: false });
   }
 
@@ -150,8 +171,10 @@ export class MapDirector {
 
   /** Tamanho da tela mudou: refaz a textura e o tablet (a tela do tablet tem a proporção da tela). */
   resize(w: number, h: number): void {
-    const pr = Math.min(this.d.renderer.getPixelRatio(), 2);
-    this.holo.setSize(Math.min(1100, w * pr * MAP_RES), Math.min(1100, w * pr * MAP_RES) * (h / w));
+    // tamanho real da tela (com a densidade de pixels): o mapa fica nítido em tela cheia
+    const pr = this.d.renderer.getPixelRatio();
+    const k = Math.min(1, MAX_TEXTURE / Math.max(w * pr, h * pr));
+    this.map.setSize(w * pr * k, h * pr * k);
     if (this.tablet && Math.abs(this.tabletAspect - w / h) > 0.01) this.ensureTablet(true);
   }
 
@@ -182,7 +205,7 @@ export class MapDirector {
   }
 
   private zoom(f: number): void {
-    const h = this.holo;
+    const h = this.map;
     h.distance = THREE.MathUtils.clamp(h.distance * f, h.minDistance, h.maxDistance);
   }
 
@@ -199,9 +222,13 @@ export class MapDirector {
     const prev = this.pointers.get(e.pointerId);
     if (!prev || this.state !== 'open') return;
     if (this.pointers.size === 1) {
-      const bpp = this.holo.blocksPerPixel(innerHeight);
-      const v = this.holo.view;
-      this.holo.center(v.x - (e.clientX - prev.x) * bpp, v.y - ((e.clientY - prev.y) * bpp) / Math.sin(THREE.MathUtils.degToRad(64)));
+      // arrasta nos eixos da câmera: para os lados, e para a frente e para trás no chão
+      const m = this.map;
+      const bpp = m.blocksPerPixel(innerHeight);
+      const { right, forward } = m.axes();
+      const dx = (e.clientX - prev.x) * bpp, dy = ((e.clientY - prev.y) * bpp) / Math.sin(m.pitch);
+      m.view.x += -right.x * dx + forward.x * dy;
+      m.view.y += -right.y * dx + forward.y * dy;
     }
     prev.x = e.clientX;
     prev.y = e.clientY;
@@ -234,13 +261,13 @@ export class MapDirector {
     const g = d.goal();
     if (g) list.push({ kind: 'goal', x: g.x, z: g.z });
     for (const p of d.loot()) list.push({ kind: 'loot', x: p.x, z: p.z });
-    const v = this.holo.view;
+    // objetos só onde já se andou: o mapa não entrega o que ainda não foi visto
     for (const p of d.props()) {
       const kind = ORE_KINDS[p.type];
-      if (kind && Math.hypot(p.x - v.x, p.z - v.y) < MAP_RADIUS) list.push({ kind, x: p.x, z: p.z });
+      if (kind && d.exploration.at(p.x, p.z)) list.push({ kind, x: p.x, z: p.z });
     }
     this.markers = list;
-    this.holo.setMarkers(list);
+    this.map.setMarkers(list);
   }
 
   private buildLegend(): void {
@@ -256,12 +283,12 @@ export class MapDirector {
     this.labelEls.clear();
   }
 
-  /** nomes dos lugares, em HTML por cima do holograma (nítidos) */
+  /** nomes dos lugares, em HTML por cima do mapa (nítidos) */
   private placeLabels(): void {
     const used = new Set<string>();
     const w = innerWidth, h = innerHeight;
     const show = (key: string, kind: MarkerKind, at: THREE.Vector3, text: string): void => {
-      const s = this.holo.project(at);
+      const s = this.map.project(at);
       if (!s || s.x < -0.05 || s.x > 1.05 || s.y < -0.05 || s.y > 1.05) return;
       let e = this.labelEls.get(key);
       if (!e) {
@@ -276,11 +303,10 @@ export class MapDirector {
       used.add(key);
     };
     const p = this.d.player();
-    show('player', 'player', this.v.set(p.x, this.holo.reliefAt(p.x, p.z) + 4, p.z), t('map.kind.player'));
+    show('player', 'player', this.v.set(p.x, p.y + 2.6, p.z), t('map.kind.player'));
     this.markers.forEach((m, i) => {
       if (!MARKER_PINNED.has(m.kind)) return;
-      if (this.holo.distanceFromView(m.x, m.z) > MAP_RADIUS * 0.95) return;
-      show(`${m.kind}${i}`, m.kind, this.holo.markerTop(m, this.v), t(`map.kind.${m.kind}`));
+      show(`${m.kind}${i}`, m.kind, this.map.markerTop(m, this.v), t(`map.kind.${m.kind}`));
     });
     for (const [k, e] of this.labelEls)
       if (!used.has(k)) {
@@ -295,6 +321,7 @@ export class MapDirector {
   update(dt: number): void {
     if (this.state === 'closed') return;
     this.time += dt;
+    this.dt = dt;
     if (this.state === 'opening') {
       this.k = Math.min(1, this.k + dt / OPEN_SECONDS);
       if (this.k >= 1) {
@@ -310,7 +337,10 @@ export class MapDirector {
     }
     this.poseTablet();
     const p = this.d.player();
-    this.holo.setPlayer(p.x, p.z, p.facing, this.time);
+    this.map.setPlayer(p.x, p.y, p.z, p.facing, this.time);
+    this.map.sync(this.d.exploration.chunks(), BUILD_PER_FRAME);
+    // bússola: o norte gira junto com o mapa
+    this.north.style.transform = `translateX(-50%) rotate(${THREE.MathUtils.radToDeg(this.map.yaw).toFixed(1)}deg)`;
     this.markerT -= dt;
     if (this.markerT <= 0) {
       this.markerT = 0.5;
@@ -339,9 +369,9 @@ export class MapDirector {
     tab.rotation.set(lerp(-1.05, 0, e), lerp(-0.35, 0, e), lerp(0.28, 0, e));
   }
 
-  /** Desenha o holograma na textura da tela do tablet (antes do quadro principal). */
+  /** Desenha o mapa na textura da tela do tablet (antes do quadro principal). */
   render(): void {
     if (this.state === 'closed') return;
-    this.holo.render(this.d.renderer, this.time);
+    this.map.render(this.d.renderer, this.dt, this.d.camera.fov);
   }
 }

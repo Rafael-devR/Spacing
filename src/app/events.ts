@@ -36,6 +36,8 @@ export interface GameEvents {
   'inventory:selected': { index: number; item: ItemId | null };
   /** não coube tudo no inventário; `amount` ficou de fora */
   'inventory:full': { item: ItemId; amount: number };
+  /** o astronauta descobriu ladrilhos novos do mapa (chunks "cx,cz" que mudaram) */
+  'map:revealed': { chunks: string[] };
   /** o mapa do tablet abriu ou começou a fechar */
   'map:toggled': { open: boolean };
   /** a mochila abriu ou fechou */

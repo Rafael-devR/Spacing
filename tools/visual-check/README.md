@@ -86,6 +86,8 @@ bancada e fabrica a broca de cristal (`drill-*.png`).
 node tablet.mjs http://localhost:5173/ /tmp/shots
 ```
 
-Equipa o Mapa, abre pelo botão (captura do tablet subindo e do mapa), confere os nomes, que o astronauta não anda,
-que arrastar move o mapa e que fechar devolve o mundo. Depois minera blocos em sequência com a broca de cristal e
-confere que o tremor não passa do nível de um golpe (`tablet-*.png`).
+Equipa o Mapa, abre pelo botão (captura do tablet subindo e do mapa), confere que o mapa é de blocos, só com o que
+foi descoberto, na perspectiva e no tamanho da tela do jogo, os nomes, que o astronauta não anda, que arrastar move
+o mapa e que fechar devolve o mundo. Leva o astronauta 70 blocos adiante e confere que o mapa descobre o trecho
+novo (captura do mapa afastado e girado). Depois minera blocos em sequência com a broca de cristal e confere que o
+tremor não passa do nível de um golpe (`tablet-*.png`).

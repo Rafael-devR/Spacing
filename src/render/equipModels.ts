@@ -10,7 +10,7 @@ const lam = (
 
 let mapTex: THREE.CanvasTexture | null = null;
 
-/** tela do tablet no ícone: mapa em holograma (grade, curvas de nível, marcadores) bem visível em tamanho pequeno */
+/** tela do tablet no ícone: um mapa simples (grade, curvas de nível, marcadores) bem visível em tamanho pequeno */
 function mapTexture(): THREE.CanvasTexture {
   if (mapTex) return mapTex;
   const c = document.createElement('canvas');
@@ -70,7 +70,7 @@ export const TABLET_ASPECT = 1.5;
 /**
  * Tablet do traje: moldura escura grossa, tela, câmera frontal e botão lateral, de frente para +z.
  * A tela mede `aspect` × 1 e fica no centro; a moldura sobra `bezel` de cada lado. Também usado na transição do mapa
- * (app/MapDirector.ts), com a tela mostrando o holograma ao vivo.
+ * (app/MapDirector.ts), com a tela mostrando o mapa ao vivo.
  */
 export function buildTablet(screen: THREE.Material, aspect = TABLET_ASPECT, bezel = 0.09, lit = true): THREE.Group {
   const g = new THREE.Group();

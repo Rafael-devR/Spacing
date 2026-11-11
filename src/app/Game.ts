@@ -46,6 +46,7 @@ import { EQUIPMENT, type EquipId } from '../data/equipment';
 import { drillForTier } from '../data/drills';
 import { BaseModel } from '../render/baseModel';
 import { INTERIOR_LAYER, IndoorView, showIndoors } from '../render/indoors';
+import { Exploration } from '../systems/Exploration';
 import { MapDirector, TABLET_LAYER } from './MapDirector';
 import { createEquipModel } from '../render/equipModels';
 import { Crafting } from '../systems/Crafting';
@@ -95,6 +96,9 @@ export class Game {
   private readonly pauseMenu: PauseMenu;
   private readonly bag: Bag;
   readonly equipment: Equipment;
+  /** o que o mapa do tablet já mostra (systems/Exploration.ts) */
+  readonly exploration: Exploration;
+  private revealT = 0;
   readonly crafting: Crafting;
   readonly base: BaseDirector;
   readonly baseModel: BaseModel;
@@ -163,6 +167,7 @@ export class Game {
     this.inventory = new Inventory(events, this.save?.inventory);
     this.bag = new Bag(this.inventory);
     this.equipment = new Equipment(events, this.save?.equipment);
+    this.exploration = new Exploration(events, this.save?.explored);
     this.crafting = new Crafting({ inventory: this.inventory, equipment: this.equipment, events });
     this.craftPanel = new CraftPanel(this.crafting);
     this.player = new Player(scene, this.world, events);
@@ -309,7 +314,13 @@ export class Game {
     const landerPos = this.lander.group.position;
     this.map = new MapDirector({
       events, scene, camera: this.camera, renderer, sfx: this.sfx, haptics: this.haptics,
-      heightAt: (x, z) => terrain.column(Math.floor(x), Math.floor(z)).h + 1,
+      surface: (x, z) => {
+        const y = this.world.topY(x, z);
+        return { y, id: this.world.getBlock(x, y, z) };
+      },
+      exploration: this.exploration,
+      refY: this.baseY,
+      cameraYaw: () => this.rig.yaw,
       player: () => ({ x: this.player.pos.x, y: this.player.pos.y, z: this.player.pos.z, facing: this.player.facing }),
       lander: () => landerPos,
       base: () => baseLayout.center,
@@ -353,6 +364,7 @@ export class Game {
     if (this.save?.base.inside) this.base.placeInside();
     else this.base.ensureNotStuck();
     player.animate(0);
+    this.exploration.revealAround(player.pos.x, player.pos.z);
     this.loot.load(this.save?.loot ?? []);
     this.rig.snap(new THREE.Vector3(player.pos.x, player.pos.y + 0.8, player.pos.z));
 
@@ -785,6 +797,7 @@ export class Game {
       suit: this.survival.serialize(),
       loot: this.loot.serialize(),
       equipment: this.equipment.serialize(),
+      explored: this.exploration.serialize(),
       base: this.base.serialize(),
     });
   }
@@ -873,6 +886,12 @@ export class Game {
     this.footprints.update(dt);
     if (playing || dead) this.meteors.update(dt, time);
     if (playing) this.missions.update(dt);
+    // o mapa vai sendo descoberto conforme o astronauta anda
+    this.revealT -= dt;
+    if (playing && this.revealT <= 0) {
+      this.revealT = 0.3;
+      this.exploration.revealAround(player.pos.x, player.pos.z);
+    }
     this.waypoint.update(time);
     this.lootMarker.update(time);
     this.lander.update(time);

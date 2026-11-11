@@ -53,7 +53,7 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). Leia o [README]
   `src/app/BaseDirector.ts`; teste no navegador `tools/visual-check/base.mjs` ([design/BASE.md](docs/design/BASE.md)).
 - Brocas: `src/data/drills.ts` (velocidade, nível, bateria), `equipment.ts` e `recipes.ts`; microgravidade dos
   pedaços em `src/data/physics.ts` ([design/BROCAS.md](docs/design/BROCAS.md), [design/FISICA.md](docs/design/FISICA.md)).
-- Mapa do tablet: `src/app/MapDirector.ts` e `src/render/holoMap.ts` ([design/MAPA.md](docs/design/MAPA.md)).
+- Mapa do tablet: `src/app/MapDirector.ts`, `src/render/blockMap.ts` e `src/systems/Exploration.ts` (o que foi descoberto) ([design/MAPA.md](docs/design/MAPA.md)).
 - Sobrevivência: números em `src/data/survival.ts`, regras em `src/systems/Survival.ts`, resposta
   (avisos, sons, efeitos, morte) em `src/app/SurvivalDirector.ts`.
 - Salvamento: `localStorage`, chave `spacing.save` (com versão e migração em `src/core/save.ts`) e

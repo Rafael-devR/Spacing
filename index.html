@@ -128,7 +128,7 @@
 </div>
 
 <!-- transição da câmara de pressurização: portas de bloqueio que fecham, leitura e abrem -->
-<!-- mapa do tablet (app/MapDirector.ts): o holograma fica na tela do tablet, desenhada pelo jogo; aqui só os nomes e botões -->
+<!-- mapa do tablet (app/MapDirector.ts): o mapa fica na tela do tablet, desenhada pelo jogo; aqui só os nomes e botões -->
 <div id="map" hidden role="dialog" aria-modal="true" aria-label="Mapa do tablet">
   <div id="map-labels" aria-hidden="true"></div>
   <div class="map-top">
@@ -138,6 +138,12 @@
     </button>
   </div>
   <div class="map-tools">
+    <button class="round sm" id="map-rot-l" type="button" aria-label="Girar o mapa para a esquerda">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.3-5.6"/><path d="M4 4v4h4"/></svg>
+    </button>
+    <button class="round sm" id="map-rot-r" type="button" aria-label="Girar o mapa para a direita">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4h-4"/></svg>
+    </button>
     <button class="round sm" id="map-in" type="button" aria-label="Aproximar o mapa">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg>
     </button>
@@ -149,7 +155,7 @@
     </button>
   </div>
   <ul class="map-legend" id="map-legend"></ul>
-  <span class="map-north" aria-hidden="true">N</span>
+  <span class="map-north" aria-hidden="true"><b>N</b></span>
 </div>
 
 <div id="airlock" hidden aria-live="polite">

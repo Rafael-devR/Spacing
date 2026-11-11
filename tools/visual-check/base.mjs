@@ -145,7 +145,7 @@ check('descanso enche o traje e marca o renascimento na base', rested.o2 === 100
 await page.keyboard.press('Escape');
 await page.waitForTimeout(300);
 const save = await g(() => JSON.parse(localStorage.getItem('spacing.save')));
-check('salvou dentro da base com o mapa', save.version === 5 && save.base.inside && save.equipment.map === 'map', JSON.stringify({ v: save.version, base: save.base, eq: save.equipment }));
+check('salvou dentro da base com o mapa', save.version === 6 && save.base.inside && save.equipment.map === 'map', JSON.stringify({ v: save.version, base: save.base, eq: save.equipment }));
 await page.click('#pause-resume');
 await page.waitForTimeout(300);
 

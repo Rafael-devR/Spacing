@@ -8,12 +8,13 @@ import { SUITS, type SuitId } from '../data/survival';
 import type { LootSave } from '../entities/LootPiles';
 import { Inventory, type InventorySave, type ItemCounts } from '../systems/Inventory';
 import type { SurvivalSave } from '../systems/Survival';
+import type { ExplorationSave } from '../systems/Exploration';
 
 export const SAVE_KEY = 'spacing.save';
 /** chave usada pela v0.1, sem campo de versão */
 export const LEGACY_SAVE_KEY = 'spacing.save.v1';
 export const PREFS_KEY = 'spacing.prefs.v1';
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 export interface ExtraPropSave {
   wx: number;
@@ -49,6 +50,8 @@ export interface SaveData {
   equipment: EquipmentSave;
   /** base (v5): estava dentro ao salvar e onde renasce */
   base: BaseSave;
+  /** mapa descoberto (v6): chunk "cx,cz" → máscara de 16 bits dos ladrilhos vistos */
+  explored: ExplorationSave;
 }
 
 export interface BaseSave {
@@ -170,6 +173,17 @@ function cleanSlots(v: unknown): InventorySave {
   return new Inventory(undefined, { slots, selected }).serialize();
 }
 
+/** v6: só chaves "cx,cz" com máscara inteira de 1 a 0xffff. */
+function cleanExplored(v: unknown): ExplorationSave {
+  const out: ExplorationSave = {};
+  if (!isObj(v)) return out;
+  for (const [k, m] of Object.entries(v)) {
+    if (!/^-?\d+,-?\d+$/.test(k) || typeof m !== 'number' || !Number.isInteger(m) || m <= 0 || m > 0xffff) continue;
+    out[k] = m;
+  }
+  return out;
+}
+
 /**
  * Converte qualquer formato conhecido para o atual.
  * v1 (v0.1.0): sem campo `version`, salvo em `spacing.save.v1`.
@@ -177,11 +191,12 @@ function cleanSlots(v: unknown): InventorySave {
  * v3: mais `suit` (medidores do traje) e `loot` (itens caídos na morte).
  * v4: `inventory` em espaços (`slots` e `selected`), como no Minecraft.
  * v5: `equipment` (equipamentos fora do inventário) e `base` (dentro da base, onde renasce).
+ * v6: `explored` (mapa do tablet descoberto aos poucos). Antes disso, nada descoberto: o jogo revela em volta ao abrir.
  */
 export function migrate(raw: unknown, seed: number): SaveData | null {
   if (!isObj(raw)) return null;
   const version = raw.version === undefined ? 1 : raw.version;
-  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== SAVE_VERSION) return null; // versão futura: não arrisca
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== SAVE_VERSION) return null; // versão futura: não arrisca
   const p = isObj(raw.player) ? raw.player : null;
   const m = isObj(raw.missions) ? raw.missions : {};
   return {
@@ -196,6 +211,7 @@ export function migrate(raw: unknown, seed: number): SaveData | null {
     loot: version >= 3 ? cleanLoot(raw.loot) : [],
     equipment: version >= 5 ? cleanEquipment(raw.equipment) : {},
     base: version >= 5 ? cleanBase(raw.base) : { inside: false, respawn: 'lander', visited: false },
+    explored: version >= 6 ? cleanExplored(raw.explored) : {},
   };
 }
 
