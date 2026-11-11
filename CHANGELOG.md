@@ -18,6 +18,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 ### Alterado
 
 - `CLAUDE.md` descreve o ambiente atual (GitHub Codespace) e o uso do `visual-check`.
+- O CI usa `actions/checkout@v7` e `actions/setup-node@v7`, que rodam em Node 24 (as v4 estão sendo descontinuadas).
 
 ## [0.1.0] - 2026-11-11
 
