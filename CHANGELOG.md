@@ -5,6 +5,11 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Não lançado]
 
+## [0.3.0] - 2026-11-11
+
+Reúne a Fundação (v0.2) e a Sobrevivência I (v0.3), mais áudio posicional, interface do celular, inventário
+em espaços e a base lunar inicial.
+
 ### Adicionado
 
 - `tools/visual-check`: captura telas do jogo em um Chromium headless (WebGL por software), em tamanhos de
@@ -87,6 +92,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - O astronauta começa e renasce dentro da área pressurizada do módulo.
 - Os botões de gráficos, som e controles do topo foram para o menu de pausa.
 - Estilos em `src/ui/styles.css` e textos da interface em `src/i18n/`.
+- O CI usa `actions/checkout@v7` e `actions/setup-node@v7`, que rodam em Node 24 (as v4 estão sendo descontinuadas).
 
 ## [0.1.0] - 2026-11-11
 

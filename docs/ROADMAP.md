@@ -9,7 +9,7 @@ Marcos em ordem de execução. Cada marco vira uma versão (`v0.N.0`) com tag no
 - Visual com shaders, destroços com física, meteoros, pegadas.
 - Cadeia de missões provisória e salvamento no navegador.
 
-## v0.2: Fundação (em revisão)
+## v0.2: Fundação (feito)
 
 Organizar antes de crescer. Sem mecânica nova, mas com menu de pausa.
 
@@ -24,7 +24,7 @@ Organizar antes de crescer. Sem mecânica nova, mas com menu de pausa.
 - [x] Inventário como sistema próprio (base para perder os itens na morte).
 - [x] Teste jogado automático no navegador (`tools/visual-check/play.mjs`).
 
-## v0.3: Sobrevivência I (em revisão)
+## v0.3: Sobrevivência I (feito)
 
 Detalhes em [design/SOBREVIVENCIA.md](design/SOBREVIVENCIA.md) e [design/GAME_JUICE.md](design/GAME_JUICE.md).
 

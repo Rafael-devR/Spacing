@@ -3,7 +3,7 @@
 > Jogo de exploração espacial em mundo de blocos, em 3D isométrico, com visual low poly cartoon.
 > Sobreviva com oxigênio e bateria limitados, minere, construa, crafte e escape da Lua rumo a um planeta com vida.
 
-**Status:** protótipo jogável `v0.1.0`. Nome provisório. Veja o [roadmap](docs/ROADMAP.md).
+**Status:** protótipo jogável `v0.3.0`. Nome provisório. Veja o [roadmap](docs/ROADMAP.md).
 
 ## O jogo
 
