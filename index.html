@@ -19,6 +19,23 @@
     <span class="eyebrow">Missão 01 · Polo sul lunar</span>
     <span class="place">Cratera Shackleton</span>
     <span id="coords"></span>
+    <div id="suit" aria-label="Traje">
+      <div class="meter" id="meter-o2" title="Oxigênio">
+        <span class="m-ico" aria-hidden="true">O₂</span>
+        <div class="m-track"><i></i></div>
+        <span class="m-val">100</span>
+      </div>
+      <div class="meter" id="meter-battery" title="Bateria">
+        <svg class="m-ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>
+        <div class="m-track"><i></i></div>
+        <span class="m-val">100</span>
+      </div>
+      <div class="meter" id="meter-integrity" title="Integridade do traje">
+        <svg class="m-ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5z"/></svg>
+        <div class="m-track"><i></i></div>
+        <span class="m-val">100</span>
+      </div>
+    </div>
     <section id="mission" aria-live="polite">
       <span id="m-step"></span>
       <strong id="m-title"></strong>
@@ -29,7 +46,9 @@
   </div>
 
   <div id="banner" hidden><span class="k"></span><span class="t"></span></div>
-  <div id="wp-arrow" hidden><span class="arrow"></span><span class="dist"></span></div>
+  <div id="wp-arrow" class="wp" hidden><span class="arrow"></span><span class="dist"></span></div>
+  <div id="wp-loot" class="wp loot" hidden><span class="arrow"></span><span class="dist"></span></div>
+  <div id="fx-layer" aria-hidden="true"></div>
 
   <div id="compass" aria-hidden="true"><div id="compass-strip"></div><div id="heading">0</div></div>
 
@@ -76,6 +95,15 @@
   </div>
 
   <div id="progress" hidden></div>
+</div>
+
+<div id="death" hidden role="dialog" aria-modal="true" aria-labelledby="death-title">
+  <div class="death-card">
+    <span class="kicker" id="death-cause">Sem oxigênio</span>
+    <h2 id="death-title">Traje desligado</h2>
+    <p id="death-text">Seus itens ficaram onde você caiu. O módulo preparou um traje de emergência.</p>
+    <button class="cta" id="btn-respawn" type="button">Voltar ao módulo</button>
+  </div>
 </div>
 
 <div id="pause" hidden role="dialog" aria-modal="true" aria-labelledby="pause-title">

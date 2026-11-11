@@ -65,6 +65,8 @@ export interface InteractionDeps {
   drops: ItemDrops;
   inventory: Inventory;
   events: GameBus;
+  /** velocidade da furadeira (1 = normal; cai sem bateria) */
+  drillRate?: () => number;
 }
 
 export class Interaction {
@@ -231,7 +233,7 @@ export class Interaction {
         this.mine.key = t.key;
         this.mine.progress = 0;
       }
-      this.mine.progress += dt / t.hard;
+      this.mine.progress += (dt / t.hard) * (this.d.drillRate?.() ?? 1);
       this.mine.tick -= dt;
       mining = true;
       this.walkGoal = null;

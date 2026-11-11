@@ -2,12 +2,15 @@
 // uma função de migração e um teste (tests/save.test.ts).
 import { isItemId, type ItemId } from '../data/items';
 import type { PropType } from '../data/props';
+import { SUITS, type SuitId } from '../data/survival';
+import type { LootSave } from '../entities/LootPiles';
+import type { SurvivalSave } from '../systems/Survival';
 
 export const SAVE_KEY = 'spacing.save';
 /** chave usada pela v0.1, sem campo de versão */
 export const LEGACY_SAVE_KEY = 'spacing.save.v1';
 export const PREFS_KEY = 'spacing.prefs.v1';
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export interface ExtraPropSave {
   wx: number;
@@ -34,6 +37,10 @@ export interface SaveData {
   inventory: Partial<Record<ItemId, number>>;
   player: { x: number; y: number; z: number } | null;
   missions: { step: number; count: number };
+  /** medidores do traje (v3); null = traje cheio */
+  suit: SurvivalSave | null;
+  /** itens caídos no chão esperando ser recolhidos (v3) */
+  loot: LootSave[];
 }
 
 export interface KeyValueStore {
@@ -90,6 +97,25 @@ function cleanWorld(v: unknown): WorldSave {
   return { edits, removedProps, extraProps };
 }
 
+function cleanSuit(v: unknown): SurvivalSave | null {
+  if (!isObj(v)) return null;
+  const suit = typeof v.suit === 'string' && v.suit in SUITS ? (v.suit as SuitId) : 'emergency';
+  const m = (k: string): number => Math.max(0, Math.min(100, num(v[k], 100)));
+  return { suit, o2: m('o2'), battery: m('battery'), integrity: m('integrity') };
+}
+
+function cleanLoot(v: unknown): LootSave[] {
+  if (!Array.isArray(v)) return [];
+  const out: LootSave[] = [];
+  for (const l of v) {
+    if (!isObj(l) || !isItemId(l.item) || typeof l.amount !== 'number' || l.amount <= 0) continue;
+    const x = num(l.x, NaN), y = num(l.y, NaN), z = num(l.z, NaN);
+    if (![x, y, z].every(Number.isFinite)) continue;
+    out.push({ item: l.item, amount: Math.floor(l.amount), x, y, z, pile: Math.max(0, Math.floor(num(l.pile, 0))) });
+  }
+  return out;
+}
+
 function cleanInventory(v: unknown): SaveData['inventory'] {
   const out: SaveData['inventory'] = {};
   if (!isObj(v)) return out;
@@ -103,11 +129,12 @@ function cleanInventory(v: unknown): SaveData['inventory'] {
  * Converte qualquer formato conhecido para o atual.
  * v1 (v0.1.0): sem campo `version`, salvo em `spacing.save.v1`.
  * v2: igual ao v1 mais `version`, `seed` e `savedAt`.
+ * v3: mais `suit` (medidores do traje) e `loot` (itens caídos na morte).
  */
 export function migrate(raw: unknown, seed: number): SaveData | null {
   if (!isObj(raw)) return null;
   const version = raw.version === undefined ? 1 : raw.version;
-  if (version !== 1 && version !== SAVE_VERSION) return null; // de uma versão futura: não arrisca
+  if (version !== 1 && version !== 2 && version !== SAVE_VERSION) return null; // versão futura: não arrisca
   const p = isObj(raw.player) ? raw.player : null;
   const m = isObj(raw.missions) ? raw.missions : {};
   return {
@@ -118,6 +145,8 @@ export function migrate(raw: unknown, seed: number): SaveData | null {
     inventory: cleanInventory(raw.inventory),
     player: p ? { x: num(p.x, 0.5), y: num(p.y, 30), z: num(p.z, 0.5) } : null,
     missions: { step: Math.max(0, Math.floor(num(m.step, 0))), count: Math.max(0, Math.floor(num(m.count, 0))) },
+    suit: version === SAVE_VERSION ? cleanSuit(raw.suit) : null,
+    loot: version === SAVE_VERSION ? cleanLoot(raw.loot) : [],
   };
 }
 

@@ -8,10 +8,14 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { SKY } from './materials';
 
 const GradeShader = {
-  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) } },
+  uniforms: {
+    tDiffuse: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) },
+    uDesat: { value: 0 }, uHurt: { value: 0 }, uDark: { value: 0 },
+  },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: `
     uniform sampler2D tDiffuse; uniform float uTime; uniform vec2 uRes; varying vec2 vUv;
+    uniform float uDesat; uniform float uHurt; uniform float uDark;
     void main(){
       vec2 dir = vUv - 0.5;
       float ca = dot(dir, dir) * 0.009;
@@ -27,6 +31,12 @@ const GradeShader = {
       c = mix(c, c * c * (3.0 - 2.0 * c), 0.16);
       vec2 d = vUv - 0.5; d.x *= uRes.x / uRes.y;
       c *= mix(0.74, 1.0, smoothstep(1.0, 0.3, length(d)));
+      // sobrevivência: perde a cor (asfixia), borda vermelha (dano), escurece (morte)
+      float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      c = mix(c, vec3(lum), uDesat);
+      float edge = smoothstep(0.3, 0.95, length(d));
+      c = mix(c, vec3(0.85, 0.07, 0.05), uHurt * edge * 0.8);
+      c *= 1.0 - uDark;
       float n = fract(sin(dot(vUv * uRes + fract(uTime) * 91.7, vec2(12.9898, 78.233))) * 43758.5453);
       c += (n - 0.5) * 0.022;
       gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
@@ -96,6 +106,13 @@ export class Post {
     this.composer?.setSize(w, h);
     SKY.res.set(w * pr, h * pr);
     (this.grade.uniforms.uRes.value as THREE.Vector2).set(w * pr, h * pr);
+  }
+
+  /** Efeitos de tela da sobrevivência, cada um de 0 a 1. */
+  setEffects(desat: number, hurt: number, dark: number): void {
+    this.grade.uniforms.uDesat.value = desat;
+    this.grade.uniforms.uHurt.value = hurt;
+    this.grade.uniforms.uDark.value = dark;
   }
 
   render(t: number): void {

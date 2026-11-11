@@ -21,6 +21,9 @@ export class Hud {
   private slots: HTMLButtonElement[] = [];
   private bannerTimer = 0;
   private wp: THREE.Vector3 | null = null;
+  private loot: THREE.Vector3 | null = null;
+  private readonly fxLayer = el('#fx-layer');
+  private readonly meterCache = new Map<string, string>();
 
   constructor() {
     const strip = el('#compass-strip');
@@ -92,9 +95,9 @@ export class Hud {
     entry.timer = window.setTimeout(() => this.fade(entry.el, () => this.pickups.delete(item)), 1600);
   }
 
-  toast(msg: string, warn = false): void {
+  toast(msg: string, warn = false, ai = false): void {
     const e = document.createElement('div');
-    e.className = 'toast' + (warn ? ' warn' : '');
+    e.className = 'toast' + (warn ? ' warn' : '') + (ai ? ' ai' : '');
     e.textContent = msg;
     this.toasts.appendChild(e);
     setTimeout(() => this.fade(e), 2000);
@@ -182,21 +185,90 @@ export class Hud {
     this.wp = pos ? pos.clone() : null;
   }
 
-  /** Seta na borda da tela quando o objetivo está fora de vista. */
+  setLootMarker(pos: THREE.Vector3 | null): void {
+    this.loot = pos ? pos.clone() : null;
+  }
+
+  /** Mensagem da IA do traje. */
+  ai(msg: string, warn = false): void {
+    this.toast(msg, warn, true);
+  }
+
+  /**
+   * Medidores do traje (0..100). `state` de cada um: '' normal, 'warn', 'crit' ou 'charging'.
+   * Só mexe no DOM quando algo muda.
+   */
+  setMeter(id: 'o2' | 'battery' | 'integrity', value: number, state: '' | 'warn' | 'crit' | 'charging'): void {
+    const v = Math.round(value);
+    const key = v + '|' + state;
+    if (this.meterCache.get(id) === key) return;
+    this.meterCache.set(id, key);
+    const m = el('#meter-' + id);
+    m.classList.toggle('warn', state === 'warn');
+    m.classList.toggle('crit', state === 'crit');
+    m.classList.toggle('charging', state === 'charging');
+    const fill = m.querySelector<HTMLElement>('.m-track i');
+    if (fill) fill.style.width = Math.max(0, Math.min(100, value)).toFixed(1) + '%';
+    const val = m.querySelector('.m-val');
+    if (val) val.textContent = String(v);
+  }
+
+  bumpMeter(id: 'o2' | 'battery' | 'integrity'): void {
+    const m = el('#meter-' + id);
+    m.classList.remove('bump');
+    void m.offsetWidth;
+    m.classList.add('bump');
+  }
+
+  /** Texto que sobe e some na posição de tela (número de dano, cura...). */
+  floatText(x: number, y: number, text: string, good = false): void {
+    const e = document.createElement('span');
+    e.className = 'float-num' + (good ? ' good' : '');
+    e.textContent = text;
+    e.style.left = x + 'px';
+    e.style.top = y + 'px';
+    this.fxLayer.appendChild(e);
+    setTimeout(() => e.remove(), 950);
+  }
+
+  showDeath(cause: string, lostItems: boolean, onRespawn: () => void): void {
+    el('#death-cause').textContent = cause;
+    el('#death-title').textContent = t('death.title');
+    el('#death-text').textContent = t(lostItems ? 'death.text' : 'death.textEmpty');
+    const btn = el<HTMLButtonElement>('#btn-respawn');
+    btn.textContent = t('death.respawn');
+    btn.onclick = () => onRespawn();
+    el('#death').hidden = false;
+    btn.focus({ preventScroll: true });
+  }
+
+  hideDeath(): void {
+    el('#death').hidden = true;
+  }
+
+  /** Desenha os marcadores: objetivo da missão e itens caídos. */
   drawWaypoint(camera: THREE.Camera, rect: DOMRect, player: THREE.Vector3): void {
-    const e = el('#wp-arrow');
-    if (!this.wp) {
+    this.drawMarker(el('#wp-arrow'), this.wp, camera, rect, player, (n) => t('hud.meters', { n }));
+    this.drawMarker(el('#wp-loot'), this.loot, camera, rect, player, (n) => t('loot.marker', { n }));
+  }
+
+  /** Seta na borda da tela quando o alvo está fora de vista; distância em cima quando está visível. */
+  private drawMarker(
+    e: HTMLElement, target: THREE.Vector3 | null, camera: THREE.Camera, rect: DOMRect, player: THREE.Vector3,
+    label: (meters: number) => string,
+  ): void {
+    if (!target) {
       e.hidden = true;
       return;
     }
-    const v = this.wp.clone();
+    const v = target.clone();
     v.y += 2.5;
     v.project(camera);
     const behind = v.z > 1;
     let x = (v.x * 0.5 + 0.5) * rect.width, y = (-v.y * 0.5 + 0.5) * rect.height;
     const m = 56;
     const inside = !behind && x > m && x < rect.width - m && y > m + 40 && y < rect.height - m - 80;
-    const dist = Math.round(Math.hypot(this.wp.x - player.x, this.wp.z - player.z));
+    const dist = Math.round(Math.hypot(target.x - player.x, target.z - player.z));
     e.hidden = false;
     e.classList.toggle('inside', inside);
     if (behind) {
@@ -216,7 +288,7 @@ export class Hud {
     const arrow = e.querySelector<HTMLElement>('.arrow');
     if (arrow) arrow.style.transform = `rotate(${ang}rad)`;
     const d = e.querySelector('.dist');
-    if (d) d.textContent = t('hud.meters', { n: dist });
+    if (d) d.textContent = label(dist);
   }
 
   updateCoords(p: THREE.Vector3, base: number): void {

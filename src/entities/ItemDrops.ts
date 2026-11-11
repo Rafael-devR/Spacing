@@ -8,6 +8,8 @@ import type { Player } from './Player';
 interface Drop {
   obj: THREE.Mesh;
   item: ItemId;
+  /** quantas unidades o item entrega ao chegar */
+  amount: number;
   /** negativo = ainda não saiu (saída em sequência) */
   age: number;
   vel: THREE.Vector3;
@@ -31,8 +33,19 @@ export class ItemDrops {
       obj.castShadow = true;
       this.scene.add(obj);
       const a = Math.random() * Math.PI * 2;
-      this.drops.push({ obj, item, age: -i * 0.08, vel: new THREE.Vector3(Math.cos(a) * 1.4, 4 + Math.random(), Math.sin(a) * 1.4) });
+      this.drops.push({ obj, item, amount: 1, age: -i * 0.08, vel: new THREE.Vector3(Math.cos(a) * 1.4, 4 + Math.random(), Math.sin(a) * 1.4) });
     }
+  }
+
+  /** Um item que já está no chão sai voando até o jogador e entrega `amount` unidades. */
+  fly(item: ItemId, from: THREE.Vector3, amount: number): void {
+    const obj = this.models.create(item);
+    obj.scale.setScalar(this.models.dropScale(item));
+    obj.position.copy(from);
+    obj.castShadow = true;
+    this.scene.add(obj);
+    // já pula a fase de salto: vai direto para o jogador
+    this.drops.push({ obj, item, amount, age: 0.45, vel: new THREE.Vector3() });
   }
 
   update(dt: number, player: Player): void {
@@ -54,7 +67,7 @@ export class ItemDrops {
         if (dist < 0.35) {
           this.scene.remove(o);
           this.drops.splice(i, 1);
-          this.inventory.add(d.item, 1);
+          this.inventory.add(d.item, d.amount);
           continue;
         }
       }

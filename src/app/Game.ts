@@ -10,9 +10,11 @@ import { BASALT, ICE, REGOLITH } from '../data/blocks';
 import { ITEMS, ITEM_ORDER, type ItemId } from '../data/items';
 import { Debris } from '../entities/Debris';
 import { ItemDrops } from '../entities/ItemDrops';
+import { LootPiles } from '../entities/LootPiles';
 import { Meteors } from '../entities/Meteors';
 import { Player } from '../entities/Player';
 import { t } from '../i18n';
+import { BlockFx } from '../render/BlockFx';
 import { Footprints } from '../render/Footprints';
 import { renderIcon } from '../render/icons';
 import { IsoRig } from '../render/IsoRig';
@@ -26,14 +28,16 @@ import { createBackdrop } from '../render/sky';
 import { Interaction } from '../systems/Interaction';
 import { Inventory } from '../systems/Inventory';
 import { Missions } from '../systems/Missions';
+import { Survival } from '../systems/Survival';
 import { el, maybeEl } from '../ui/dom';
 import { Hud } from '../ui/Hud';
 import { PauseMenu } from '../ui/PauseMenu';
-import { LANDER } from '../world/terrain';
+import { LANDER, SPAWN } from '../world/terrain';
 import { World } from '../world/World';
 import { AUTOSAVE_MS, FIXED_STEP, MAX_STEPS_PER_FRAME, SEED, VERSION } from './config';
 import { createBus, type GameBus, type GameState } from './events';
 import { FixedStep } from './FixedStep';
+import { SurvivalDirector } from './SurvivalDirector';
 
 export class Game {
   state: GameState = 'loading';
@@ -65,7 +69,12 @@ export class Game {
   private readonly meteors: Meteors;
   private readonly missions: Missions;
   private readonly waypoint: Waypoint;
+  private readonly lootMarker: Waypoint;
   private readonly lander: Lander;
+  readonly survival: Survival;
+  readonly loot: LootPiles;
+  private readonly blockFx: BlockFx;
+  private readonly director: SurvivalDirector;
 
   private readonly hud = new Hud();
   private readonly pauseMenu: PauseMenu;
@@ -81,6 +90,11 @@ export class Game {
   /** apagando o progresso: não salvar mais nada */
   private resetting = false;
   private readonly perf = { frames: 0, time: 0, checked: false };
+  /** pausa de impacto (s reais) e câmera lenta */
+  private hitStop = 0;
+  private slowMo = { t: 0, scale: 1 };
+  /** coletas em sequência sobem de tom */
+  private popCombo = { t: 0, n: 0 };
   private readonly baseY: number;
 
   constructor(
@@ -117,14 +131,19 @@ export class Game {
     this.debris = new Debris(scene, this.world, materials.debris, events);
     this.itemModels = new ItemModels(materials, propFactory);
     this.drops = new ItemDrops(scene, this.itemModels, this.inventory);
+    this.loot = new LootPiles(scene, this.itemModels, this.world, this.drops, events);
+    this.blockFx = new BlockFx(scene, this.itemModels);
     this.footprints = new Footprints(scene);
     this.interaction = new Interaction({
       scene, camera: this.camera, canvas: renderer.domElement, world: this.world, player: this.player, rig: this.rig,
       particles: this.particles, debris: this.debris, drops: this.drops, inventory: this.inventory, events,
+      drillRate: () => this.survival.drillRate(),
     });
     this.meteors = new Meteors({ scene, world: this.world, debris: this.debris, particles: this.particles, player: this.player, events });
     this.waypoint = createWaypoint();
     scene.add(this.waypoint.group);
+    this.lootMarker = createWaypoint([2.2, 0.85, 0.3]);
+    scene.add(this.lootMarker.group);
     this.lander = createLander();
     scene.add(this.lander.group);
     U.uMistY.value = Math.floor(this.baseY) - 6;
@@ -136,6 +155,16 @@ export class Game {
       this.save?.missions,
     );
     if (this.missions.current.kind === 'end') this.lander.setRepaired(true);
+    this.survival = new Survival(
+      {
+        events,
+        position: () => this.player.pos,
+        moving: () => Math.hypot(this.player.vel.x, this.player.vel.z) > 0.3,
+        mining: () => this.player.mining,
+        pressureCenter: () => this.lander.group.position,
+      },
+      this.save?.suit,
+    );
 
     this.sfx.muted = this.prefs.muted;
     this.haptics.enabled = this.prefs.vibration;
@@ -174,6 +203,23 @@ export class Game {
       VERSION,
     );
 
+    this.director = new SurvivalDirector({
+      events, hud: this.hud, sfx: this.sfx, haptics: this.haptics, rig: this.rig, post: this.post,
+      camera: this.camera, canvas: renderer.domElement, player: this.player, inventory: this.inventory,
+      survival: this.survival, loot: this.loot, particles: this.particles, lander: this.lander,
+      input: this.input, interaction: this.interaction,
+      getState: () => this.state,
+      setState: (s) => this.setState(s),
+      slowMotion: (seconds, scale) => (this.slowMo = { t: seconds, scale }),
+      teleported: () => {
+        const p = this.player.pos;
+        this.world.update(p.x, p.z, 999, 0);
+        this.player.animate(0);
+        this.rig.snap(new THREE.Vector3(p.x, p.y + 0.8, p.z));
+      },
+      persist: () => this.persist(),
+    });
+
     this.wireEvents();
     this.wireControls();
     this.applyQuality(this.qualityName);
@@ -199,8 +245,9 @@ export class Game {
       // garante que não nasce dentro de um bloco
       while (player.collides(player.pos.x, player.pos.y, player.pos.z) && player.pos.y < 60) player.pos.y += 1;
       player.prevPos.copy(player.pos);
-    } else player.spawn(1.5, 1.5);
+    } else player.spawn(SPAWN.x, SPAWN.z);
     player.animate(0);
+    this.loot.load(this.save?.loot ?? []);
     this.rig.snap(new THREE.Vector3(player.pos.x, player.pos.y + 0.8, player.pos.z));
 
     const icons = {} as Record<ItemId, string>;
@@ -249,7 +296,7 @@ export class Game {
   }
 
   pause(): void {
-    if (this.state !== 'playing') return;
+    if (this.state !== 'playing') return; // morto não pausa: a tela de morte já espera
     this.setState('paused');
     this.input.reset();
     this.interaction.cancel();
@@ -309,22 +356,37 @@ export class Game {
     e.on('mine:hit', () => {
       sfx.play('hit');
       rig.shake(0.1);
+      if (this.input.touch) haptics.play('tick');
     });
     const broke = (): void => {
       sfx.play('break');
       rig.shake(0.18);
       haptics.play('tap');
     };
-    e.on('block:broken', broke);
-    e.on('prop:broken', broke);
-    e.on('block:placed', () => sfx.play('place'));
+    e.on('block:broken', (b) => {
+      broke();
+      this.blockFx.broke(b.x, b.y, b.z, b.id);
+      this.hitStop = 0.045;
+    });
+    e.on('prop:broken', () => {
+      broke();
+      this.hitStop = 0.06;
+    });
+    e.on('block:placed', (b) => {
+      sfx.play('place');
+      this.blockFx.placed(b.x, b.y, b.z, b.id);
+      rig.shake(0.05);
+    });
     e.on('action:denied', ({ reason, item }) => {
       sfx.play('deny');
       if (reason === 'notBlock') hud.toast(t('deny.notBlock'), true);
       else if (reason === 'noItems' && item) hud.toast(t('deny.noItems', { item: ITEMS[item].name.toLowerCase() }), true);
     });
     e.on('item:collected', ({ item, amount }) => {
-      sfx.play('pop');
+      const combo = this.popCombo;
+      combo.n = this.time - combo.t < 0.7 ? Math.min(combo.n + 1, 10) : 0;
+      combo.t = this.time;
+      sfx.play('pop', 1 + combo.n * 0.06);
       hud.pickup(item, amount);
     });
     e.on('inventory:changed', ({ item }) => hud.renderCounts(inventory, item));
@@ -458,6 +520,8 @@ export class Game {
       inventory: this.inventory.serialize(),
       player: { x: p.x, y: p.y, z: p.z },
       missions: this.missions.serialize(),
+      suit: this.survival.serialize(),
+      loot: this.loot.serialize(),
     });
   }
 
@@ -498,19 +562,33 @@ export class Game {
 
   private readonly frame = (now: number): void => {
     requestAnimationFrame(this.frame);
-    const dt = Math.min(0.05, (now - this.last) / 1000);
+    const realDt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     // na pausa o canvas mantém o último quadro
     if (this.state === 'loading' || this.state === 'paused') return;
+    const state = this.state;
+    const playing = state === 'playing';
+    const dead = state === 'dead';
+    const { input, rig, player, world, interaction, hud } = this;
+
+    // escala de tempo: pausa de impacto e câmera lenta (juice)
+    let dt = realDt;
+    if (this.hitStop > 0) {
+      this.hitStop -= realDt;
+      dt = realDt * 0.05;
+    } else if (this.slowMo.t > 0) {
+      this.slowMo.t -= realDt;
+      dt = realDt * this.slowMo.scale;
+    }
     this.time += dt;
     const time = this.time;
-    const playing = this.state === 'playing';
-    const { input, rig, player, world, interaction, hud } = this;
 
     input.update();
     if (!playing) {
       input.moveX = input.moveY = 0;
       input.jump = false;
+    }
+    if (state === 'menu') {
       rig.yaw += dt * 0.06;
       rig.yawTarget = rig.yaw;
     }
@@ -520,17 +598,19 @@ export class Game {
     for (let i = 0; i < steps; i++) {
       if (playing) interaction.steer(input, FIXED_STEP);
       player.step(FIXED_STEP, input, rig);
+      if (playing) this.survival.step(FIXED_STEP);
       this.debris.update(FIXED_STEP, player);
     }
     player.animate(dt, this.fixed.alpha);
 
     this.drops.update(dt, player);
+    this.loot.update(dt, time, player, playing);
+    this.blockFx.update(dt);
     this.footprints.update(dt);
-    if (playing) {
-      this.meteors.update(dt, time);
-      this.missions.update(dt);
-    }
+    if (playing || dead) this.meteors.update(dt, time);
+    if (playing) this.missions.update(dt);
     this.waypoint.update(time);
+    this.lootMarker.update(time);
     this.lander.update(time);
 
     const rp = player.model.root.position;
@@ -546,6 +626,7 @@ export class Game {
     }
     this.particles.update(dt);
     this.motes.update(dt, rig.target, time);
+    this.director.update(realDt, time);
 
     const extent = Math.max(14, rig.dist * 0.8);
     if (Math.abs(this.lights.extent - extent) > 2) this.lights.setShadowSize(QUALITY[this.qualityName].shadow, extent);
@@ -553,22 +634,24 @@ export class Game {
     this.fog.near = rig.dist * 1.15;
     this.fog.far = rig.dist * 2.1;
 
-    // marcador de objetivo
+    // marcadores: objetivo da missão e itens caídos
     const tp = playing ? this.missions.target() : null;
     this.waypoint.group.visible = !!tp;
     if (tp) this.waypoint.group.position.copy(tp);
     hud.setWaypoint(tp);
+    const lp = playing ? this.loot.latest() : null;
+    this.lootMarker.group.visible = !!lp;
+    if (lp) this.lootMarker.group.position.copy(lp);
+    hud.setLootMarker(lp);
 
-    this.hudTimer -= dt;
+    this.hudTimer -= realDt;
     if (this.hudTimer <= 0) {
       this.hudTimer = 0.08;
       hud.updateCompass(rig.heading());
       hud.updateCoords(player.pos, this.baseY);
     }
-    if (playing) {
-      hud.drawWaypoint(this.camera, this.renderer.domElement.getBoundingClientRect(), player.pos);
-      this.perfTick(dt);
-    }
+    if (playing || dead) hud.drawWaypoint(this.camera, this.renderer.domElement.getBoundingClientRect(), player.pos);
+    if (playing) this.perfTick(realDt);
     this.post.render(time);
   };
 }

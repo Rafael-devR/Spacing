@@ -6,6 +6,8 @@ import type { PropType } from '../data/props';
 export const CS = 16; // largura do chunk (x, z)
 export const CH = 48; // altura do mundo
 export const LANDER = { x: -3, z: -2, r: 1.7 };
+/** onde o astronauta começa e renasce: dentro da área pressurizada do módulo */
+export const SPAWN = { x: 1.0, z: 0.8 };
 
 export const idx = (x: number, y: number, z: number): number => x + z * CS + y * CS * CS;
 

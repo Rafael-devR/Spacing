@@ -54,6 +54,26 @@ export const ptBR = {
   'shake.off': 'Desligado',
   'shake.low': 'Baixo',
   'shake.normal': 'Normal',
+
+  'suit.o2Low': 'Oxigênio em 30%. Hora de voltar ao módulo.',
+  'suit.o2Critical': 'Oxigênio crítico! Volte agora.',
+  'suit.o2Ok': 'Oxigênio normalizado.',
+  'suit.asphyxia': 'Sem oxigênio! A integridade do traje está caindo.',
+  'suit.batteryLow': 'Bateria fraca: sem ela a furadeira fica lenta.',
+  'suit.batteryOk': 'Bateria recarregada.',
+  'suit.recharging': 'Área pressurizada: recarregando o traje.',
+
+  'death.title': 'Traje desligado',
+  'death.text': 'Seus itens ficaram onde você caiu. O módulo preparou um traje de emergência.',
+  'death.textEmpty': 'O módulo preparou um traje de emergência.',
+  'death.respawn': 'Voltar ao módulo',
+  'death.cause.asphyxia': 'Sem oxigênio',
+  'death.cause.meteor': 'Atingido por um meteoro',
+  'death.cause.fall': 'Queda forte',
+  'death.respawned': 'Traje de emergência ativado. Seus itens estão marcados no mapa.',
+
+  'loot.marker': 'Seus itens · {n} m',
+  'loot.recovered': 'Todos os itens recuperados!',
 } as const;
 
 export type MessageKey = keyof typeof ptBR;

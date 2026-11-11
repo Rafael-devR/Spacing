@@ -2,7 +2,8 @@
 
 export type SoundName =
   | 'hit' | 'break' | 'pop' | 'step' | 'land' | 'jump' | 'place' | 'deny' | 'ui'
-  | 'clink' | 'kick' | 'whoosh' | 'boom' | 'chime';
+  | 'clink' | 'kick' | 'whoosh' | 'boom' | 'chime'
+  | 'beep' | 'alarm' | 'breath' | 'heartbeat' | 'hurt' | 'death' | 'respawn' | 'charge' | 'powerDown' | 'pickupBig';
 
 const MASTER = 0.55;
 
@@ -12,6 +13,8 @@ export class Sfx {
   muted = false;
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
+  /** filtro que abafa tudo (morte, asfixia) */
+  private muffle: BiquadFilterNode | null = null;
   private noise: AudioBuffer | null = null;
 
   init(): void {
@@ -25,7 +28,11 @@ export class Sfx {
     const ctx = (this.ctx = new AC());
     this.master = ctx.createGain();
     this.master.gain.value = this.muted ? 0 : MASTER;
-    this.master.connect(ctx.destination);
+    this.muffle = ctx.createBiquadFilter();
+    this.muffle.type = 'lowpass';
+    this.muffle.frequency.value = 20000;
+    this.master.connect(this.muffle);
+    this.muffle.connect(ctx.destination);
     const len = ctx.sampleRate;
     this.noise = ctx.createBuffer(1, len, ctx.sampleRate);
     const d = this.noise.getChannelData(0);
@@ -36,6 +43,13 @@ export class Sfx {
   setMuted(m: boolean): void {
     this.muted = m;
     if (this.master && this.ctx) this.master.gain.setTargetAtTime(m ? 0 : MASTER, this.ctx.currentTime, 0.05);
+  }
+
+  /** Abafa o som (0 = normal, 1 = quase só graves), como ouvir de dentro do capacete. */
+  setMuffled(amount: number): void {
+    if (!this.ctx || !this.muffle) return;
+    const f = 20000 * Math.pow(250 / 20000, Math.max(0, Math.min(1, amount)));
+    this.muffle.frequency.setTargetAtTime(f, this.ctx.currentTime, 0.15);
   }
 
   /** Congela todo o áudio (menu de pausa). */
@@ -108,12 +122,16 @@ export class Sfx {
     o.stop(t + dur + 0.02);
   }
 
-  play(name: SoundName): void {
+  /** `pitch` multiplica a frequência dos sons tonais (coletas em sequência sobem de tom). */
+  play(name: SoundName, pitch = 1): void {
     if (!this.ctx || this.muted) return;
     switch (name) {
       case 'hit': this.noiseHit(0.07, 'bandpass', 900 + Math.random() * 700, 0.35, 2.5); break;
       case 'break': this.noiseHit(0.25, 'lowpass', 2200, 0.5, 1, 0.15); this.tone(140, 55, 0.22, 0.35); break;
-      case 'pop': this.tone(520 + Math.random() * 80, 1150, 0.09, 0.12); break;
+      case 'pop': this.tone((520 + Math.random() * 40) * pitch, 1150 * pitch, 0.09, 0.12); break;
+      case 'pickupBig':
+        [1, 1.26, 1.5].forEach((m, i) => setTimeout(() => this.tone(520 * m, 1040 * m, 0.12, 0.1), i * 60));
+        break;
       case 'step': this.noiseHit(0.06, 'lowpass', 500, 0.14); break;
       case 'land': this.noiseHit(0.18, 'lowpass', 700, 0.3, 1, 0.3); break;
       case 'jump': this.tone(220, 360, 0.14, 0.07, 'triangle'); break;
@@ -128,6 +146,31 @@ export class Sfx {
         this.noiseHit(1.3, 'lowpass', 1800, 0.8, 0.8, 0.05);
         this.noiseHit(0.25, 'highpass', 1500, 0.25);
         break;
+      case 'beep': this.tone(1320, 1320, 0.09, 0.07, 'square'); break;
+      case 'alarm':
+        this.tone(880, 660, 0.16, 0.09, 'square');
+        setTimeout(() => this.tone(880, 660, 0.16, 0.09, 'square'), 200);
+        break;
+      case 'breath': this.noiseHit(0.42, 'bandpass', 900, 0.16, 0.7, 0.55); break;
+      case 'heartbeat':
+        this.tone(70, 45, 0.12, 0.6);
+        setTimeout(() => this.tone(62, 40, 0.14, 0.45), 170);
+        break;
+      case 'hurt':
+        this.noiseHit(0.2, 'lowpass', 1400, 0.6, 1, 0.2);
+        this.tone(320, 120, 0.22, 0.25, 'sawtooth');
+        setTimeout(() => this.tone(990, 990, 0.08, 0.06, 'square'), 120);
+        break;
+      case 'death':
+        this.tone(330, 55, 1.6, 0.35, 'sawtooth');
+        this.noiseHit(1.4, 'lowpass', 900, 0.4, 1, 0.1);
+        break;
+      case 'respawn':
+        [392, 523.25, 659.25, 783.99].forEach((f, i) => setTimeout(() => this.tone(f, f * 1.01, 0.4, 0.08, 'triangle'), i * 80));
+        this.noiseHit(0.8, 'bandpass', 300, 0.2, 2, 8);
+        break;
+      case 'charge': this.tone(240 * pitch, 260 * pitch, 0.12, 0.05, 'triangle'); break;
+      case 'powerDown': this.tone(520, 70, 0.6, 0.14, 'sawtooth'); break;
       case 'chime':
         [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => setTimeout(() => this.tone(f, f * 1.002, 0.5, 0.09), i * 90));
         break;

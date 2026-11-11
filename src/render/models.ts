@@ -166,6 +166,8 @@ export interface AstronautModel {
   armR: THREE.Group;
   bit: THREE.Mesh;
   beacon: THREE.Mesh;
+  /** material do traje (para piscar ao levar dano) */
+  suitMat: THREE.MeshLambertMaterial;
 }
 
 export function createAstronaut(): AstronautModel {
@@ -236,7 +238,7 @@ export function createAstronaut(): AstronautModel {
   root.traverse((o) => {
     if (o instanceof THREE.Mesh) o.receiveShadow = false;
   });
-  return { root, body, head, legL, legR, armL, armR, bit, beacon };
+  return { root, body, head, legL, legR, armL, armR, bit, beacon, suitMat: suit };
 }
 
 // ---------------- Marcador de objetivo ----------------
@@ -245,20 +247,21 @@ export interface Waypoint {
   update(t: number): void;
 }
 
-export function createWaypoint(): Waypoint {
+export function createWaypoint(color: [number, number, number] = [0.5, 1.6, 2.0]): Waypoint {
+  const [r, g0, b] = color;
   const g = new THREE.Group();
   const beamMat = new THREE.MeshBasicMaterial({
-    color: new THREE.Color(0.5, 1.6, 2.0), transparent: true, opacity: 0.22,
+    color: new THREE.Color(r, g0, b), transparent: true, opacity: 0.22,
     blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide,
   });
   const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, 26, 10, 1, true), beamMat);
   beam.position.y = 13;
   g.add(beam);
-  const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.32), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.7, 2.2, 2.6), fog: false }));
+  const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.32), new THREE.MeshBasicMaterial({ color: new THREE.Color(r * 1.4, g0 * 1.4, b * 1.3), fog: false }));
   gem.scale.y = 1.5;
   g.add(gem);
   const ringMat = new THREE.MeshBasicMaterial({
-    color: new THREE.Color(0.5, 1.6, 2.0), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
+    color: new THREE.Color(r, g0, b), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
   });
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.75, 0.95, 40), ringMat);
   ring.rotation.x = -Math.PI / 2;

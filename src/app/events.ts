@@ -10,7 +10,11 @@ export interface Vec3Like {
   z: number;
 }
 
-export type GameState = 'loading' | 'menu' | 'playing' | 'paused';
+export type GameState = 'loading' | 'menu' | 'playing' | 'paused' | 'dead';
+
+export type DeathCause = 'asphyxia' | 'meteor' | 'fall';
+
+export type Meter = 'o2' | 'battery' | 'integrity';
 
 export type DenyReason = 'notBlock' | 'noItems' | 'blocked';
 
@@ -50,6 +54,19 @@ export interface GameEvents {
   /** o jogador chegou para entregar, mas faltam itens */
   'mission:missing': { items: { item: ItemId; missing: number }[] };
   'game:stateChanged': { from: GameState; to: GameState };
+
+  // ---- sobrevivência (docs/design/SOBREVIVENCIA.md) ----
+  /** medidor cruzou um limite de aviso; level 0 = voltou ao normal */
+  'suit:warning': { meter: Meter; level: 0 | 1 | 2 };
+  /** começou ou parou a asfixia (oxigênio em zero) */
+  'suit:asphyxia': { on: boolean };
+  /** entrou ou saiu da área pressurizada (recarga) */
+  'suit:recharge': { on: boolean };
+  'player:damaged': { amount: number; cause: DeathCause; integrity: number };
+  'player:died': Vec3Like & { cause: DeathCause };
+  'player:respawned': Vec3Like;
+  /** itens caíram no chão (morte) */
+  'loot:dropped': Vec3Like & { pieces: number };
 }
 
 export type GameBus = EventBus<GameEvents>;

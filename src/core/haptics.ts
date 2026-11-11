@@ -2,13 +2,15 @@
 
 export const hapticsSupported = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
 
-export type HapticPattern = 'tap' | 'medium' | 'heavy' | 'success';
+export type HapticPattern = 'tick' | 'tap' | 'medium' | 'heavy' | 'success' | 'death';
 
 const PATTERNS: Record<HapticPattern, number | number[]> = {
+  tick: 6,
   tap: 12,
   medium: 28,
   heavy: [60, 30, 90],
   success: [20, 40, 20],
+  death: [120, 60, 200, 80, 300],
 };
 
 export class Haptics {

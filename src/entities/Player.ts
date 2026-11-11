@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import type { GameBus } from '../app/events';
 import { createAstronaut, type AstronautModel } from '../render/models';
 import type { IsoRig } from '../render/IsoRig';
-import { LANDER } from '../world/terrain';
+import { LANDER, SPAWN } from '../world/terrain';
 import type { World } from '../world/World';
 
 const HW = 0.3; // meia largura
@@ -34,6 +34,13 @@ export class Player {
   /** ângulo para onde olhar enquanto minera; undefined = segue o movimento */
   faceTarget: number | undefined = undefined;
   mining = false;
+  /** morto: ignora a entrada e cai de costas */
+  dead = false;
+  /** piscando (invulnerável depois de renascer) */
+  blinking = false;
+  private flash = 0;
+  private squash = 0;
+  private deadPose = 0;
   private walk = 0;
   private stepOffset = 0;
   private stepTimer = 0;
@@ -108,8 +115,9 @@ export class Player {
     this.prevPos.copy(p);
     // direção de movimento relativa à câmera
     const f = cam.forward(), r = cam.right();
-    let dx = r.x * input.moveX + f.x * input.moveY;
-    let dz = r.z * input.moveX + f.z * input.moveY;
+    const mx = this.dead ? 0 : input.moveX, my = this.dead ? 0 : input.moveY;
+    let dx = r.x * mx + f.x * my;
+    let dz = r.z * mx + f.z * my;
     const len = Math.hypot(dx, dz);
     if (len > 1) {
       dx /= len;
@@ -121,7 +129,7 @@ export class Player {
     this.vel.x += (dx * SPEED - this.vel.x) * k;
     this.vel.z += (dz * SPEED - this.vel.z) * k;
 
-    if (input.jump && this.onGround) {
+    if (input.jump && this.onGround && !this.dead) {
       this.vel.y = JUMP;
       this.onGround = false;
       this.events?.emit('player:jump', { x: p.x, y: p.y, z: p.z });
@@ -140,7 +148,10 @@ export class Player {
     if (this.moveAxis('y', vy * dt)) {
       if (vy < 0) {
         this.onGround = true;
-        if (!wasGround && vy < -7) this.events?.emit('player:land', { x: p.x, y: p.y, z: p.z, speed: -vy });
+        if (!wasGround && vy < -7) {
+          this.squash = Math.min(1, -vy / 14);
+          this.events?.emit('player:land', { x: p.x, y: p.y, z: p.z, speed: -vy });
+        }
       }
       this.vel.y = 0;
     }
@@ -153,7 +164,7 @@ export class Player {
       p.z += (ldz / (ld || 1)) * (LANDER.r - ld);
     }
 
-    if (p.y < -10) this.spawn(0.5, 0.5);
+    if (p.y < -10) this.spawn(SPAWN.x, SPAWN.z);
 
     const speed = Math.hypot(this.vel.x, this.vel.z);
     if (this.onGround && speed > 1) {
@@ -191,6 +202,28 @@ export class Player {
     }
     m.body.rotation.z = this.onGround ? Math.sin(this.walk) * 0.04 * Math.min(1, speed / 2) : 0;
     m.beacon.visible = Math.sin(this.time * 4) > 0;
+
+    // achata ao pousar e volta com mola
+    this.squash = Math.max(0, this.squash - dt * 5);
+    const sq = Math.sin(this.squash * Math.PI) * 0.22 * this.squash;
+    m.body.scale.set(1 + sq * 0.6, 1 - sq, 1 + sq * 0.6);
+    // pisca vermelho ao levar dano
+    this.flash = Math.max(0, this.flash - dt * 4);
+    m.suitMat.emissive.setRGB(this.flash * 0.9, this.flash * 0.1, this.flash * 0.05);
+    // invulnerável: pisca; morto: cai de costas
+    m.root.visible = !this.blinking || Math.sin(this.time * 40) > -0.3;
+    this.deadPose += ((this.dead ? 1 : 0) - this.deadPose) * (1 - Math.exp(-6 * dt));
+    if (this.deadPose > 0.001) {
+      m.body.rotation.x = -1.35 * this.deadPose;
+      m.body.position.y += 0.25 * this.deadPose;
+      m.legL.rotation.x *= 1 - this.deadPose;
+      m.legR.rotation.x *= 1 - this.deadPose;
+    } else m.body.rotation.x = 0;
+  }
+
+  /** Retorno visual de dano. */
+  hurt(): void {
+    this.flash = 1;
   }
 
   intersectsBlock(x: number, y: number, z: number): boolean {

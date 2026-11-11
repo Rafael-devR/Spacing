@@ -50,6 +50,11 @@ export class ItemModels {
     return new THREE.Mesh(this.propGeo(item), this.materials.props);
   }
 
+  /** Malha de um bloco inteiro, centrada (efeitos de quebrar e colocar). */
+  blockMesh(id: BlockId): THREE.Mesh {
+    return new THREE.Mesh(this.blockGeo(id), this.materials.terrain);
+  }
+
   /** escala para o item parecer do tamanho certo solto no mundo */
   dropScale(item: ItemId): number {
     return itemBlock(item) !== undefined ? 0.3 : 0.42;
