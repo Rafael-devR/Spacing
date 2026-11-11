@@ -76,6 +76,17 @@ Regras para qualquer efeito novo:
   Se o jogador nunca escolheu a qualidade, o jogo a reduz sozinho quando a média dos primeiros 5 segundos
   fica abaixo de 32 FPS.
 
+## Ambientação planejada
+
+Vem com a sobrevivência ([design/SOBREVIVENCIA.md](design/SOBREVIVENCIA.md)).
+
+- **Sol baixo** no horizonte, como no polo sul real, com sombras longas.
+- **A Terra** visível perto do horizonte.
+- **Crateras escuras** de verdade, com gelo, onde só a lanterna ilumina.
+- **Som do vácuo**: fora do domo só se ouve o traje (respiração, passos pelo corpo). Dentro do domo, ar e vento.
+- **Gerador de Domo**: esfera translúcida com padrão hexagonal, brilho de borda (fresnel) e ondulação.
+- **HUD do traje**: medidores de oxigênio, bateria e integridade que mudam de cor e pulsam.
+
 ## Em aberto
 
 - A Lua deve ser mais **clara e diurna** como nas referências de paisagem, ou manter o **entardecer roxo**?

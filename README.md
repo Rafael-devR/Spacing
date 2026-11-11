@@ -1,7 +1,7 @@
 # Spacing
 
 > Jogo de exploração espacial em mundo de blocos, em 3D isométrico, com visual low poly cartoon.
-> Minere, construa, crafte e escape da Lua rumo a um planeta com vida.
+> Sobreviva com oxigênio e bateria limitados, minere, construa, crafte e escape da Lua rumo a um planeta com vida.
 
 **Status:** protótipo jogável `v0.1.0`. Nome provisório. Veja o [roadmap](docs/ROADMAP.md).
 
@@ -60,6 +60,8 @@ Outros comandos:
 | -------------------------------------------- | ---------------------------------------------------------- |
 | [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md)   | Visão, pilares, loop de jogo, sistemas e progressão        |
 | [docs/STORY.md](docs/STORY.md)               | História, personagens e como as missões são escritas       |
+| [docs/design/SOBREVIVENCIA.md](docs/design/SOBREVIVENCIA.md) | Oxigênio, bateria, integridade, morte e o Gerador de Domo |
+| [docs/design/GAME_JUICE.md](docs/design/GAME_JUICE.md) | Princípios e catálogo de retorno de cada ação             |
 | [docs/ART_DIRECTION.md](docs/ART_DIRECTION.md) | Direção de arte, paleta, shaders e referências           |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Arquitetura do código, módulos e estrutura alvo            |
 | [docs/ROADMAP.md](docs/ROADMAP.md)           | Marcos e próximas versões                                  |

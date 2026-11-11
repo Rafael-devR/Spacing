@@ -1,8 +1,7 @@
 # Roadmap
 
 Marcos em ordem de execução. Cada marco vira uma versão (`v0.N.0`) com tag no GitHub e entrada no
-[CHANGELOG](../CHANGELOG.md). **Proposta**: a ordem e o conteúdo de cada marco serão ajustados com o dono
-do projeto antes de começar.
+[CHANGELOG](../CHANGELOG.md). Antes de cada marco, o que será feito fica escrito em `docs/`.
 
 ## v0.1: Protótipo jogável (feito)
 
@@ -12,29 +11,36 @@ do projeto antes de começar.
 
 ## v0.2: Fundação (próximo)
 
-Organizar antes de crescer. Nenhuma mecânica nova.
+Organizar antes de crescer. Sem mecânica nova, mas com menu de pausa.
 
 - [ ] Migrar `src/` para TypeScript e para a estrutura de pastas alvo.
 - [ ] Barramento de eventos entre sistemas.
-- [ ] Conteúdo em `data/` (blocos, itens) com o sistema lendo os dados.
-- [ ] Máquina de estados do jogo: menu, jogando, pausa.
-- [ ] Salvamento com versão e migração.
-- [ ] CSS separado em arquivos; textos em `i18n/`.
+- [ ] Conteúdo em `data/` (blocos, itens, objetos, missões), com os sistemas lendo os dados.
+- [ ] Estados do jogo: carregando, menu, jogando, pausa.
+- [ ] Menu de pausa com configurações: gráficos, som, tremor de tela, vibração.
+- [ ] Salvamento com versão e migração do formato antigo.
+- [ ] Estilos em arquivo próprio; textos da interface em `i18n/`.
 - [ ] Passo fixo de física.
-- [ ] Mudanças que o dono quer no jogo atual **(a detalhar)**.
 
-## v0.3: Núcleo de gameplay
+## v0.3: Sobrevivência I
 
-- [ ] Inventário completo e tela de crafting com receitas.
-- [ ] Ferramentas com níveis (velocidade de mineração, alcance).
-- [ ] Controles de toque revisados: botões, tamanhos e posições.
-- [ ] Menu e configurações.
+Detalhes em [design/SOBREVIVENCIA.md](design/SOBREVIVENCIA.md) e [design/GAME_JUICE.md](design/GAME_JUICE.md).
 
-## v0.4: Base e construção
+- [ ] Oxigênio, bateria e integridade, com HUD dos medidores.
+- [ ] Recarga na área pressurizada do módulo de pouso.
+- [ ] Avisos de oxigênio baixo e asfixia.
+- [ ] Dano por meteoro, queda e falta de ar.
+- [ ] Morte: todos os itens caem no chão, renascimento no módulo, marcador "Seus itens".
+- [ ] Game juice de todos esses eventos, mais pausa de impacto, vibração e animações de bloco.
 
-- [ ] Módulos de base (peças maiores que um bloco).
-- [ ] Energia e oxigênio **(proposta, depende da decisão sobre sobrevivência)**.
-- [ ] Armazenamento e oficina.
+## v0.4: Sobrevivência II
+
+- [ ] Crafting com receitas e tela de crafting.
+- [ ] Gerador de Domo (esfera de atmosfera, ficção).
+- [ ] Painéis solares e eletrolisador (gelo vira O₂ e H₂).
+- [ ] Escuridão e frio nas crateras; lanterna e aquecimento.
+- [ ] Trajes e equipamentos, visíveis no astronauta.
+- [ ] Kit de reparo e tempestade solar.
 
 ## v0.5: Veículos e exploração
 
@@ -44,7 +50,7 @@ Organizar antes de crescer. Nenhuma mecânica nova.
 
 ## v0.6: História e missões
 
-- [ ] Sistema de diálogo e personagens.
+- [ ] Sistema de diálogo, personagens e IA do traje com falas.
 - [ ] Sistema de missões orientado a dados.
 - [ ] Ato I completo, escrito junto com o dono ([STORY.md](STORY.md)).
 
@@ -62,7 +68,7 @@ Organizar antes de crescer. Nenhuma mecânica nova.
 
 ## v1.0: Foguete e novo mundo
 
-- [ ] Montagem do foguete peça por peça.
+- [ ] Montagem do foguete peça por peça, com combustível de hidrogênio.
 - [ ] Lançamento e chegada ao planeta com vida.
 - [ ] Trilha sonora, polimento visual e de áudio, final da campanha.
 
