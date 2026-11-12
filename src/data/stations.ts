@@ -14,7 +14,8 @@ export interface StationData {
   accent: string;
   /** como a câmara aparece no diagrama da tela */
   chamber: 'laser' | 'heat' | 'cell';
-  /** segundos fixos de cada trabalho (preparar e terminar), com energia cheia */
+  /** segundos fixos de cada trabalho (preparar), com energia cheia. Rápido de propósito: o dono comparou com o
+   * Minecraft e não quer o jogador esperando (docs/design/CRAFTING.md) */
   base: number;
   /** segundos por ponto de trabalho dos ingredientes (ver `recipeSeconds`) */
   perWork: number;
@@ -37,8 +38,8 @@ export const STATIONS: Record<StationId, StationData> = {
     tagline: 'Monta peças refinadas em equipamentos e máquinas, camada por camada, com dois lasers.',
     accent: '#7fe7ff',
     chamber: 'laser',
-    base: 40,
-    perWork: 2.4,
+    base: 2,
+    perWork: 0.3,
     slots: 1,
     energy: 'grid',
     kw: 1.2,
@@ -51,8 +52,8 @@ export const STATIONS: Record<StationId, StationData> = {
     tagline: 'Espelhos no telhado concentram o sol: funde, sinteriza e reduz minérios. Três cadinhos dividem o calor.',
     accent: '#ff8a3d',
     chamber: 'heat',
-    base: 14,
-    perWork: 3.2,
+    base: 1,
+    perWork: 0.45,
     slots: 3,
     energy: 'sun',
     kw: 0.15,
@@ -64,8 +65,8 @@ export const STATIONS: Record<StationId, StationData> = {
     tagline: 'Eletricidade quebra moléculas: água em H₂ e O₂, óxidos em metal e oxigênio. Duas células dividem a corrente.',
     accent: '#5fd0ff',
     chamber: 'cell',
-    base: 18,
-    perWork: 4,
+    base: 1.5,
+    perWork: 0.6,
     slots: 2,
     energy: 'grid',
     kw: 2.4,

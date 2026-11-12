@@ -17,7 +17,7 @@ export const SAVE_KEY = 'spacing.save';
 /** chave usada pela v0.1, sem campo de versão */
 export const LEGACY_SAVE_KEY = 'spacing.save.v1';
 export const PREFS_KEY = 'spacing.prefs.v1';
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 export interface ExtraPropSave {
   wx: number;
@@ -202,19 +202,33 @@ function cleanCrafting(v: unknown, version: number): CraftingSave {
   if (Array.isArray(c.jobs)) {
     for (const j of c.jobs) {
       if (!isObj(j) || !isStationId(j.station) || typeof j.recipe !== 'string') continue;
+      const slot = version >= 8 ? Math.max(0, Math.floor(num(j.slot, 0))) : 0;
+      const batch = version >= 8 ? Math.max(1, Math.floor(num(j.batch, 1))) : 1;
+      // v7 e v8 tinham só o trabalho total: vira tudo "por unidade", sem preparo
+      const total = Math.max(0, version >= 8 ? num(j.work, 0) : num(j.duration, 0));
       const job: JobSave =
-        version >= 8
-          ? {
-              station: j.station, slot: Math.max(0, Math.floor(num(j.slot, 0))), recipe: j.recipe,
-              batch: Math.max(1, Math.floor(num(j.batch, 1))), work: Math.max(0, num(j.work, 0)), done: Math.max(0, num(j.done, 0)),
-            }
-          : { station: j.station, slot: 0, recipe: j.recipe, batch: 1, work: Math.max(0, num(j.duration, 0)), done: Math.max(0, num(j.t, 0)) };
-      if (isObj(j.left)) {
-        const left: JobSave['left'] = {};
-        for (const [k, n] of Object.entries(j.left)) if (isItemId(k) && typeof n === 'number' && n > 0) left[k] = Math.floor(n);
-        job.left = left;
+        version >= 9
+          ? { station: j.station, slot, recipe: j.recipe, batch, prep: Math.max(0, num(j.prep, 0)), unit: Math.max(0, num(j.unit, 0)), done: Math.max(0, num(j.done, 0)) }
+          : { station: j.station, slot, recipe: j.recipe, batch, prep: 0, unit: total / batch, done: Math.max(0, version >= 8 ? num(j.done, 0) : num(j.t, 0)) };
+      const counts = (v: unknown): JobSave['taken'] | undefined => {
+        if (!isObj(v)) return undefined;
+        const out: NonNullable<JobSave['taken']> = {};
+        for (const [k, n] of Object.entries(v)) if (isItemId(k) && typeof n === 'number' && n > 0) out[k] = Math.floor(n);
+        return out;
+      };
+      if (version >= 9) {
+        const taken = counts(j.taken);
+        if (taken && Object.keys(taken).length) job.taken = taken;
+        const leftover = counts(j.leftover);
+        if (leftover) job.leftover = leftover;
+        if (j.delivered === true) job.delivered = true;
+        if (j.paused === true) job.paused = true;
+      } else if (job.done >= job.unit * batch && job.unit > 0) {
+        // pronto na v7/v8: o que faltava entregar (`left`) vira sobra; equipamento/estação entregue vira `delivered`
+        const left = counts(j.left);
+        if (left && Object.keys(left).length) job.leftover = left;
+        if (j.rest === false) job.delivered = true;
       }
-      if (typeof j.rest === 'boolean') job.rest = j.rest;
       jobs.push(job);
     }
   }
@@ -243,6 +257,7 @@ export function withStarterCircuit(inv: InventorySave, equipment: EquipmentSave)
  * v6: `explored` (mapa do tablet descoberto aos poucos). Antes disso, nada descoberto: o jogo revela em volta ao abrir.
  * v7: `crafting` (estações e trabalhos longos). Quem vem de antes e não tem o Mapa ganha a placa de circuito inicial.
  * v8: trabalhos com vaga e lote; `power` (bateria da base).
+ * v9: trabalhos com preparo e tempo por unidade (`prep`, `unit`), o que já foi pego (`taken`), pausa e sobras de cancelamento.
  */
 export function migrate(raw: unknown, seed: number): SaveData | null {
   if (!isObj(raw)) return null;

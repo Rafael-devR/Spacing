@@ -123,7 +123,22 @@ export class BaseDirector {
     const job = d.crafting.slots('workbench')[0];
     if (fab && job) fab.resume(this.pieceFor(job.recipe), job.progress, job.ready);
     d.craftPanel.onCraft = (r, batch) => this.craft(r, batch);
-    d.craftPanel.onTake = (station) => this.take(station);
+    d.craftPanel.onTake = (station, slot) => this.take(station, slot);
+    d.craftPanel.onPause = (station, slot) => {
+      if (d.crafting.togglePause(station, slot)) d.sfx.play('ui');
+      d.persist();
+    };
+    d.craftPanel.onCancel = (station, slot) => {
+      if (!d.crafting.cancel(station, slot)) return;
+      d.sfx.play('deny');
+      d.hud.toast(t('craft.cancelled'));
+      if (station === 'workbench' && !d.crafting.busy('workbench')) {
+        d.model.fabricator?.takePiece();
+        this.laser?.stop();
+        this.laser = null;
+      }
+      d.persist();
+    };
     d.events.on('craft:ready', ({ station, recipe }) => this.ready(station, recipe));
   }
 
@@ -439,10 +454,10 @@ export class BaseDirector {
   }
 
   /** O jogador apertou "Pegar" na tela da estação. */
-  private take(station: StationId): void {
+  private take(station: StationId, slot?: number): void {
     const { d } = this;
     const fab = d.model.fabricator;
-    const res = d.crafting.take(station);
+    const res = d.crafting.take(station, slot);
     if (!res) return;
     for (const o of res.delivered) {
       if (o.kind === 'equip') {
@@ -463,8 +478,10 @@ export class BaseDirector {
     }
     if (res.recipes.some((r) => r.id === 'solar_panel')) d.hud.ai(t('panel.howTo'));
     // itens da bancada: a peça voa até o astronauta (os do forno e do eletrolisador saem direto)
-    if (station === 'workbench' && res.delivered.length === 0 && !res.partial) this.fly(station, null, () => d.sfx.play('equip'));
-    if (station === 'workbench' && !res.partial && fab?.holding) fab.takePiece();
+    // (só quando a bancada terminou tudo: num lote ainda andando, a peça continua sendo impressa)
+    const benchDone = station === 'workbench' && !d.crafting.busy('workbench');
+    if (benchDone && res.delivered.length === 0) this.fly(station, null, () => d.sfx.play('equip'));
+    if (benchDone && fab?.holding) fab.takePiece();
     d.haptics.play('success');
     d.persist();
   }

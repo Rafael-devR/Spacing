@@ -45,20 +45,26 @@ export function itemWork(item: ItemId): number {
   return 1 + 0.6 * t.heat + 0.4 * t.mass + 0.8 * t.rarity;
 }
 
-/**
- * Segundos esperados da receita feita `batch` vezes de uma vez, com a energia cheia e a estação só com ela (sem a
- * variação). O preparo conta uma vez só: fazer em lote rende mais que fazer um por um.
- */
-export function recipeSeconds(r: Recipe, batch = 1): number {
+/** segundos de uma unidade (uma vez a receita), com energia cheia e a estação só com ela, sem o preparo */
+export function unitSeconds(r: Recipe): number {
   const st = STATIONS[r.station];
   let work = 0;
   for (const [item, n] of Object.entries(r.inputs) as [ItemId, number][]) work += n * itemWork(item);
-  return Math.round(st.base + st.perWork * work * (r.effort ?? 1) * batch);
+  return st.perWork * work * (r.effort ?? 1);
 }
 
-/** segundos de uma fabricação, com a variação; `u` de 0 a 1 (sorteado pelo sistema) */
-export function rollSeconds(r: Recipe, u: number, batch = 1): number {
-  return recipeSeconds(r, batch) * (1 + (u * 2 - 1) * JITTER);
+/**
+ * Segundos esperados da receita feita `batch` vezes de uma vez (sem a variação): o preparo conta uma vez só e
+ * depois sai uma unidade a cada `unitSeconds`. Fazer em lote rende mais que fazer um por um.
+ */
+export function recipeSeconds(r: Recipe, batch = 1): number {
+  return Math.round((STATIONS[r.station].base + unitSeconds(r) * batch) * 10) / 10;
+}
+
+/** preparo e tempo por unidade de uma fabricação, com a variação; `u` de 0 a 1 (sorteado pelo sistema) */
+export function rollTimes(r: Recipe, u: number): { prep: number; unit: number } {
+  const k = 1 + (u * 2 - 1) * JITTER;
+  return { prep: STATIONS[r.station].base * k, unit: unitSeconds(r) * k };
 }
 
 /** lote máximo de uma vez (receitas de equipamento e de estação: sempre 1) */

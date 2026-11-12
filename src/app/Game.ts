@@ -245,7 +245,10 @@ export class Game {
       },
       this.save?.crafting,
     );
-    this.craftPanel = new CraftPanel(this.crafting, { speed: (id) => (STATIONS[id].energy === 'sun' ? this.power.sun : this.power.satisfaction) });
+    this.craftPanel = new CraftPanel(this.crafting, {
+      speed: (id) => (STATIONS[id].energy === 'sun' ? this.power.sun : this.power.satisfaction),
+      battery: () => this.power.battery / this.power.capacity,
+    });
     this.powerPanel = new PowerPanel(this.power);
     this.jobsChip = new JobsChip(this.crafting);
     this.player = new Player(scene, this.world, events);

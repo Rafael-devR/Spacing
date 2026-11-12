@@ -93,6 +93,9 @@ export interface GameEvents {
   'craft:started': { station: StationId; recipe: string; seconds: number; slot: number; batch: number };
   'craft:ready': { station: StationId; recipe: string; slot: number };
   'craft:taken': { station: StationId; recipe: string; partial: boolean };
+  /** o jogador pausou/retomou ou cancelou um trabalho */
+  'craft:paused': { station: StationId; slot: number; paused: boolean };
+  'craft:cancelled': { station: StationId; slot: number; recipe: string };
   /** o traje conectou um cilindro de O₂ de reserva (docs/design/CRAFTING.md) */
   'suit:o2Reserve': { left: number };
   /** um equipamento entrou no traje */
