@@ -2,7 +2,17 @@
 // paredes, piso, telhado, uma porta com câmara de pressurização e móveis. Crescer a base = acrescentar
 // módulos e móveis aqui, sem mudar o código que monta, desenha e colide.
 
-export type FurnitureKind = 'workbench' | 'bed' | 'locker' | 'console';
+import type { StationId } from './stations';
+
+/** `furnace` e `electrolyzer` são estações (data/stations.ts): o lugar existe desde o início, a máquina é fabricada */
+export type FurnitureKind = 'workbench' | 'furnace' | 'electrolyzer' | 'bed' | 'locker' | 'console';
+
+/** móveis que são estações de fabricação */
+export const STATION_FURNITURE: Partial<Record<FurnitureKind, StationId>> = {
+  workbench: 'workbench',
+  furnace: 'furnace',
+  electrolyzer: 'electrolyzer',
+};
 
 /** lado da parede, visto de cima: north = -z, south = +z, west = -x, east = +x */
 export type Side = 'north' | 'south' | 'east' | 'west';
@@ -35,7 +45,8 @@ export interface ModuleDef {
 
 /**
  * Módulo inicial: um habitat de 7×5 blocos por dentro, no platô a nordeste do módulo de pouso, com a porta
- * virada para ele. Bancada de fabricação, beliche, armário e console.
+ * virada para ele. Bancada de fabricação, beliche, armário, console e, na parede leste, os lugares do forno solar e do
+ * eletrolisador (as máquinas são fabricadas na bancada; docs/design/CRAFTING.md).
  */
 export const HAB_MODULE: ModuleDef = {
   id: 'hab-01',
@@ -49,6 +60,8 @@ export const HAB_MODULE: ModuleDef = {
     { id: 'bunk', kind: 'bed', x: 1, z: 2, w: 1, d: 2, against: 'west' },
     { id: 'locker', kind: 'locker', x: 1, z: 1, w: 1, d: 1, against: 'north' },
     { id: 'console', kind: 'console', x: 7, z: 1, w: 1, d: 1, against: 'east' },
+    { id: 'furnace', kind: 'furnace', x: 7, z: 3, w: 1, d: 1, against: 'east' },
+    { id: 'electrolyzer', kind: 'electrolyzer', x: 7, z: 4, w: 1, d: 1, against: 'east' },
   ],
 };
 

@@ -190,6 +190,18 @@ export class SurvivalDirector {
       }
     }
 
+    // reserva: cilindro de O₂ fabricado no eletrolisador
+    const R = SURVIVAL.o2Reserve;
+    if (playing && !s.inPressure && s.o2 / 100 <= R.at && d.inventory.has('o2')) {
+      d.inventory.remove('o2', 1);
+      s.o2 = Math.min(100, s.o2 + R.amount);
+      const left = d.inventory.count('o2');
+      d.hud.ai(t('suit.o2Reserve', { amount: R.amount, left }));
+      d.sfx.play('pressurize', 1.3);
+      d.haptics.play('success');
+      d.events.emit('suit:o2Reserve', { left });
+    }
+
     // sons em ciclo
     if (playing) {
       if (s.o2 / 100 <= SURVIVAL.o2Warn[1] && s.o2 > 0) {

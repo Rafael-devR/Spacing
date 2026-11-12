@@ -7,6 +7,8 @@ import * as THREE from 'three';
 import type { FurnitureKind, Side } from '../data/base';
 import type { ModuleLayout } from '../world/baseLayout';
 import { Fabricator } from './Fabricator';
+import { createStationModel, type StationModel } from './stationModels';
+import type { StationId } from '../data/stations';
 import { exteriorOnly, showIndoors } from './indoors';
 
 const lam = (hex: THREE.ColorRepresentation, extra: THREE.MeshLambertMaterialParameters = {}): THREE.MeshLambertMaterial =>
@@ -34,6 +36,8 @@ export class BaseModel {
   readonly group = new THREE.Group();
   readonly interior = new THREE.Group();
   fabricator: Fabricator | null = null;
+  /** forno, eletrolisador (a bancada é o `fabricator`) */
+  readonly stations = new Map<StationId, StationModel>();
   readonly furniture: FurnitureModel[] = [];
   private readonly roof = new THREE.Group();
   private readonly roofMats: THREE.Material[] = [];
@@ -277,6 +281,9 @@ export class BaseModel {
       const d = f.def.against === 'north' || f.def.against === 'south' ? f.def.d : f.def.w;
       if (f.def.kind === 'workbench') {
         this.fabricator = new Fabricator(fg, w, d);
+      } else if (f.def.kind === 'furnace' || f.def.kind === 'electrolyzer') {
+        const st = createStationModel(f.def.kind, fg);
+        if (st) this.stations.set(f.def.kind, st);
       } else buildFurniture(f.def.kind, fg, w, d, { hull, hullDark, metal, dark, orange, strip: this.stripMat });
       this.furniture.push({ id: f.def.id, kind: f.def.kind, group: fg });
     }
@@ -321,6 +328,7 @@ export class BaseModel {
     this.light.intensity = ins * 22;
     this.interior.visible = ins > 0.01 || this.door > 0.02;
     this.fabricator?.update(dt, t);
+    for (const st of this.stations.values()) st.update(dt, t);
   }
 
   /** pula as transições (carregar salvo dentro da base) */

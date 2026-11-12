@@ -22,6 +22,8 @@ import { t } from '../i18n';
 import { BlockFx } from '../render/BlockFx';
 import { Footprints } from '../render/Footprints';
 import { renderIcon } from '../render/icons';
+import { createStationModel } from '../render/stationModels';
+import { STATION_ORDER, type StationId } from '../data/stations';
 import { IsoRig } from '../render/IsoRig';
 import { ItemModels } from '../render/itemModels';
 import { Lights } from '../render/lights';
@@ -70,6 +72,7 @@ import { Crafting } from '../systems/Crafting';
 import { Equipment } from '../systems/Equipment';
 import { BaseHud } from '../ui/BaseHud';
 import { CraftPanel } from '../ui/CraftPanel';
+import { JobsChip } from '../ui/JobsChip';
 import { layoutModule } from '../world/baseLayout';
 
 export class Game {
@@ -146,6 +149,7 @@ export class Game {
   /** a câmera está vendo só o tablet (mapa em tela cheia) */
   private tabletOnly = false;
   private readonly craftPanel: CraftPanel;
+  private readonly jobsChip: JobsChip;
   private readonly baseHud = new BaseHud();
   /** último aviso de mochila cheia (para não repetir a cada item) */
   private fullWarnT = -99;
@@ -206,8 +210,11 @@ export class Game {
     this.bag = new Bag(this.inventory);
     this.equipment = new Equipment(events, this.save?.equipment);
     this.exploration = new Exploration(events, this.save?.explored);
-    this.crafting = new Crafting({ inventory: this.inventory, equipment: this.equipment, events });
+    // jogo novo: a placa de circuito do Mapa vem aproveitada do módulo de pouso (docs/design/CRAFTING.md)
+    if (!this.save) this.inventory.add('circuit', 1, false);
+    this.crafting = new Crafting({ inventory: this.inventory, equipment: this.equipment, events }, this.save?.crafting);
     this.craftPanel = new CraftPanel(this.crafting);
+    this.jobsChip = new JobsChip(this.crafting);
     this.player = new Player(scene, this.world, events);
     this.rig = new IsoRig(this.camera);
     this.particles = new Particles(scene);
@@ -266,7 +273,7 @@ export class Game {
         events, scene, world: this.world, layout: baseLayout, model: this.baseModel, player: this.player, rig: this.rig,
         input: this.input, interaction: this.interaction, survival: this.survival, crafting: this.crafting,
         craftPanel: this.craftPanel, hud: this.hud, baseHud: this.baseHud, sfx: this.sfx, haptics: this.haptics,
-        particles: this.particles, getState: () => this.state, persist: () => this.persist(),
+        particles: this.particles, itemModels: this.itemModels, getState: () => this.state, persist: () => this.persist(),
       },
       this.save?.base ?? null,
     );
@@ -442,7 +449,16 @@ export class Game {
     const equipIcons = {} as Record<EquipId, string>;
     for (const id of Object.keys(EQUIPMENT) as EquipId[]) equipIcons[id] = renderIcon(this.renderer, createEquipModel(id));
     this.bag.setEquipment(this.equipment, equipIcons);
-    this.craftPanel.setIcons(icons, equipIcons);
+    const stationIcons: Partial<Record<StationId, string>> = {};
+    for (const id of STATION_ORDER) {
+      const g = new THREE.Group();
+      const m = createStationModel(id, g);
+      if (!m) continue;
+      m.iconPose();
+      stationIcons[id] = renderIcon(this.renderer, g);
+    }
+    this.craftPanel.setIcons(icons, equipIcons, stationIcons);
+    this.jobsChip.setIcons(icons, equipIcons, stationIcons);
     this.hud.setMission(this.missions.view());
 
     el('#loading').hidden = true;
@@ -1005,6 +1021,7 @@ export class Game {
       equipment: this.equipment.serialize(),
       explored: this.exploration.serialize(),
       base: this.base.serialize(),
+      crafting: this.crafting.serialize(),
     }, PLANET.saveKey);
   }
 
@@ -1137,6 +1154,7 @@ export class Game {
     this.lootMarker.update(time);
     this.lander.update(time);
     if (playing) this.crafting.update(dt);
+    this.jobsChip.update(dt);
     this.base.update(dt);
     for (const [id, v] of this.meteorVoices) {
       const h = this.meteors.headOf(id);

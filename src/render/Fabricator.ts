@@ -158,6 +158,21 @@ export class Fabricator {
     this.progress = 0;
   }
 
+  /** Peça que já estava sendo impressa ao carregar o jogo: começa no ponto certo (e já pronta, se for o caso). */
+  resume(piece: THREE.Object3D, progress: number, ready: boolean): void {
+    this.start(piece);
+    this.progress = progress;
+    if (ready) {
+      this.finish();
+      this.flash = 0;
+    }
+  }
+
+  /** tem uma peça pronta girando na bancada */
+  get holding(): boolean {
+    return this.phase === 'done' && this.piece !== null;
+  }
+
   /** Terminou: peça inteira, lasers desligam, clarão. A peça fica girando até `takePiece`. */
   finish(): void {
     if (this.phase !== 'printing') return;

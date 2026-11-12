@@ -9,12 +9,14 @@ import type { LootSave } from '../entities/LootPiles';
 import { Inventory, type InventorySave, type ItemCounts } from '../systems/Inventory';
 import type { SurvivalSave } from '../systems/Survival';
 import type { ExplorationSave } from '../systems/Exploration';
+import type { CraftingSave, JobSave } from '../systems/Crafting';
+import { isStationId, STATIONS } from '../data/stations';
 
 export const SAVE_KEY = 'spacing.save';
 /** chave usada pela v0.1, sem campo de versão */
 export const LEGACY_SAVE_KEY = 'spacing.save.v1';
 export const PREFS_KEY = 'spacing.prefs.v1';
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 export interface ExtraPropSave {
   wx: number;
@@ -52,6 +54,8 @@ export interface SaveData {
   base: BaseSave;
   /** mapa descoberto (v6): chunk "cx,cz" → máscara de 16 bits dos ladrilhos vistos */
   explored: ExplorationSave;
+  /** estações construídas e trabalhos em andamento ou esperando (v7) */
+  crafting: CraftingSave;
 }
 
 export interface BaseSave {
@@ -184,6 +188,39 @@ function cleanExplored(v: unknown): ExplorationSave {
   return out;
 }
 
+/** v7: estações construídas e trabalhos. O sistema confere de novo se a receita existe. */
+function cleanCrafting(v: unknown): CraftingSave {
+  const c = isObj(v) ? v : {};
+  const built = Array.isArray(c.built) ? c.built.filter((id) => isStationId(id) && !STATIONS[id].builtIn) : [];
+  const jobs: JobSave[] = [];
+  if (Array.isArray(c.jobs)) {
+    for (const j of c.jobs) {
+      if (!isObj(j) || !isStationId(j.station) || typeof j.recipe !== 'string') continue;
+      const job: JobSave = { station: j.station, recipe: j.recipe, t: Math.max(0, num(j.t, 0)), duration: Math.max(0, num(j.duration, 0)) };
+      if (isObj(j.left)) {
+        const left: JobSave['left'] = {};
+        for (const [k, n] of Object.entries(j.left)) if (isItemId(k) && typeof n === 'number' && n > 0) left[k] = Math.floor(n);
+        job.left = left;
+      }
+      if (typeof j.rest === 'boolean') job.rest = j.rest;
+      jobs.push(job);
+    }
+  }
+  return { built: built as CraftingSave['built'], jobs };
+}
+
+/**
+ * Receitas novas da v7 (docs/design/CRAFTING.md): o Mapa passou a pedir uma placa de circuito. Quem ainda não
+ * tem o Mapa recebe a placa "aproveitada do módulo de pouso", como num jogo novo.
+ */
+export function withStarterCircuit(inv: InventorySave, equipment: EquipmentSave): InventorySave {
+  if (equipment.map) return inv;
+  const i = new Inventory(undefined, inv);
+  if (i.count('circuit') > 0) return inv;
+  i.add('circuit', 1, false);
+  return i.serialize();
+}
+
 /**
  * Converte qualquer formato conhecido para o atual.
  * v1 (v0.1.0): sem campo `version`, salvo em `spacing.save.v1`.
@@ -192,26 +229,30 @@ function cleanExplored(v: unknown): ExplorationSave {
  * v4: `inventory` em espaços (`slots` e `selected`), como no Minecraft.
  * v5: `equipment` (equipamentos fora do inventário) e `base` (dentro da base, onde renasce).
  * v6: `explored` (mapa do tablet descoberto aos poucos). Antes disso, nada descoberto: o jogo revela em volta ao abrir.
+ * v7: `crafting` (estações e trabalhos longos). Quem vem de antes e não tem o Mapa ganha a placa de circuito inicial.
  */
 export function migrate(raw: unknown, seed: number): SaveData | null {
   if (!isObj(raw)) return null;
   const version = raw.version === undefined ? 1 : raw.version;
-  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== SAVE_VERSION) return null; // versão futura: não arrisca
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== SAVE_VERSION) return null; // versão futura: não arrisca
   const p = isObj(raw.player) ? raw.player : null;
   const m = isObj(raw.missions) ? raw.missions : {};
+  const equipment = version >= 5 ? cleanEquipment(raw.equipment) : {};
+  const inventory = version >= 4 ? cleanSlots(raw.inventory) : countsToSlots(raw.inventory);
   return {
     version: SAVE_VERSION,
     seed: version === 1 ? seed : num(raw.seed, seed),
     savedAt: num(raw.savedAt, 0),
     world: cleanWorld(raw.world),
-    inventory: version >= 4 ? cleanSlots(raw.inventory) : countsToSlots(raw.inventory),
+    inventory: version >= 7 ? inventory : withStarterCircuit(inventory, equipment),
     player: p ? { x: num(p.x, 0.5), y: num(p.y, 30), z: num(p.z, 0.5) } : null,
     missions: { step: Math.max(0, Math.floor(num(m.step, 0))), count: Math.max(0, Math.floor(num(m.count, 0))) },
     suit: version >= 3 ? cleanSuit(raw.suit) : null,
     loot: version >= 3 ? cleanLoot(raw.loot) : [],
-    equipment: version >= 5 ? cleanEquipment(raw.equipment) : {},
+    equipment,
     base: version >= 5 ? cleanBase(raw.base) : { inside: false, respawn: 'lander', visited: false },
     explored: version >= 6 ? cleanExplored(raw.explored) : {},
+    crafting: version >= 7 ? cleanCrafting(raw.crafting) : { built: [], jobs: [] },
   };
 }
 

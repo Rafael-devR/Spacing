@@ -45,6 +45,9 @@ export const SURVIVAL = {
   meteorRadius: 7,
   /** avisos de oxigênio (fração 0..1): nível 1 e nível 2 */
   o2Warn: [0.3, 0.15] as const,
+  /** cilindro de O₂ de reserva (item `o2`): o traje conecta um sozinho quando o ar chega a `at` (fração) fora da área
+   * pressurizada e ganha `amount` pontos (docs/design/CRAFTING.md) */
+  o2Reserve: { at: 0.15, amount: 50 },
   /** aviso de bateria fraca (fração) */
   batteryWarn: 0.2,
   /** segundos de invulnerabilidade ao renascer */

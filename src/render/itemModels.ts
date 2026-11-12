@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import type { BlockId } from '../data/blocks';
 import { ITEMS, itemBlock, type ItemId } from '../data/items';
 import { meshSingle } from '../world/mesher';
+import { craftedGeometry } from './craftedModels';
 import type { Materials } from './materials';
 import type { PropFactory } from './models';
 
@@ -35,8 +36,8 @@ export class ItemModels {
   private propGeo(item: ItemId): THREE.BufferGeometry {
     let g = this.propGeos.get(item);
     if (!g) {
-      const prop = ITEMS[item].icon?.prop ?? 'boulder';
-      g = this.props.geos[prop][0].clone();
+      const icon = ITEMS[item].icon;
+      g = icon?.model ? craftedGeometry(icon.model, icon.color ?? '#c3c7d2') : this.props.geos[icon?.prop ?? 'boulder'][0].clone();
       g.computeBoundingBox();
       const c = g.boundingBox?.getCenter(new THREE.Vector3()) ?? new THREE.Vector3();
       g.translate(-c.x, -c.y, -c.z);

@@ -4,6 +4,7 @@ import type { BlockId } from '../data/blocks';
 import type { ItemId } from '../data/items';
 import type { EquipId, EquipSlot } from '../data/equipment';
 import type { PropType } from '../data/props';
+import type { StationId } from '../data/stations';
 
 export interface Vec3Like {
   x: number;
@@ -86,9 +87,12 @@ export interface GameEvents {
   'base:exited': { module: string };
   /** a câmera passou a ver só o interior da base (true) ou voltou ao mundo de fora */
   'base:view': { inside: boolean };
-  /** a bancada começou ou terminou de fabricar */
-  'craft:started': { recipe: string; seconds: number };
-  'craft:finished': { recipe: string };
+  /** uma estação começou a fabricar, terminou (resultado esperando) ou o jogador pegou o resultado */
+  'craft:started': { station: StationId; recipe: string; seconds: number };
+  'craft:ready': { station: StationId; recipe: string };
+  'craft:taken': { station: StationId; recipe: string; partial: boolean };
+  /** o traje conectou um cilindro de O₂ de reserva (docs/design/CRAFTING.md) */
+  'suit:o2Reserve': { left: number };
   /** um equipamento entrou no traje */
   'equipment:changed': { slot: EquipSlot; id: EquipId };
   /** descansou no beliche */

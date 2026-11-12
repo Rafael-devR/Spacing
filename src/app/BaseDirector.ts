@@ -1,25 +1,30 @@
 // Experiência da base (docs/design/BASE.md): botão de ação perto da porta e dos móveis, sequência da câmara
-// de pressurização (entrar e sair), bancada de fabricação com laser, descanso no beliche e renascer na base.
+// de pressurização (entrar e sair), estações de fabricação (bancada com laser, forno, eletrolisador; trabalham
+// sozinhas e guardam o resultado: docs/design/CRAFTING.md), descanso no beliche e renascer na base.
 // As regras ficam nos sistemas (Crafting, Equipment, Survival); o modelo e a animação em render/.
 import * as THREE from 'three';
 import type { Sfx, Voice } from '../audio/Sfx';
 import type { Haptics } from '../core/haptics';
 import type { Input } from '../core/Input';
-import { BASE } from '../data/base';
+import { BASE, STATION_FURNITURE } from '../data/base';
 import { EQUIPMENT } from '../data/equipment';
-import type { Recipe } from '../data/recipes';
+import { ITEMS } from '../data/items';
+import type { Recipe, RecipeOutput } from '../data/recipes';
+import { STATIONS, type StationId } from '../data/stations';
 import type { Player } from '../entities/Player';
 import { t } from '../i18n';
 import type { BaseModel } from '../render/baseModel';
 import { createEquipModel } from '../render/equipModels';
 import { showIndoors } from '../render/indoors';
 import type { IsoRig } from '../render/IsoRig';
+import type { ItemModels } from '../render/itemModels';
 import type { Particles } from '../render/particles';
 import type { Crafting } from '../systems/Crafting';
 import type { Interaction } from '../systems/Interaction';
 import type { Survival } from '../systems/Survival';
 import type { BaseHud } from '../ui/BaseHud';
 import type { CraftPanel } from '../ui/CraftPanel';
+import { mmss } from '../ui/dom';
 import type { Hud } from '../ui/Hud';
 import type { ModuleLayout, Point } from '../world/baseLayout';
 import type { World } from '../world/World';
@@ -51,11 +56,30 @@ export interface BaseDirectorDeps {
   sfx: Sfx;
   haptics: Haptics;
   particles: Particles;
+  itemModels: ItemModels;
   getState(): GameState;
   persist(): void;
 }
 
-type UseKind = 'enter' | 'exit' | 'workbench' | 'bed';
+type UseKind = 'enter' | 'exit' | 'bed' | StationId;
+
+const isStationUse = (k: UseKind): k is StationId => k in STATIONS;
+
+/** nome curto do que a receita entrega (primeira saída) */
+export function outputName(o: RecipeOutput): string {
+  if (o.kind === 'item') return ITEMS[o.item].name;
+  if (o.kind === 'equip') return EQUIPMENT[o.equip].name;
+  return STATIONS[o.station].name;
+}
+
+interface Flying {
+  obj: THREE.Object3D;
+  t: number;
+  from: THREE.Vector3;
+  /** null = até o astronauta */
+  to: THREE.Vector3 | null;
+  done: () => void;
+}
 
 export class BaseDirector {
   mode: BaseMode = 'outside';
@@ -75,8 +99,7 @@ export class BaseDirector {
   private outsideZoom = 30;
   private useKind: UseKind | null = null;
   private laser: Voice | null = null;
-  private flying: { obj: THREE.Object3D; t: number; from: THREE.Vector3; name: string } | null = null;
-  private pickupWait = -1;
+  private flying: Flying | null = null;
   private readonly v = new THREE.Vector3();
 
   constructor(private readonly d: BaseDirectorDeps, saved: BaseSaveState | null) {
@@ -91,8 +114,16 @@ export class BaseDirector {
         d.particles.spawn(x, y, z, Math.cos(a) * 1.6, 1 + Math.random() * 2.2, Math.sin(a) * 1.6, 0.035, [2.6, 1.7, 0.7], 0.25 + Math.random() * 0.2, 9);
       };
     }
+    for (const [id, st] of d.model.stations) {
+      st.setBuilt(d.crafting.isBuilt(id), false);
+      st.onParticle = (x, y, z, vx, vy, vz, color, life) => d.particles.spawn(x, y, z, vx, vy, vz, 0.03, color, life, 2);
+    }
+    // trabalho que já estava na bancada ao carregar: a peça volta para o ponto em que estava
+    const job = d.crafting.job('workbench');
+    if (fab && job) fab.resume(this.pieceFor(job.recipe), job.progress, job.ready);
     d.craftPanel.onCraft = (r) => this.craft(r);
-    d.events.on('craft:finished', () => this.crafted());
+    d.craftPanel.onTake = (station) => this.take(station);
+    d.events.on('craft:ready', ({ station, recipe }) => this.ready(station, recipe));
   }
 
   /** dentro da base (abrigado: pressurizado e sem meteoros) */
@@ -189,8 +220,8 @@ export class BaseDirector {
     this.d.sfx.play('ui');
     if (kind === 'enter') this.beginEnter();
     else if (kind === 'exit') this.beginExit();
-    else if (kind === 'workbench') this.d.craftPanel.show();
     else if (kind === 'bed') this.beginRest();
+    else if (isStationUse(kind)) this.d.craftPanel.show(kind);
   }
 
   // ---------- entrar e sair ----------
@@ -335,70 +366,136 @@ export class BaseDirector {
 
   // ---------- fabricação ----------
 
+  /** modelo da peça que a bancada imprime: o equipamento, a máquina em miniatura ou o item */
+  private pieceFor(r: Recipe): THREE.Object3D {
+    const o = r.outputs[0];
+    if (o.kind === 'equip') return createEquipModel(o.equip);
+    if (o.kind === 'item') {
+      const m = this.d.itemModels.create(o.item);
+      m.scale.setScalar(0.42);
+      return m;
+    }
+    // estação: um bloco de tijolo com uma luz (a máquina de verdade aparece no lugar dela)
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.32, 0.28), new THREE.MeshLambertMaterial({ color: '#b6a48e', flatShading: true }));
+    body.position.y = 0.16;
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.08, 0.02), new THREE.MeshBasicMaterial({ color: STATIONS[o.station].accent, toneMapped: false }));
+    lamp.position.set(0, 0.2, 0.15);
+    g.add(body, lamp);
+    return g;
+  }
+
+  private stationPoint(station: StationId): THREE.Vector3 {
+    if (station === 'workbench') return this.d.model.fabricator?.piecePosition(new THREE.Vector3()) ?? this.d.player.center();
+    return this.d.model.stations.get(station)?.topPosition(new THREE.Vector3()) ?? this.d.player.center();
+  }
+
   private craft(r: Recipe): void {
     const { d } = this;
-    const fab = d.model.fabricator;
-    if (!fab || !d.crafting.start(r)) return;
-    const out = r.output;
-    const piece = out.kind === 'equip' ? createEquipModel(out.equip) : null;
-    if (piece) fab.start(piece);
-    const at = fab.piecePosition(this.v);
-    this.laser?.stop();
-    this.laser = d.sfx.laser(at);
-    const name = out.kind === 'equip' ? EQUIPMENT[out.equip].name : '';
-    d.hud.toast(t('craft.started', { name }));
-  }
-
-  private crafted(): void {
-    const { d } = this;
-    const fab = d.model.fabricator;
-    this.laser?.stop();
-    this.laser = null;
-    if (!fab) return;
-    fab.finish();
-    const at = fab.piecePosition(this.v);
-    d.sfx.play('craftDone', 1, at);
+    if (!d.crafting.start(r)) return;
+    const st = STATIONS[r.station];
+    if (r.station === 'workbench') {
+      const fab = d.model.fabricator;
+      fab?.start(this.pieceFor(r));
+      this.laser?.stop();
+      this.laser = fab ? d.sfx.laser(fab.piecePosition(this.v)) : null;
+    } else d.sfx.play('pressurize', 1.4, this.stationPoint(r.station));
     d.haptics.play('tap');
-    for (let k = 0; k < 24; k++) {
-      const a = Math.random() * Math.PI * 2;
-      d.particles.spawn(at.x, at.y, at.z, Math.cos(a) * 2, 1 + Math.random() * 2, Math.sin(a) * 2, 0.05, [0.6, 2.0, 2.4], 0.5, 2);
-    }
-    this.pickupWait = 0.9;
+    const secs = Math.round(d.crafting.job(r.station)?.duration ?? 0);
+    d.hud.toast(t('craft.started', { station: st.name, name: outputName(r.outputs[0]), time: mmss(secs) }));
+    d.craftPanel.render();
+    d.persist();
   }
 
-  /** a peça sai da bancada e voa até o astronauta */
-  private updatePickup(dt: number): void {
+  /** a estação terminou: o resultado fica nela esperando */
+  private ready(station: StationId, recipeId: string): void {
     const { d } = this;
-    if (this.pickupWait > 0) {
-      this.pickupWait -= dt;
-      if (this.pickupWait <= 0) {
-        const fab = d.model.fabricator;
-        const obj = fab?.takePiece();
-        const recipe = d.crafting.lastFinished;
-        if (obj && recipe) {
-          showIndoors(obj);
-          d.scene.add(obj);
-          const out = recipe.output;
-          const name = out.kind === 'equip' ? EQUIPMENT[out.equip].name : '';
-          this.flying = { obj, t: 0, from: obj.position.clone(), name };
-        }
+    const job = d.crafting.job(station);
+    const name = job ? outputName(job.recipe.outputs[0]) : recipeId;
+    const at = this.stationPoint(station);
+    if (station === 'workbench') {
+      this.laser?.stop();
+      this.laser = null;
+      d.model.fabricator?.finish();
+      for (let k = 0; k < 24; k++) {
+        const a = Math.random() * Math.PI * 2;
+        d.particles.spawn(at.x, at.y, at.z, Math.cos(a) * 2, 1 + Math.random() * 2, Math.sin(a) * 2, 0.05, [0.6, 2.0, 2.4], 0.5, 2);
       }
     }
+    d.sfx.play('craftDone', 1, this.inside ? at : undefined);
+    d.haptics.play('success');
+    if (this.inside) d.hud.toast(t('craft.ready', { station: STATIONS[station].name, name }));
+    else d.hud.ai(t('craft.readyAway', { station: STATIONS[station].name, name }));
+    d.craftPanel.render();
+    d.persist();
+  }
+
+  /** O jogador apertou "Pegar" na tela da estação. */
+  private take(station: StationId): void {
+    const { d } = this;
+    const fab = d.model.fabricator;
+    const res = d.crafting.take(station);
+    if (!res) return;
+    for (const o of res.delivered) {
+      if (o.kind === 'equip') {
+        const name = EQUIPMENT[o.equip].name;
+        this.fly(station, null, () => {
+          d.sfx.play('equip');
+          d.hud.banner(t('craft.done'), t('craft.equipped', { name }));
+        });
+      } else if (o.kind === 'station') {
+        const target = d.model.stations.get(o.station);
+        const name = STATIONS[o.station].name;
+        this.fly(station, target ? target.topPosition(new THREE.Vector3()) : null, () => {
+          target?.setBuilt(true, true);
+          d.sfx.play('craftDone', 0.8, target?.topPosition(new THREE.Vector3()));
+          d.hud.banner(t('craft.installed'), name);
+        });
+      }
+    }
+    // itens da bancada: a peça voa até o astronauta (os do forno e do eletrolisador saem direto)
+    if (station === 'workbench' && res.delivered.length === 0 && !res.partial) this.fly(station, null, () => d.sfx.play('equip'));
+    if (station === 'workbench' && !res.partial && fab?.holding) fab.takePiece();
+    d.haptics.play('success');
+    d.craftPanel.render();
+    d.persist();
+  }
+
+  /** a peça pronta sai da bancada e voa até o astronauta (ou até o lugar da estação nova) */
+  private fly(station: StationId, to: THREE.Vector3 | null, done: () => void): void {
+    const { d } = this;
+    if (this.flying) {
+      d.scene.remove(this.flying.obj);
+      this.flying.done();
+    }
+    const fab = d.model.fabricator;
+    const obj = station === 'workbench' ? fab?.takePiece() : null;
+    if (!obj) {
+      done();
+      return;
+    }
+    showIndoors(obj);
+    d.scene.add(obj);
+    this.flying = { obj, t: 0, from: obj.position.clone(), to, done };
+  }
+
+  private updateFlying(dt: number): void {
+    const { d } = this;
     const f = this.flying;
     if (!f) return;
     f.t += dt;
-    const k = Math.min(1, f.t / 0.55);
-    const to = d.player.center();
+    const dur = f.to ? 0.9 : 0.55;
+    const k = Math.min(1, f.t / dur);
+    const to = f.to ?? d.player.center();
     f.obj.position.lerpVectors(f.from, to, k * k);
-    f.obj.position.y += Math.sin(k * Math.PI) * 0.8;
+    f.obj.position.y += Math.sin(k * Math.PI) * (f.to ? 1.2 : 0.8);
     f.obj.scale.setScalar(1 - k * 0.7);
     f.obj.rotation.y += dt * 10;
     if (k >= 1) {
       d.scene.remove(f.obj);
       this.flying = null;
-      d.sfx.play('equip');
       d.haptics.play('success');
-      d.hud.banner(t('craft.done'), t('craft.equipped', { name: f.name }));
+      f.done();
     }
   }
 
@@ -412,10 +509,22 @@ export class BaseDirector {
       else if (this.mode === 'exiting') this.updateExit(dt);
       else if (this.mode === 'resting') this.updateRest(dt);
     }
-    this.updatePickup(dt);
+    this.updateFlying(dt);
 
+    // as máquinas mostram o estado do sistema
     const fab = d.model.fabricator;
-    if (fab) fab.progress = d.crafting.progress ?? fab.progress;
+    const bench = d.crafting.job('workbench');
+    if (fab && bench && !bench.ready) {
+      fab.progress = bench.progress;
+      // o som do laser só pode começar depois do primeiro toque (áudio do navegador)
+      if (!this.laser && fab.busy) this.laser = d.sfx.laser(fab.piecePosition(this.v));
+    }
+    for (const [id, st] of d.model.stations) {
+      const j = d.crafting.job(id);
+      st.working = !!j && !j.ready;
+      st.ready = !!j && j.ready;
+      st.progress = j?.progress ?? 0;
+    }
 
     // botão de ação: o que estiver mais perto
     const p = d.player.pos;
@@ -431,14 +540,23 @@ export class BaseDirector {
       else if (this.mode === 'inside') {
         options.push(['exit', near(d.layout.inside)]);
         for (const f of d.layout.furniture) {
-          if (f.def.kind === 'workbench') options.push(['workbench', near(f.use)]);
+          const station = STATION_FURNITURE[f.def.kind];
+          if (station) options.push([station, near(f.use)]);
           if (f.def.kind === 'bed') options.push(['bed', near(f.use)]);
         }
       }
       const best = options.filter(([, dd]) => dd < Infinity).sort((a, b) => a[1] - b[1])[0];
       if (best) {
         kind = best[0];
-        label = t(kind === 'enter' ? 'base.enter' : kind === 'exit' ? 'base.exit' : kind === 'workbench' ? 'base.workbench' : 'base.bed');
+        if (isStationUse(kind)) {
+          const j = d.crafting.job(kind);
+          const name = STATIONS[kind].name;
+          label = !d.crafting.isBuilt(kind)
+            ? t('base.stationSpot', { name })
+            : j?.ready
+              ? t('base.stationReady', { name })
+              : t('base.station', { name });
+        } else label = t(kind === 'enter' ? 'base.enter' : kind === 'exit' ? 'base.exit' : 'base.bed');
       }
       // primeira vez perto da base: a IA explica
       if (!this.visited && this.mode === 'outside' && Math.hypot(p.x - d.layout.center.x, p.z - d.layout.center.z) < 11) {

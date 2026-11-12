@@ -9,3 +9,9 @@ export function el<T extends HTMLElement = HTMLElement>(selector: string): T {
 export function maybeEl<T extends HTMLElement = HTMLElement>(selector: string): T | null {
   return document.querySelector<T>(selector);
 }
+
+/** segundos em minutos e segundos: 75 → "1:15" */
+export function mmss(seconds: number): string {
+  const s = Math.max(0, Math.ceil(seconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
