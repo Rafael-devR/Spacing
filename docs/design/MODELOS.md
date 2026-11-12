@@ -125,9 +125,14 @@ O que depende do jogo (a peça que está sendo impressa, para onde os lasers apo
 mecânico, que é sempre o mesmo, fica no Blender. Peças `fx*` recebem material do código; `glass*` são vidro transparente;
 peças com `tall` no nome vão até o teto e saem do ícone. O holograma de "ainda não construída" sai das arestas do modelo.
 
+## Rochas dos meteoros
+
+`tools/models/meteor.py`: três rochas (`rock_a`, `rock_b`, `rock_c`), cada uma com o corpo escuro (`body_<x>`) e manchas de brasa
+acesas (`lit_<x>`). O código sorteia uma, escala pelo tamanho do meteoro e a gira em voo ([METEOROS.md](METEOROS.md)).
+
 ## Próximos candidatos
 
-Astronauta (peças separadas, que o código continua animando), painel solar, pedras e minérios soltos (variações por semente), meteorito. Cada um com o seu teto no teste.
+Astronauta (peças separadas, que o código continua animando), painel solar, pedras e minérios soltos (variações por semente), meteorito caído. Cada um com o seu teto no teste.
 
 ## Montar o Blender no Codespace
 

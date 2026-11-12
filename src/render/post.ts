@@ -5,23 +5,34 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import type { Pass } from 'three/addons/postprocessing/Pass.js';
+import { SHOCK } from '../data/meteors';
 import { SKY } from './materials';
+import type { ShockWaves } from './shockwave';
 
 /**
  * Uma única passada de tela cheia no fim: soma o bloom, aplica o mapeamento de tons e a conversão para sRGB (o que o
  * OutputPass fazia numa passada separada) e depois a correção de cor, a vinheta, o ruído e a aberração cromática.
  * Cada leitura da aberração passa por `scene()`, então o resultado é o mesmo de quando eram passadas em sequência.
+ * Ondas de choque (`FX_SHOCK`, render/shockwave.ts, ADR 0014): antes de ler a imagem, cada onda ativa empurra o ponto lido
+ * para dentro ou para fora do anel dela; o que se vê atrás é a imagem entortada, como a luz dobrando num filme. A borda
+ * ganha uma linha clara e as cores se separam um pouco. Sem onda ativa não custa nada (`uShockN` zero).
  * `toneMapping()` e `linearToOutputTexel()` vêm do prefixo que o Three.js põe em todo ShaderMaterial.
  */
 const GradeShader = {
   uniforms: {
     tDiffuse: { value: null }, tBloom: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) },
-    uDesat: { value: 0 }, uHurt: { value: 0 }, uDark: { value: 0 },
+    uDesat: { value: 0 }, uHurt: { value: 0 }, uDark: { value: 0 }, uFlash: { value: 0 },
+    uShockN: { value: 0 },
+    uShockA: { value: Array.from({ length: SHOCK.max }, () => new THREE.Vector4()) },
+    uShockB: { value: Array.from({ length: SHOCK.max }, () => new THREE.Vector4()) },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: `
     uniform sampler2D tDiffuse; uniform sampler2D tBloom; uniform float uTime; uniform vec2 uRes; varying vec2 vUv;
-    uniform float uDesat; uniform float uHurt; uniform float uDark;
+    uniform float uDesat; uniform float uHurt; uniform float uDark; uniform float uFlash;
+    #ifdef FX_SHOCK
+    uniform int uShockN; uniform vec4 uShockA[${SHOCK.max}]; uniform vec4 uShockB[${SHOCK.max}];
+    #endif
     vec3 scene(vec2 uv){
       vec3 c = texture2D(tDiffuse, uv).rgb;
       #ifdef USE_BLOOM
@@ -34,12 +45,35 @@ const GradeShader = {
       return linearToOutputTexel(vec4(c, 1.0)).rgb;
     }
     void main(){
+      // onde a imagem é lida: o ponto de cada pixel, empurrado pelas ondas de choque (nenhuma = o próprio ponto)
+      vec2 uvs = vUv;
+      vec2 split = vec2(0.0);
+      float rim = 0.0;
+      #ifdef FX_SHOCK
+      if (uShockN > 0) {
+        float asp = uRes.x / uRes.y;
+        for (int i = 0; i < ${SHOCK.max}; i++) {
+          if (i >= uShockN) break;
+          vec4 A = uShockA[i]; vec4 B = uShockB[i];
+          vec2 d = (vUv - A.xy) * vec2(asp, 1.0);
+          float dist = length(d);
+          float x = (dist - A.z) / max(B.x, 0.0001);
+          // atrás da frente (dentro) a faixa tem cauda longa; na frente (fora) é curta e firme
+          float t = x < 0.0 ? smoothstep(-1.0, 0.0, x) : 1.0 - smoothstep(0.0, 0.3, x);
+          float lens = t * t * (3.0 - 2.0 * t);
+          vec2 push = vec2(d.x / asp, d.y) / max(dist, 0.0001) * lens * A.w;
+          uvs -= push;
+          split -= push * B.z * 0.6;
+          rim += B.y * exp(-x * x * 18.0);
+        }
+      }
+      #endif
       vec2 dir = vUv - 0.5;
       float ca = dot(dir, dir) * 0.009;
       #ifdef FX_CHROMA
-      vec3 c = vec3(scene(vUv + dir * ca).r, scene(vUv).g, scene(vUv - dir * ca).b);
+      vec3 c = vec3(scene(uvs + dir * ca + split).r, scene(uvs).g, scene(uvs - dir * ca - split).b);
       #else
-      vec3 c = scene(vUv);
+      vec3 c = scene(uvs);
       #endif
       // luz vazando do canto do sol
       vec2 lp = (vUv - vec2(0.0, 1.0)) * vec2(uRes.x / uRes.y, 1.0);
@@ -60,6 +94,9 @@ const GradeShader = {
       float edge = smoothstep(0.3, 0.95, length(d));
       c = mix(c, vec3(0.85, 0.07, 0.05), uHurt * edge * 0.8);
       c *= 1.0 - uDark;
+      // clarão da explosão: a tela vai ao branco quente e volta; a linha clara da frente da onda de choque
+      c += vec3(1.0, 0.82, 0.62) * rim * 0.35;
+      c = mix(c, vec3(1.0, 0.93, 0.82), uFlash);
       #ifdef FX_NOISE
       float n = fract(sin(dot(vUv * uRes + fract(uTime) * 91.7, vec2(12.9898, 78.233))) * 43758.5453);
       c += (n - 0.5) * 0.022;
@@ -143,13 +180,15 @@ export interface QualityPreset {
   chromatic: boolean;
   vignette: boolean;
   noise: boolean;
+  /** onda de choque que entorta a imagem (meteoros) */
+  shock: boolean;
 }
 
 export const QUALITY: Record<QualityName, QualityPreset> = {
-  baixo: { pixelRatio: 1, shadow: 1024, samples: 0, bloom: false, radius: 3, chromatic: true, vignette: true, noise: true },
+  baixo: { pixelRatio: 1, shadow: 1024, samples: 0, bloom: false, radius: 3, chromatic: true, vignette: true, noise: true, shock: true },
   // MSAA 2× (era 4×) na Média e na Alta: com a resolução alta as bordas já saem finas, e o MSAA era o efeito mais caro
-  medio: { pixelRatio: 1.5, shadow: 2048, samples: 2, bloom: false, radius: 3, chromatic: true, vignette: true, noise: true },
-  alto: { pixelRatio: 2, shadow: 2048, samples: 2, bloom: true, radius: 4, chromatic: true, vignette: true, noise: true },
+  medio: { pixelRatio: 1.5, shadow: 2048, samples: 2, bloom: false, radius: 3, chromatic: true, vignette: true, noise: true, shock: true },
+  alto: { pixelRatio: 2, shadow: 2048, samples: 2, bloom: true, radius: 4, chromatic: true, vignette: true, noise: true, shock: true },
 };
 
 export const QUALITY_ORDER: QualityName[] = ['baixo', 'medio', 'alto'];
@@ -167,6 +206,8 @@ export class Post {
   private overlayPass: RenderPass | null = null;
   private scenePass: RenderPass | null = null;
   private overlayOn = false;
+  /** ondas de choque que a passada final entorta (render/shockwave.ts); null = nenhuma */
+  private waves: ShockWaves | null = null;
   private composer: EffectComposer | null = null;
   private readonly grade = new ShaderPass(GradeShader);
   bloom: UnrealBloomPass | null = null;
@@ -174,6 +215,7 @@ export class Post {
   private base: { q: QualityPreset; w: number; h: number } | null = null;
   /** escala da resolução dinâmica (1 = a que o jogador escolheu) */
   private dyn = 1;
+  private readonly sizeTmp = new THREE.Vector2();
   /** só no teste de desempenho: o que sobrepor ao preset e a escala da resolução (1 = a do jogo) */
   private bench: { over: Partial<QualityPreset> | null; scale: number } = { over: null, scale: 1 };
 
@@ -231,6 +273,7 @@ export class Post {
     this.setGradeDefine('FX_CHROMA', q.chromatic);
     this.setGradeDefine('FX_VIGNETTE', q.vignette);
     this.setGradeDefine('FX_NOISE', q.noise);
+    this.setGradeDefine('FX_SHOCK', q.shock);
     c.addPass(this.grade);
     this.composer = c;
     this.resize(w, h, pr);
@@ -282,6 +325,16 @@ export class Post {
     if (this.overlayPass) this.overlayPass.enabled = on;
   }
 
+  /** Liga as ondas de choque (quem as cria é o MeteorDirector). */
+  setShockWaves(waves: ShockWaves | null): void {
+    this.waves = waves;
+  }
+
+  /** Clarão de tela (0 a 1): a imagem vai ao branco quente. */
+  setFlash(v: number): void {
+    this.grade.uniforms.uFlash.value = v;
+  }
+
   /** Efeitos de tela da sobrevivência, cada um de 0 a 1. */
   setEffects(desat: number, hurt: number, dark: number): void {
     this.grade.uniforms.uDesat.value = desat;
@@ -317,6 +370,11 @@ export class Post {
   }
 
   render(t: number): void {
+    if (this.waves) {
+      const u = this.grade.uniforms;
+      const size = this.renderer.getSize(this.sizeTmp);
+      u.uShockN.value = this.waves.fill(this.camera, size.x / Math.max(1, size.y), u.uShockA.value, u.uShockB.value);
+    }
     this.grade.uniforms.uTime.value = t;
     SKY.time.value = t;
     this.composer?.render();

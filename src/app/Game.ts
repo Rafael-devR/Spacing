@@ -1,7 +1,7 @@
 // O jogo: cria os sistemas, liga tudo pelo barramento de eventos e roda o laço principal.
 // Estados: carregando → menu → jogando ⇄ pausa.
 import * as THREE from 'three';
-import { Sfx, type Voice } from '../audio/Sfx';
+import { Sfx } from '../audio/Sfx';
 import { applyOrientation, enterFullscreen, exitFullscreen, fullscreenSupported, isFullscreen, onFullscreenChange } from '../core/fullscreen';
 import { Haptics } from '../core/haptics';
 import { Input } from '../core/Input';
@@ -35,6 +35,8 @@ import { createChunkWorkers } from '../world/workerPool';
 import { model } from '../render/gltfModels';
 import { PropFactory, createLander, createWaypoint, setDrillLook, type Lander, type Waypoint } from '../render/models';
 import { Particles, createMotes, type Motes } from '../render/particles';
+import { MeteorFx } from '../render/meteorFx';
+import { Puffs } from '../render/puffs';
 import { Post, QUALITY, type QualityName, type QualityPreset } from '../render/post';
 import { NATIVE_PIXEL_RATIO, drawSize, resolveQuality, type GfxOverrides } from '../render/graphics';
 import { createBackdrop } from '../render/sky';
@@ -65,6 +67,7 @@ import { BaseModel } from '../render/baseModel';
 import { INTERIOR_LAYER, IndoorView, showIndoors } from '../render/indoors';
 import { Exploration } from '../systems/Exploration';
 import { MapDirector, TABLET_LAYER } from './MapDirector';
+import { MeteorDirector } from './MeteorDirector';
 import { BenchRunner } from '../bench/runner';
 import { SUB, type Probe } from '../bench/probe';
 import { loadHistory, saveReport } from '../bench/store';
@@ -166,8 +169,11 @@ export class Game {
   private fullWarnT = -99;
   private readonly sfx = new Sfx();
   private readonly haptics = new Haptics();
-  /** som de cada meteoro em voo, que acompanha a posição dele */
-  private readonly meteorVoices = new Map<number, Voice>();
+  /** baforadas de fogo e fumaça (render/puffs.ts) e o visual dos meteoros (render/meteorFx.ts) */
+  private readonly puffs: Puffs;
+  private readonly meteorFx: MeteorFx;
+  /** a experiência do meteoro: som, câmera, tempo, clarão e ondas de choque (app/MeteorDirector.ts) */
+  private readonly meteorDirector: MeteorDirector;
 
   private readonly fixed = new FixedStep(FIXED_STEP, MAX_STEPS_PER_FRAME);
   private readonly focus = new THREE.Vector3();
@@ -294,6 +300,8 @@ export class Game {
     this.player = new Player(scene, this.world, events);
     this.rig = new IsoRig(this.camera);
     this.particles = new Particles(scene);
+    this.puffs = new Puffs(scene);
+    this.meteorFx = new MeteorFx(scene, this.puffs, this.particles);
     this.motes = createMotes(scene);
     this.input = new Input(renderer.domElement, { base: maybeEl('#joystick'), knob: maybeEl('#knob') });
     this.debris = new Debris(scene, this.world, materials.debris, events);
@@ -312,7 +320,7 @@ export class Game {
       drillTier: () => this.equipment.drill.tier,
       aimSkip: cutSkip,
     });
-    this.meteors = new Meteors({ scene, world: this.world, debris: this.debris, particles: this.particles, player: this.player, events });
+    this.meteors = new Meteors({ scene, world: this.world, debris: this.debris, particles: this.particles, player: this.player, events, fx: this.meteorFx, viewYaw: () => this.rig.yaw });
     this.waypoint = createWaypoint();
     scene.add(this.waypoint.group);
     this.lootMarker = createWaypoint([2.2, 0.85, 0.3]);
@@ -454,6 +462,13 @@ export class Game {
     showIndoors(this.particles.mesh);
     // o que vai junto para dentro da base: a própria base, o astronauta e as partículas (a cena de dentro é outra)
     this.indoors = new IndoorView(scene, this.camera, [this.baseModel.group, this.player.model.root, this.particles.mesh], this.fog);
+    this.meteorDirector = new MeteorDirector({
+      events, rig: this.rig, sfx: this.sfx, haptics: this.haptics, post: this.post, meteors: this.meteors,
+      hitStop: (seconds) => (this.hitStop = Math.max(this.hitStop, seconds)),
+      slowMotion: (seconds, scale) => (this.slowMo = { t: seconds, scale }),
+      indoors: () => this.indoors.on,
+      cinematic: () => this.state === 'playing',
+    });
     const landerPos = this.lander.group.position;
     this.map = new MapDirector({
       events, overlay: this.post.overlay, camera: this.camera, renderer, sfx: this.sfx, haptics: this.haptics,
@@ -863,18 +878,6 @@ export class Game {
       footprints.clearAt(x, y, z);
       debris.disturb(x, y, z);
     });
-    e.on('meteor:incoming', (m) => {
-      const v = sfx.play('whoosh', 1, m);
-      if (v) this.meteorVoices.set(m.id, v);
-    });
-    e.on('meteor:impact', ({ id, x, y, z, distance }) => {
-      this.meteorVoices.delete(id);
-      // dentro da base: um tremor grave que chega pelo casco
-      const indoors = this.indoors.on;
-      sfx.play('boom', indoors ? 0.6 : 1, { x, y, z });
-      rig.shake(Math.max(0.15, 1.1 - distance / 30) * (indoors ? 0.35 : 1));
-      if (distance < 30) haptics.play(indoors ? 'medium' : 'heavy');
-    });
     e.on('mission:updated', () => hud.setMission(missions.view()));
     e.on('mission:started', ({ hint }) => {
       if (hint) hud.toast(hint);
@@ -1039,6 +1042,7 @@ export class Game {
    */
   private setIndoors(on: boolean): void {
     this.indoors.set(on);
+    this.meteorDirector.setIndoors(on);
     this.syncScene();
     this.interaction.lockWorld(on);
     this.meteors.holdSpawns = on;
@@ -1313,11 +1317,7 @@ export class Game {
     }
     this.jobsChip.update(dt);
     this.base.update(dt);
-    for (const [id, v] of this.meteorVoices) {
-      const h = this.meteors.headOf(id);
-      if (h) v.at(h.x, h.y, h.z);
-      else this.meteorVoices.delete(id);
-    }
+    this.meteorDirector.update(dt);
     p?.end(SUB.entities);
 
     if (this.base.indoorView !== this.indoors.on) this.setIndoors(this.base.indoorView);
@@ -1366,6 +1366,7 @@ export class Game {
     p?.end(SUB.interaction);
     p?.begin(SUB.particles);
     this.particles.update(dt);
+    this.puffs.update(dt);
     this.motes.update(dt, rig.target, time);
     p?.end(SUB.particles);
     p?.begin(SUB.entities);

@@ -91,6 +91,10 @@ Em ordem de execução, tudo com testes e documentação:
    próprios materiais. Prontos: o módulo de pouso, a base por fora e por dentro (maior: 11×9), os móveis e as três
    estações com animação feita no Blender; luzes de sinalização com halo (`render/lamps.ts`). [design/MODELOS.md](design/MODELOS.md).
 
+12. **Meteoros cinematográficos** ([design/METEOROS.md](design/METEOROS.md), ADR 0014): rocha do Blender, rastro de chamas, onda de
+   choque que entorta a imagem (passada final, opção no menu Gráficos), bola de fogo, blocos que quebram, câmera lenta curta.
+   O dono já testou no celular e aprovou (funcionou). Os meteoros sorteados caem mais perto e dentro da tela.
+
 ## O que o dono ainda **não viu** no celular
 
 - **O interior novo da base** (maior, móveis novos) e **as estações do Blender com animação**. Antes disso o dono viu o casco

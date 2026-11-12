@@ -12,7 +12,7 @@ trocar cada item por cima dela. O que fica em "Padrão" segue a qualidade. Tudo 
 | Imagem | Antisserrilhado (MSAA) | Padrão, Desligado, 2×, 4× | ~5 ms (4×) |
 | Imagem | Sombras | Padrão, Sem sombra, Baixa 1024, Média 2048, Alta 4096 | ~4,6 ms (2048) |
 | Efeitos | Bloom | Padrão, Ligado, Desligado | ~2,6 ms |
-| Efeitos | Aberração de cor, Vinheta, Ruído de filme | Ligado, Desligado | < 1 ms cada |
+| Efeitos | Aberração de cor, Vinheta, Ruído de filme, Onda de choque | Ligado, Desligado | < 1 ms cada (a onda só custa enquanto há uma) |
 | Efeitos | Brilho dos cristais | Ligado, Desligado | ~1,4 ms |
 | Desempenho | Limite de FPS | Livre, 30, 60, 90, 120 | iguala o ritmo dos quadros |
 | Desempenho | Mostrar FPS | Ligado, Desligado | nenhum |

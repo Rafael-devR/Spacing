@@ -82,6 +82,7 @@ function groups(): { title: MessageKey; rows: Row[] }[] {
         { key: 'chromatic', label: 'gfx.chromatic', blank: true, options: onOff() },
         { key: 'vignette', label: 'gfx.vignette', blank: true, options: onOff() },
         { key: 'noise', label: 'gfx.noise', blank: true, options: onOff() },
+        { key: 'shock', label: 'gfx.shock', hint: 'gfx.shock.hint', blank: true, options: onOff() },
         { key: 'glow', label: 'gfx.glow', blank: true, options: onOff() },
       ],
     },

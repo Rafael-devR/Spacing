@@ -13,14 +13,15 @@ import furnitureUrl from '../assets/models/furniture.glb?url';
 import habitatUrl from '../assets/models/habitat.glb?url';
 import habitatInteriorUrl from '../assets/models/habitat_interior.glb?url';
 import landerUrl from '../assets/models/lander.glb?url';
+import meteorUrl from '../assets/models/meteor.glb?url';
 import workbenchUrl from '../assets/models/workbench.glb?url';
 import { patchMaterial } from './materials';
 
-export type ModelId = 'lander' | 'habitat' | 'habitat_interior' | 'furniture' | 'workbench' | 'furnace' | 'electrolyzer';
+export type ModelId = 'lander' | 'habitat' | 'habitat_interior' | 'furniture' | 'workbench' | 'furnace' | 'electrolyzer' | 'meteor';
 
 const URLS: Record<ModelId, string> = {
   lander: landerUrl, habitat: habitatUrl, habitat_interior: habitatInteriorUrl, furniture: furnitureUrl,
-  workbench: workbenchUrl, furnace: furnaceUrl, electrolyzer: electrolyzerUrl,
+  workbench: workbenchUrl, furnace: furnaceUrl, electrolyzer: electrolyzerUrl, meteor: meteorUrl,
 };
 const loaded = new Map<ModelId, { scene: THREE.Object3D; clips: THREE.AnimationClip[] }>();
 

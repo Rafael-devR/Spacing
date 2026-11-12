@@ -7,6 +7,13 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Alterado
 
+- **Meteoros cinematográficos** ([design/METEOROS.md](docs/design/METEOROS.md), [ADR 0014](docs/adr/0014-onda-de-choque-na-passada-final.md)).
+  Rocha feita no Blender com brasas, rastro de chamas e fumaça no céu, o ar tremendo em volta; entra de lado e cruza a tela. No
+  impacto: clarão, **onda de choque que entorta a imagem atrás** (distorção na passada final, com opção no menu Gráficos), bola de
+  fogo, anel de poeira, bolha da onda, blocos que saem em brasa, soltam fumaça e quebram em pedaços, coluna de fumaça e brasa na
+  cratera, soco de zoom, câmera lenta curta e som em camadas. Os meteoros sorteados caem mais perto e dentro da tela
+  (9,5 a 13 blocos, antes 12 a 22). `BENCH_VERSION` subiu para 4.
+
 - **Interior da base é uma cena à parte** (ADR 0006): lá dentro a câmera desenha a cena de dentro, com luz e sombra
   próprias; o mundo de fora não é desenhado. Só a base, o astronauta e as partículas mudam de cena.
 - **Corte da base:** ao entrar, as paredes da frente somem por inteiro, em vez de abaixar pela metade.

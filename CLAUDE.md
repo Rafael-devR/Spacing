@@ -61,6 +61,9 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). **Sessão nova?
   de fora, interior (`habitat_interior.py`) só na de dentro (`interiorOnly`, `src/render/indoors.ts`); medidas em `lib.HAB`. Móveis:
   `furniture.py` (um nó por tipo). Estações: `workbench/furnace/electrolyzer.py`, com animação em laço feita no Blender
   (`lib.keys`, `export(anim=True)`), tocada por `AnimationMixer`.
+- Meteoros ([design/METEOROS.md](docs/design/METEOROS.md), ADR 0014): números em `src/data/meteors.ts`; lógica em `src/entities/Meteors.ts`;
+  visual em `src/render/meteorFx.ts` e `puffs.ts`; **onda de choque que entorta a imagem** em `src/render/shockwave.ts` + `FX_SHOCK` na passada
+  final de `post.ts`; som, câmera, pausa e clarão em `src/app/MeteorDirector.ts`; teste `tools/visual-check/meteors.mjs`.
 - Chunks em worker e resolução dinâmica (ADR 0012): `src/world/chunkJobs.ts` + `chunk.worker.ts` + `workerPool.ts`, malha e luz em
   `chunkMesher.ts`, modo assíncrono em `World.enableWorkers`; `src/render/scaler.ts` + `Post.setScale`; testes `tests/chunkjobs.test.ts`,
   `tests/scaler.test.ts`, `tools/visual-check/worker.mjs`. `?semWorker` desliga o worker. Mexeu em quem lê blocos de chunks que podem não ter chegado? `getBlock` gera na hora; não presuma carregado.

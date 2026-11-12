@@ -4,8 +4,8 @@
 import { BLOCK_DATA, REGOLITH } from './blocks';
 import { DRILLS, mineSeconds } from './drills';
 
-/** versão do conjunto de cenários */
-export const BENCH_VERSION = 3;
+/** versão do conjunto de cenários (4: os meteoros ganharam fogo, fumaça e onda de choque, o que pesa nos cenários com meteoro) */
+export const BENCH_VERSION = 4;
 
 export type BenchMode = 'quick' | 'full';
 

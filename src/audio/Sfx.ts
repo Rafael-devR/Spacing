@@ -37,7 +37,7 @@ export interface Voice {
 /** sons grandes, ouvidos de longe */
 const FAR_SOUNDS: ReadonlySet<SoundName> = new Set<SoundName>(['boom', 'whoosh']);
 /** duração aproximada (s) dos sons do mundo, para saber até quando acompanhar o ouvinte */
-const LENGTH: Partial<Record<SoundName, number>> = { whoosh: 1.8, boom: 1.4, break: 0.3, land: 0.2, door: 0.7, craftDone: 0.6 };
+const LENGTH: Partial<Record<SoundName, number>> = { whoosh: 1.8, boom: 2.8, break: 0.3, land: 0.2, door: 0.7, craftDone: 0.6 };
 
 interface Emitter extends Voice {
   readonly input: GainNode;
@@ -535,14 +535,17 @@ export class Sfx {
       case 'ui': T(660, 880, 0.05, 0.06); break;
       case 'clink': T(900 + Math.random() * 900, 600 + Math.random() * 300, 0.07, 0.05, 'triangle'); N(0.04, 'highpass', 2500, 0.06); break;
       case 'kick': N(0.09, 'bandpass', 600 + Math.random() * 400, 0.22, 1.5); T(300, 160, 0.08, 0.08, 'triangle'); break;
-      case 'whoosh': N(1.7, 'bandpass', 250, 0.35, 2, 9); break;
+      case 'whoosh': N(1.7, 'bandpass', 250, 0.35, 2, 9); N(1.7, 'lowpass', 180, 0.25, 1, 3); break;
       case 'rumble': T(46, 28, 2.8, 0.8); N(2.6, 'lowpass', 240, 0.9, 1, 0.4); break;
       case 'sizzle': N(0.45, 'highpass', 2600, 0.12); break;
       case 'gust': N(1.6, 'bandpass', 420, 0.5, 0.8, 2.2); break;
       case 'boom':
-        T(95, 28, 1.1, 0.7);
-        N(1.3, 'lowpass', 1800, 0.8, 0.8, 0.05);
-        N(0.25, 'highpass', 1500, 0.25);
+        // impacto de meteoro em camadas: estalo, corpo, queda grave, ronco que fica e chuva de pedaços
+        N(0.12, 'highpass', 2500, 0.45);
+        N(1.4, 'lowpass', 1700, 0.8, 0.8, 0.05);
+        T(80, 22, 1.8, 0.75);
+        N(2.6, 'lowpass', 320, 0.4, 1, 0.3);
+        [0.5, 0.9, 1.3, 1.8].forEach((s) => setTimeout(() => N(0.06, 'bandpass', 800 + Math.random() * 900, 0.1, 2.5), s * 1000));
         break;
       case 'beep': T(1320, 1320, 0.09, 0.07, 'square'); break;
       case 'alarm':

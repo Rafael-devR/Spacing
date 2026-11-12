@@ -1,6 +1,8 @@
 // Destroços com física de microgravidade (data/physics.ts, docs/design/FISICA.md): flutuam, descem devagar,
 // quicam, rolam, se empilham, ficam no chão e são chutados quando o astronauta passa por cima.
 // Sem ar: nada os freia no alto; só o chão os para.
+// Os que saem de uma explosão (meteoro) podem sair incandescentes (esfriam até a cor da rocha), soltar fumaça no voo e
+// quebrar em pedaços menores na primeira pancada forte no chão (docs/design/METEOROS.md).
 import * as THREE from 'three';
 import type { GameBus } from '../app/events';
 import type { RGB } from '../core/color';
@@ -29,7 +31,32 @@ interface DebrisItem {
   still: number;
   check: number;
   ground: boolean;
+  /** cor da rocha (a que vale quando esfria) */
+  base: RGB;
+  /** segundos que ainda faltam esfriando, e quantos eram (0 = frio) */
+  heat: number;
+  heat0: number;
+  /** segundos que ainda solta fumaça no voo, e o tempo até a próxima baforada */
+  trail: number;
+  trailT: number;
+  /** pedaços em que quebra na primeira pancada forte (0 = inteiro) */
+  splinters: number;
 }
+
+/** o que um destroço pode ter além de posição, velocidade, tamanho e cor */
+export interface SpawnOptions {
+  /** segundos incandescente, esfriando */
+  heat?: number;
+  /** segundos soltando fumaça no voo */
+  trail?: number;
+  /** pedaços em que quebra ao bater forte no chão */
+  splinters?: number;
+}
+
+/** cor de brasa (linear, acima de 1: o bloom pega) */
+const HOT: RGB = [2.8, 1.0, 0.28];
+/** pancada mais forte que isto (blocos/s) quebra um destroço que tem `splinters` */
+const BREAK_SPEED = 2.2;
 
 export interface BurstOptions {
   power?: number;
@@ -74,6 +101,14 @@ export class Debris {
   /** sons pendentes do passo atual */
   private readonly pending: { type: 'clink' | 'kick'; speed: number; x: number; y: number; z: number }[] = [];
   private soundCooldown = 0;
+  /** alguma cor mudou neste passo (esfriando): a GPU precisa receber de novo */
+  private colorsDirty = false;
+  /** quem solta fumaça no voo (o MeteorFx): posição, velocidade, tamanho e o quanto ainda está quente (0 a 1) */
+  onTrail: ((x: number, y: number, z: number, vx: number, vy: number, vz: number, size: number, heat: number) => void) | null = null;
+  /** um destroço se quebrou (posição e tamanho): poeira e som */
+  onBreak: ((x: number, y: number, z: number, size: number) => void) | null = null;
+  /** quebras deste passo (só criadas depois do laço, para não mexer na lista enquanto ela é percorrida) */
+  private readonly splits: { pos: THREE.Vector3; vel: THREE.Vector3; size: number; base: RGB; heat: number; n: number }[] = [];
 
   constructor(
     scene: THREE.Scene,
@@ -103,7 +138,7 @@ export class Debris {
     return this.items.length;
   }
 
-  spawn(pos: THREE.Vector3, vel: THREE.Vector3, size: number, rgb: RGB, kind: Kind = 0): void {
+  spawn(pos: THREE.Vector3, vel: THREE.Vector3, size: number, rgb: RGB, kind: Kind = 0, opts: SpawnOptions = {}): void {
     let i = this.free[kind].pop();
     if (i === undefined) {
       // recicla o mais antigo do mesmo tipo
@@ -119,8 +154,10 @@ export class Debris {
       rx: Math.random() * 6, ry: Math.random() * 6, rz: Math.random() * 6,
       ax: (Math.random() - 0.5) * 14, ay: (Math.random() - 0.5) * 14, az: (Math.random() - 0.5) * 14,
       life: LIFE * (0.8 + Math.random() * 0.4), sleep: false, still: 0, check: 0, ground: false,
+      base: rgb, heat: opts.heat ?? 0, heat0: opts.heat ?? 0, trail: opts.trail ?? 0, trailT: 0, splinters: opts.splinters ?? 0,
     });
     this.c.setRGB(rgb[0], rgb[1], rgb[2]);
+    if (opts.heat) this.paint(this.items[this.items.length - 1]);
     this.meshes[kind].setColorAt(i, this.c);
     const ic = this.meshes[kind].instanceColor;
     if (ic) ic.needsUpdate = true;
@@ -235,6 +272,12 @@ export class Debris {
         continue;
       }
 
+      // esfriando (também enquanto dorme no chão)
+      if (it.heat > 0) {
+        it.heat = Math.max(0, it.heat - dt);
+        this.paint(it);
+      }
+
       // chute do jogador
       const dx = it.pos.x - pp.x, dz = it.pos.z - pp.z;
       const dh = Math.hypot(dx, dz);
@@ -286,6 +329,12 @@ export class Debris {
             it.ax = it.ax * 0.6 + it.vel.z * 4;
             it.az = it.az * 0.6 - it.vel.x * 4;
             if (vy < -2.5) this.pending.push({ type: 'clink', speed: -vy, x: it.pos.x, y: it.pos.y, z: it.pos.z });
+            if (it.splinters > 0 && -vy > BREAK_SPEED) {
+              this.splits.push({ pos: it.pos.clone(), vel: it.vel.clone(), size: it.size, base: it.base, heat: it.heat, n: it.splinters });
+              it.splinters = 0;
+              it.size *= 0.72;
+              it.r *= 0.8;
+            }
           } else it.vel.y = 0;
         } else it.vel.y = 0;
       }
@@ -322,6 +371,16 @@ export class Debris {
       }
       it.rx += it.ax * dt; it.ry += it.ay * dt; it.rz += it.az * dt;
 
+      // fumaça no voo (só enquanto não encostou no chão)
+      if (it.trail > 0 && !it.ground && this.onTrail) {
+        it.trail -= dt;
+        it.trailT -= dt;
+        if (it.trailT <= 0) {
+          it.trailT = 0.05;
+          this.onTrail(it.pos.x, it.pos.y, it.pos.z, it.vel.x, it.vel.y, it.vel.z, it.size, it.heat0 > 0 ? it.heat / it.heat0 : 0);
+        }
+      }
+
       const speed = Math.hypot(it.vel.x, it.vel.y, it.vel.z);
       if (it.ground && speed < 0.35) {
         it.still += dt;
@@ -335,6 +394,11 @@ export class Debris {
       this.writeMatrix(it);
     }
     for (const m of this.meshes) m.instanceMatrix.needsUpdate = true;
+    if (this.colorsDirty) {
+      for (const m of this.meshes) if (m.instanceColor) m.instanceColor.needsUpdate = true;
+      this.colorsDirty = false;
+    }
+    this.breakUp();
 
     // limita sons
     if (this.pending.length && this.soundCooldown <= 0) {
@@ -342,6 +406,33 @@ export class Debris {
       this.soundCooldown = 0.07;
     }
     this.pending.length = 0;
+  }
+
+  /** a cor do destroço agora: da brasa (quente) até a da rocha (frio) */
+  private paint(it: DebrisItem): void {
+    const h = it.heat0 > 0 ? Math.max(0, it.heat) / it.heat0 : 0;
+    const k = Math.pow(h, 1.6);
+    const b = it.base;
+    this.c.setRGB(b[0] + (HOT[0] - b[0]) * k, b[1] + (HOT[1] - b[1]) * k, b[2] + (HOT[2] - b[2]) * k);
+    this.meshes[it.kind].setColorAt(it.i, this.c);
+    this.colorsDirty = true;
+  }
+
+  /** cria os pedaços das quebras do passo e avisa (poeira, som) */
+  private breakUp(): void {
+    if (this.splits.length === 0) return;
+    const v = new THREE.Vector3(), p = new THREE.Vector3();
+    for (const s of this.splits) {
+      for (let k = 0; k < s.n; k++) {
+        const a = Math.random() * Math.PI * 2, sp = 1.2 + Math.random() * 2.4;
+        p.set(s.pos.x + Math.cos(a) * 0.15, s.pos.y + 0.2, s.pos.z + Math.sin(a) * 0.15);
+        v.set(Math.cos(a) * sp + s.vel.x * 0.3, 1.4 + Math.random() * 2.4, Math.sin(a) * sp + s.vel.z * 0.3);
+        const hot = s.heat > 0 ? { heat: s.heat } : {};
+        this.spawn(p, v, s.size * (0.3 + Math.random() * 0.2), s.base, 1, hot);
+      }
+      this.onBreak?.(s.pos.x, s.pos.y, s.pos.z, s.size);
+    }
+    this.splits.length = 0;
   }
 
   private writeMatrix(it: DebrisItem): void {

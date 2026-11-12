@@ -170,7 +170,7 @@ describe('sobrevivência na base', () => {
     s.o2 = 20;
     for (let i = 0; i < 60; i++) s.step(1 / 60);
     expect(s.o2).toBeGreaterThan(40);
-    events.emit('meteor:impact', { id: 0, x: 0, y: 0, z: 0, distance: 0, meteorite: false });
+    events.emit('meteor:impact', { id: 0, x: 0, y: 0, z: 0, distance: 0, meteorite: false, radius: 2 });
     expect(s.integrity).toBe(100);
   });
 

@@ -256,6 +256,8 @@ export const ptBR = {
   'gfx.chromatic': 'Aberração de cor',
   'gfx.vignette': 'Vinheta',
   'gfx.noise': 'Ruído de filme',
+  'gfx.shock': 'Onda de choque',
+  'gfx.shock.hint': 'A imagem entorta quando um meteoro cai, como a luz dobrando num filme.',
   'gfx.glow': 'Brilho dos cristais',
   'gfx.fpsCap': 'Limite de FPS',
   'gfx.fpsCap.hint': 'Numa tela de 120 Hz, 60 deixa o movimento mais uniforme se o aparelho não chega a 120.',

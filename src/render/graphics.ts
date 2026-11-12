@@ -26,6 +26,8 @@ export interface GfxOverrides {
   chromatic?: boolean;
   vignette?: boolean;
   noise?: boolean;
+  /** onda de choque que entorta a imagem (impacto de meteoro) */
+  shock?: boolean;
   /** brilho dos cristais e do que brilha no terreno */
   glow?: boolean;
   fpsCap?: FpsCapChoice;
@@ -33,7 +35,7 @@ export interface GfxOverrides {
   showFps?: boolean;
 }
 
-export const GFX_KEYS = ['resolution', 'msaa', 'shadow', 'bloom', 'chromatic', 'vignette', 'noise', 'glow', 'fpsCap', 'showFps'] as const;
+export const GFX_KEYS = ['resolution', 'msaa', 'shadow', 'bloom', 'chromatic', 'vignette', 'noise', 'shock', 'glow', 'fpsCap', 'showFps'] as const;
 
 /** valor que 'native' vira no preset: o Post limita à densidade real da tela e ao tamanho máximo de textura */
 export const NATIVE_PIXEL_RATIO = 99;
@@ -49,6 +51,7 @@ export function resolveQuality(preset: QualityPreset, g: GfxOverrides | undefine
   if (g.chromatic !== undefined) out.chromatic = g.chromatic;
   if (g.vignette !== undefined) out.vignette = g.vignette;
   if (g.noise !== undefined) out.noise = g.noise;
+  if (g.shock !== undefined) out.shock = g.shock;
   return out;
 }
 
@@ -69,7 +72,7 @@ export function parseGfx(raw: unknown): GfxOverrides {
   if (shadow !== undefined) g.shadow = shadow;
   const fpsCap = pick(FPS_CAP_CHOICES, r.fpsCap);
   if (fpsCap !== undefined) g.fpsCap = fpsCap;
-  for (const k of ['bloom', 'chromatic', 'vignette', 'noise', 'glow', 'showFps'] as const) {
+  for (const k of ['bloom', 'chromatic', 'vignette', 'noise', 'shock', 'glow', 'showFps'] as const) {
     if (typeof r[k] === 'boolean') g[k] = r[k] as boolean;
   }
   return g;

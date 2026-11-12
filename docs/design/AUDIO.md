@@ -32,7 +32,8 @@ do capacete, indicando de onde ela veio. Essa é a mesma ficção leve da IA do 
   testes em `tests/spatial.test.ts`.
 - **Eco da cratera:** um `ConvolverNode` com uma resposta gerada no início (ruído que decai em 2,4 s, com
   reflexos fortes no começo). Cada som do mundo manda uma parte para ele; quanto mais longe, mais eco.
-- **Sons que se movem:** o meteoro em queda leva o som junto (`Voice.at`), então dá para ouvi-lo vindo do céu.
+- **Sons que se movem:** o meteoro em queda leva o som junto (`Voice.at`), então dá para ouvi-lo vindo do céu. O impacto (`boom`) tem
+  camadas: estalo, corpo, queda grave, ronco que fica e uma chuva de pedaços.
 
 ### Perfis de distância
 

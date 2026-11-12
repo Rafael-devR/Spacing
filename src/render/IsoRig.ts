@@ -20,10 +20,16 @@ export class IsoRig {
   readonly min = 16;
   readonly max = 46;
   readonly target = new THREE.Vector3();
+  /** a mola do soco de zoom: dureza e atrito (pouco amortecida: volta com um balanço curto, em cerca de meio segundo) */
+  static readonly PUNCH_K = 120;
+  static readonly PUNCH_C = 10;
   /** multiplicador do tremor (configuração do jogador: 0 desliga) */
   shakeScale = 1;
   private trauma = 0;
   private time = 0;
+  /** soco de zoom (impacto): quanto a câmera está mais perto que o normal (blocos) e a velocidade da mola que a devolve */
+  private punchX = 0;
+  private punchV = 0;
   private readonly _f = new THREE.Vector3();
   private readonly _r = new THREE.Vector3();
 
@@ -51,11 +57,18 @@ export class IsoRig {
     // em caverna a câmera chega perto (o zoom do jogador ainda vale, em escala); a rocha na frente é cortada (cutaway.ts)
     const near = THREE.MathUtils.clamp(this.distTarget * IsoRig.CAVE_ZOOM, IsoRig.CAVE_MIN, IsoRig.CAVE_MAX);
     this.eye = this.dist + (Math.min(this.dist, near) - this.dist) * this.cave;
+    // soco de zoom: mola com um pequeno balanço (passa um pouco do ponto e volta)
+    if (this.punchX !== 0 || this.punchV !== 0) {
+      this.punchV += (-IsoRig.PUNCH_K * this.punchX - IsoRig.PUNCH_C * this.punchV) * dt;
+      this.punchX += this.punchV * dt;
+      if (Math.abs(this.punchX) < 1e-3 && Math.abs(this.punchV) < 1e-2) this.punchX = this.punchV = 0;
+    }
+    const eye = this.eye - this.punchX * this.shakeScale;
     const c = Math.cos(this.pitch);
     this.camera.position.set(
-      this.target.x + Math.sin(this.yaw) * c * this.eye,
-      this.target.y + Math.sin(this.pitch) * this.eye,
-      this.target.z + Math.cos(this.yaw) * c * this.eye,
+      this.target.x + Math.sin(this.yaw) * c * eye,
+      this.target.y + Math.sin(this.pitch) * eye,
+      this.target.z + Math.cos(this.yaw) * c * eye,
     );
     this.camera.lookAt(this.target);
     // tremor (trauma ao quadrado, ruído suave)
@@ -82,6 +95,20 @@ export class IsoRig {
    */
   kick(level: number): void {
     this.trauma = Math.max(this.trauma, Math.min(1, level));
+  }
+
+  /**
+   * Soco de zoom: a câmera chega `amount` blocos mais perto de uma vez e a mola a devolve (impacto de meteoro). Não soma:
+   * vale o maior. Some com a opção de tremor desligada.
+   */
+  punch(amount: number): void {
+    this.punchX = Math.max(this.punchX, amount);
+    this.punchV = 0;
+  }
+
+  /** o soco de zoom agora, em blocos (para teste) */
+  get punching(): number {
+    return this.punchX;
   }
 
   /** nível atual do tremor (0..1) */

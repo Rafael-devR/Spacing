@@ -9,7 +9,7 @@ const GLBS = import.meta.glob('../src/assets/models/*.glb', { query: '?inline', 
 
 /** orçamento de triângulos por modelo (docs/design/MODELOS.md): o celular já desenha o terreno e a sombra */
 const BUDGET: Record<string, number> = {
-  lander: 3000, habitat: 4000, habitat_interior: 4500, furniture: 4000, workbench: 1500, furnace: 1500, electrolyzer: 1200,
+  lander: 3000, habitat: 4000, habitat_interior: 4500, furniture: 4000, workbench: 1500, furnace: 1500, electrolyzer: 1200, meteor: 1500,
 };
 /** pontos que o código procura em cada modelo */
 const MARKERS: Record<string, string[]> = {
@@ -23,6 +23,7 @@ const MARKERS: Record<string, string[]> = {
   workbench: ['carriage', 'emitter_0', 'emitter_1', 'lamp', 'fan'],
   furnace: ['lamp', 'vent', 'fx_window', 'fx_core_tall', 'fx_ring', 'tall_cage', 'fan', 'piston'],
   electrolyzer: ['lamp', 'fx_liquid', 'fx_arc', 'glass_tub', 'lit_bubble_0', 'piston', 'needle_h'],
+  meteor: ['rock_a', 'rock_b', 'rock_c', 'body_a', 'lit_a'],
 };
 /** máquinas com animação feita no Blender */
 const ANIMATED = ['workbench', 'furnace', 'electrolyzer'];

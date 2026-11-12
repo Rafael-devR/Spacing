@@ -62,7 +62,7 @@ export interface GameEvents {
   'debris:kick': Vec3Like & { speed: number };
   /** um meteoro começou a cair; x, y, z = de onde ele vem; `id` serve para achar a posição dele em voo */
   'meteor:incoming': Vec3Like & { id: number };
-  'meteor:impact': Vec3Like & { id: number; distance: number; meteorite: boolean };
+  'meteor:impact': Vec3Like & { id: number; distance: number; meteorite: boolean; radius: number };
   'mission:started': { id: string; hint?: string };
   /** o painel da missão precisa ser redesenhado */
   'mission:updated': { step: number };

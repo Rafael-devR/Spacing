@@ -29,7 +29,7 @@ Legenda: **feito** já está no jogo; **v0.2**, **v0.3** e **v0.4** indicam em q
 | Bloco colocado        | Bloco surge esticando e assenta, poeira             | Tremor mínimo           | Batida                   |          | feito |
 | Passo / pulo / pouso  | Poeira, pegadas, astronauta achata ao pousar        | Tremor no pouso forte   | Passo, pulo, pouso       |          | feito |
 | Detrito chutado       | Destroço voa e gira                                 |                         | Tilintar                 |          | feito |
-| Meteoro               | Aviso no chão, rastro, clarão, cratera              | Tremor forte            | Assobio que acompanha a queda + explosão com eco | Longa    | feito (vibração na v0.2) |
+| Meteoro               | Aviso no chão, rastro de chamas, onda de choque que entorta a imagem, fogo, blocos, fumaça ([METEOROS.md](METEOROS.md)) | Tremor forte, soco de zoom, câmera lenta | Assobio que acompanha a queda + explosão em camadas com eco | Longa    | feito (vibração na v0.2) |
 | Oxigênio baixo        | Medidor pisca, borda vermelha pulsa, aviso da IA    |                         | Bip, alarme, respiração rápida | Curta | feito |
 | Dano                  | Borda vermelha, número de dano, traje pisca vermelho | Tremor proporcional    | Impacto + alarme do traje | Média   | feito |
 | Asfixia               | Tela perde cor, borda vermelha, som abafado         |                         | Batimento cardíaco       | Pulsada  | feito |
