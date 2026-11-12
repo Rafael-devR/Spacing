@@ -57,6 +57,16 @@ trabalhando (selo no HUD), com uma captura de cada passo (`base-*.png`). Rode de
 ([design/CRAFTING.md](../../docs/design/CRAFTING.md)). Como o WebGL
 roda por software, o jogo fica bem lento aqui: as esperas são longas de propósito.
 
+## Telas das estações e da energia
+
+```bash
+node stations.mjs http://localhost:5173/ /tmp/shots
+```
+
+Abre as telas cheias em Canvas (bancada, forno com 3 vagas e lote, ciência no "?", eletrolisador sem energia, energia
+da base e retrato) e toca nos botões de verdade (as áreas que a tela desenha a cada quadro, em `hits`). Capturas
+`st-*.png` com densidade 2. Rode depois de mexer em `src/ui/CraftPanel.ts`, `PowerPanel.ts` ou `canvasScreen.ts`.
+
 ## Teste do áudio
 
 ```bash

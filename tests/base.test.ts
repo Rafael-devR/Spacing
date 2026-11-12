@@ -121,11 +121,11 @@ describe('fabricação e equipamento', () => {
     inventory.add('iron_bar', 1, false);
     expect(crafting.start(map)).toBe(true);
     expect(inventory.totals()).toEqual({ glass: 1 });
-    expect(crafting.check(map).busy).toBe(true);
-    const job = crafting.job('workbench')!;
-    crafting.update(job.duration / 2);
-    expect(crafting.job('workbench')!.ready).toBe(false);
-    crafting.update(job.duration);
+    expect(crafting.check(map).full).toBe(true);
+    const time = crafting.slots('workbench')[0]!.remaining;
+    crafting.update(time / 2);
+    expect(crafting.slots('workbench')[0]!.ready).toBe(false);
+    crafting.update(time);
     expect(ready).toHaveBeenCalledOnce();
     expect(equipment.has('map')).toBe(false);
     expect(crafting.take('workbench')).not.toBeNull();

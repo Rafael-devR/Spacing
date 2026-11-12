@@ -47,10 +47,10 @@ describe('receitas como dados', () => {
     }
   });
 
-  it('todo item da Lua tem propósito: entra em alguma receita (o O₂ é a reserva do traje)', () => {
+  it('todo item da Lua tem propósito: entra em alguma receita, é colocado no mundo ou é a reserva do traje (O₂)', () => {
     const used = new Set<string>(RECIPES.flatMap((x) => Object.keys(x.inputs)));
     for (const id of ITEM_ORDER) {
-      if (MARS.includes(id) || id === 'o2') continue;
+      if (MARS.includes(id) || id === 'o2' || ITEMS[id].place) continue;
       expect(used.has(id), id).toBe(true);
     }
     for (const id of ITEM_ORDER) expect(ITEMS[id].about.length, id).toBeGreaterThan(10);
@@ -113,6 +113,9 @@ describe('receitas como dados', () => {
 });
 
 describe('estações trabalhando sozinhas', () => {
+  const builtAll = (inventory: Inventory, speed?: (s: StationId) => number) =>
+    new Crafting({ inventory, equipment: new Equipment(), rand: () => 0.5, speed }, { built: ['furnace', 'electrolyzer'], jobs: [] });
+
   it('só começa numa estação construída; construir pela bancada libera as receitas dela', () => {
     const { crafting, inventory } = setup({ regolith: 3, rock: 6, iron: 3 });
     expect(crafting.check(r('glass'))).toMatchObject({ ok: false, locked: true });
@@ -126,17 +129,57 @@ describe('estações trabalhando sozinhas', () => {
     expect(inventory.count('rock')).toBe(0);
   });
 
-  it('cada estação faz uma coisa por vez, e as estações trabalham juntas', () => {
-    const { crafting, inventory } = setup({ iron: 4, ice: 4, regolith: 8 });
-    const saved = crafting.serialize();
-    const all = new Crafting({ inventory, equipment: new Equipment(), rand: () => 0.5 }, { ...saved, built: ['furnace', 'electrolyzer'] });
-    expect(all.start(r('iron_bar'))).toBe(true);
-    expect(all.check(r('glass'))).toMatchObject({ ok: false, busy: true });
-    expect(all.start(r('water'))).toBe(true);
-    all.update(recipeSeconds(r('iron_bar')) + 1);
-    expect(all.job('furnace')?.ready).toBe(true);
-    expect(all.job('electrolyzer')?.ready).toBe(recipeSeconds(r('water')) <= recipeSeconds(r('iron_bar')) + 1);
-    expect(all.activeJobs().map((j) => j.station)).toEqual(['furnace', 'electrolyzer']);
+  it('lote: põe todos os minérios de uma vez, sai tudo junto e o preparo conta uma vez só', () => {
+    const { inventory } = setup({ iron: 10 });
+    const c = builtAll(inventory);
+    expect(c.maxBatch(r('iron_bar'))).toBe(5);
+    expect(c.check(r('iron_bar'), 6).ok).toBe(false);
+    expect(c.start(r('iron_bar'), 5)).toBe(true);
+    expect(inventory.count('iron')).toBe(0);
+    const v = c.slots('furnace')[0]!;
+    expect(v.batch).toBe(5);
+    expect(v.remaining).toBeCloseTo(recipeSeconds(r('iron_bar'), 5));
+    // fazer 5 de uma vez é mais rápido que 5 separados
+    expect(recipeSeconds(r('iron_bar'), 5)).toBeLessThan(5 * recipeSeconds(r('iron_bar')));
+    c.update(999);
+    expect(c.take('furnace')?.items).toEqual({ iron_bar: 5 });
+    // equipamento e estação: sempre um por vez
+    expect(c.maxBatch(r('drill_iron'))).toBeLessThanOrEqual(1);
+  });
+
+  it('vagas: o forno faz 3 coisas ao mesmo tempo e divide o calor; quando uma termina, as outras aceleram', () => {
+    const { inventory } = setup({ iron: 2, regolith: 7, basalt: 2, ice: 4 });
+    const c = builtAll(inventory);
+    expect(c.start(r('iron_bar'))).toBe(true);
+    expect(c.start(r('glass'))).toBe(true);
+    expect(c.start(r('brick'))).toBe(true);
+    expect(c.check(r('basalt_fiber'))).toMatchObject({ ok: false, full: true });
+    const [a, b] = c.slots('furnace');
+    expect(a!.share).toBeCloseTo(1 / 3);
+    // com três dividindo, o vidro leva o triplo
+    expect(b!.remaining).toBeCloseTo(recipeSeconds(r('glass')) * 3);
+    const glass = recipeSeconds(r('glass'));
+    c.update(glass * 3);
+    expect(c.slots('furnace')[1]!.ready).toBe(true);
+    expect(c.slots('furnace')[0]!.share).toBeCloseTo(1 / 2);
+    // o eletrolisador é outra estação: não divide nada com o forno
+    expect(c.start(r('water'))).toBe(true);
+    expect(c.slots('electrolyzer')[0]!.share).toBe(1);
+  });
+
+  it('a energia manda no ritmo: metade da energia, metade da velocidade; sem energia, para', () => {
+    const { inventory } = setup({ ice: 2 });
+    let sp = 0.5;
+    const c = builtAll(inventory, () => sp);
+    c.start(r('water'));
+    const work = c.slots('electrolyzer')[0]!.remaining * sp;
+    c.update(work);
+    expect(c.slots('electrolyzer')[0]!.progress).toBeCloseTo(0.5);
+    sp = 0;
+    c.update(1000);
+    expect(c.slots('electrolyzer')[0]!.progress).toBeCloseTo(0.5);
+    expect(c.slots('electrolyzer')[0]!.remaining).toBe(Infinity);
+    expect(c.working('electrolyzer')).toBe(true);
   });
 
   it('mostra a etapa atual e o tempo que falta; avisa uma vez quando fica pronto', () => {
@@ -144,9 +187,9 @@ describe('estações trabalhando sozinhas', () => {
     const ready = vi.fn();
     events.on('craft:ready', ready);
     crafting.start(r('circuit'));
-    const d = crafting.job('workbench')!.duration;
+    const d = crafting.slots('workbench')[0]!.remaining;
     crafting.update(d * 0.6);
-    const v = crafting.job('workbench')!;
+    const v = crafting.slots('workbench')[0]!;
     expect(v.step).toBe(2);
     expect(v.remaining).toBeCloseTo(d * 0.4);
     crafting.update(d);
@@ -157,7 +200,7 @@ describe('estações trabalhando sozinhas', () => {
 
   it('com o inventário cheio, o que não cabe fica esperando na estação', () => {
     const { inventory } = setup({ ice: 2 });
-    const c = new Crafting({ inventory, equipment: new Equipment(), rand: () => 0.5 }, { built: ['electrolyzer'], jobs: [] });
+    const c = builtAll(inventory);
     c.start(r('water'));
     c.update(999);
     // enche todos os espaços menos um com outra coisa: só cabe uma pilha de H₂, o O₂ espera
@@ -173,18 +216,30 @@ describe('estações trabalhando sozinhas', () => {
     expect(c.busy('electrolyzer')).toBe(false);
   });
 
-  it('salva no meio do trabalho e continua de onde parou; pronto com sobra também volta', () => {
-    const { crafting, inventory, equipment } = setup({ rock: 6, iron: 3 });
-    crafting.start(r('furnace'));
-    crafting.update(30);
-    const back = new Crafting({ inventory, equipment }, crafting.serialize());
-    expect(back.job('workbench')?.recipe.id).toBe('furnace');
-    expect(back.job('workbench')!.duration - back.job('workbench')!.remaining).toBeCloseTo(30, 0);
-    const lost = new Crafting({ inventory, equipment }, { built: [], jobs: [{ station: 'furnace', recipe: 'map', t: 1, duration: 2 }] });
-    expect(lost.busy('furnace')).toBe(false); // receita de outra estação: descartada
+  it('salva no meio do trabalho e continua de onde parou; vaga ou receita inválida é descartada', () => {
+    const { inventory, equipment } = setup({ iron: 6 });
+    const c = new Crafting({ inventory, equipment, rand: () => 0.5 }, { built: ['furnace'], jobs: [] });
+    c.start(r('iron_bar'), 3);
+    c.update(30);
+    const back = new Crafting({ inventory, equipment }, c.serialize());
+    const v = back.slots('furnace')[0]!;
+    expect(v.recipe.id).toBe('iron_bar');
+    expect(v.batch).toBe(3);
+    expect(recipeSeconds(r('iron_bar'), 3) - v.remaining).toBeCloseTo(30, 0);
+    const bad = new Crafting(
+      { inventory, equipment },
+      {
+        built: ['furnace'],
+        jobs: [
+          { station: 'furnace', slot: 0, recipe: 'map', batch: 1, work: 2, done: 1 },
+          { station: 'furnace', slot: 7, recipe: 'glass', batch: 1, work: 2, done: 1 },
+        ],
+      },
+    );
+    expect(bad.busy('furnace')).toBe(false);
     const left = new Crafting(
       { inventory, equipment },
-      { built: ['electrolyzer'], jobs: [{ station: 'electrolyzer', recipe: 'water', t: 40, duration: 40, left: { o2: 1 }, rest: false }] },
+      { built: ['electrolyzer'], jobs: [{ station: 'electrolyzer', slot: 1, recipe: 'water', batch: 1, work: 40, done: 40, left: { o2: 1 }, rest: false }] },
     );
     expect(left.take('electrolyzer')?.items).toEqual({ o2: 1 });
   });

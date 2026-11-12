@@ -107,26 +107,32 @@ await g(() => {
 await page.waitForTimeout(900);
 await page.click('#btn-use');
 await page.waitForTimeout(500);
-const recipes = await g(() => [...document.querySelectorAll('#craft-list .st-recipe')].map((r) => r.dataset.recipe));
+const tap = async (id) => {
+  const r = await g((i) => window.spacing.craftPanel.hits.find((h) => h.id === i) ?? null, id);
+  if (!r) return false;
+  await page.mouse.click(r.x + r.w / 2, r.y + r.h / 2);
+  await page.waitForTimeout(300);
+  return true;
+};
+const recipes = await g(() => window.spacing.crafting.recipes('workbench').map((r) => r.id));
 check('a bancada lista as duas brocas', recipes.includes('drill_iron') && recipes.includes('drill_crystal'), recipes.join(','));
-const state = await g(() => ({
-  iron: document.querySelector('#craft-list .st-recipe[data-recipe="drill_iron"]')?.dataset.state,
-  crystal: document.querySelector('#craft-list .st-recipe[data-recipe="drill_crystal"]')?.dataset.state,
-}));
-check('a de cristal pode ser fabricada; a de ferro já está coberta', state.crystal === 'ok' && state.iron === 'owned', JSON.stringify(state));
-await page.click('#craft-list .st-recipe[data-recipe="drill_crystal"]');
-await page.waitForTimeout(300);
+const state = await g(() => {
+  const c = window.spacing.crafting, r = (id) => c.recipes('workbench').find((x) => x.id === id);
+  return { iron: c.check(r('drill_iron')).owned, crystal: c.check(r('drill_crystal')).ok };
+});
+check('a de cristal pode ser fabricada; a de ferro já está coberta', state.crystal && state.iron, JSON.stringify(state));
+await tap('r:drill_crystal');
 await page.screenshot({ path: `${out}/drill-4-bancada.png` });
-await page.click('#st-action');
+await tap('make');
 await page.waitForTimeout(2200);
 await page.screenshot({ path: `${out}/drill-5-impressao.png` });
 // a bancada leva ~2 min: o teste adianta o relógio da estação e pega a broca
-await g(() => window.spacing.crafting.update(window.spacing.crafting.job('workbench').duration));
+await g(() => window.spacing.crafting.update(10000));
 await page.waitForTimeout(500);
-await page.click('#st-action');
+await tap('take');
 const done = await page.waitForFunction(() => window.spacing.equipment.drill.id === 'crystal', null, { timeout: 20000, polling: 500 }).then(() => true, () => false);
 check('a broca de cristal é fabricada e equipada ao pegar', done);
-await page.click('#craft-close');
+await tap('back');
 await page.waitForTimeout(1500);
 await page.screenshot({ path: `${out}/drill-6-equipada.png` });
 

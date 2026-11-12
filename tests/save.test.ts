@@ -148,8 +148,9 @@ describe('salvamento', () => {
       explored: { '0,0': 0xffff, '-2,5': 0b1010 },
       crafting: {
         built: ['furnace' as const],
-        jobs: [{ station: 'furnace' as const, recipe: 'glass', t: 12, duration: 30 }],
+        jobs: [{ station: 'furnace' as const, slot: 2, recipe: 'glass', batch: 4, work: 90, done: 12 }],
       },
+      power: { battery: 300 },
     };
     expect(writeSave(store, data)).toBe(true);
     const back = loadSave(store, 3);
@@ -162,6 +163,7 @@ describe('salvamento', () => {
     expect(back?.base).toEqual({ inside: true, respawn: 'base', visited: true });
     expect(back?.explored).toEqual({ '0,0': 0xffff, '-2,5': 0b1010 });
     expect(back?.crafting).toEqual(data.crafting);
+    expect(back?.power).toEqual({ battery: 300 });
   });
 
   it('v7: de antes ganha a placa de circuito só se ainda não tem o Mapa; trabalhos inválidos somem', () => {
@@ -189,10 +191,12 @@ describe('salvamento', () => {
       3,
     );
     expect(totals(v7?.inventory)).toEqual({ ice: 2 });
+    // v7 → v8: um trabalho por estação vira a vaga 0, lote 1, com o tempo passado como trabalho feito
     expect(v7?.crafting).toEqual({
       built: ['furnace'],
-      jobs: [{ station: 'electrolyzer', recipe: 'water', t: 50, duration: 40, left: { h2: 2 }, rest: false }],
+      jobs: [{ station: 'electrolyzer', slot: 0, recipe: 'water', batch: 1, work: 40, done: 50, left: { h2: 2 }, rest: false }],
     });
+    expect(v7?.power).toBeNull();
   });
 
   it('sem armazenamento (navegador bloqueado) não quebra', () => {
@@ -201,7 +205,7 @@ describe('salvamento', () => {
       writeSave(null, {
         seed: 1, world: { edits: {}, removedProps: [], extraProps: [] }, inventory: slots({}), player: null,
         missions: { step: 0, count: 0 }, suit: null, loot: [], equipment: {},
-        base: { inside: false, respawn: 'lander', visited: false }, explored: {}, crafting: { built: [], jobs: [] },
+        base: { inside: false, respawn: 'lander', visited: false }, explored: {}, crafting: { built: [], jobs: [] }, power: null,
       }),
     ).toBe(false);
   });
