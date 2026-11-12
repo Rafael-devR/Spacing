@@ -302,6 +302,7 @@ export class Post {
   benchSet(over: Partial<QualityPreset> | null, scale = 1): void {
     if (!this.base) return;
     this.bench = { over, scale };
+    this.dyn = 1; // o teste mede na resolução escolhida, sem a escala dinâmica de antes
     this.bloom?.dispose();
     this.construct();
   }

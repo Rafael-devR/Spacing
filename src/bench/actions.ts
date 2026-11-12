@@ -101,7 +101,8 @@ export class ScenarioDriver {
     this.center.copy(this.pos);
     d.player.facing = Math.atan2(this.dir.x, this.dir.y);
     d.rig.snap(this.v.set(d.player.pos.x, d.player.pos.y + 0.8, d.player.pos.z));
-    // a área de partida já carregada, sempre igual (com chunks em worker o chão levaria alguns quadros para aparecer)
+    // a área de partida já carregada, sempre igual (com chunks em worker o chão levaria alguns quadros para aparecer). A
+    // travada do quadro em que isto roda não entra nas estatísticas (o aquecimento não conta); só aparece na lista de quadros longos
     d.world.update(d.player.pos.x, d.player.pos.z, 999, 0);
   }
 

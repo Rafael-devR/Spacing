@@ -84,10 +84,12 @@ Em ordem de execução, tudo com testes e documentação:
 10. **Chunks em worker e resolução dinâmica** (ADR 0012), feitos a partir do teste de desempenho do dono depois do mundo novo
    (~40 FPS efetivos na Alta; quadros de 50 a 100 ms ao andar). Terreno e malha dos chunks novos em Web Workers; a resolução
    baixa um degrau sozinha quando a GPU não acompanha. A sombra ainda é mais da metade dos triângulos (próximo alvo).
+   **Medido no celular do dono:** Alta de ~40 para ~56 FPS efetivos; caminhada sem nenhum quadro ≥ 50 ms; o que sobra (6% a 14%
+   dos quadros em 33 ms) é da GPU, e a 85% da resolução chega a 97% a 99% no ritmo de 60 Hz (tabela no ADR 0012).
 
 ## O que o dono ainda **não viu** no celular
 
-- **O desempenho depois do worker e da resolução dinâmica:** rodar o teste de novo e comparar (BENCH_VERSION 3).
+- **A resolução dinâmica no jogo de verdade:** o limite caiu para 10% dos quadros lentos; ver se o tamanho no menu de gráficos oscila demais.
 
 - **O mundo novo**: cavernas, câmera com corte, escuro e lanterna, montanhas, e principalmente o **desempenho** (gerar
   chunk ficou ~2,5× mais caro; o material do corte desenha os dois lados das faces).

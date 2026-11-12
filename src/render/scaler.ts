@@ -12,8 +12,8 @@ export const SCALER = {
   window: 90,
   /** quadro lento: mais que isto vezes o tempo de um quadro */
   slowFactor: 1.5,
-  /** baixa um degrau se esta fração da janela foi lenta por causa da GPU */
-  downAt: 0.2,
+  /** baixa um degrau se esta fração da janela foi lenta por causa da GPU (o teste do dono: 13% dos quadros lentos já se sente) */
+  downAt: 0.1,
   /** quadro lento é "da GPU" se a CPU gastou menos que esta fração dele */
   gpuShare: 0.7,
   /** sobe um degrau depois de tantas janelas seguidas sem nenhum quadro lento */

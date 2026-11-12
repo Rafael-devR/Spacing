@@ -41,7 +41,7 @@ causas medidas dentro da web.
 
 ### 2. Resolução dinâmica
 
-`src/render/scaler.ts` (`ResolutionScaler`, puro): a cada 90 quadros, se 20% ou mais foram **lentos por causa da GPU**
+`src/render/scaler.ts` (`ResolutionScaler`, puro): a cada 90 quadros, se 10% ou mais foram **lentos por causa da GPU**
 (período > 1,5 quadro **e** a CPU gastou menos de 70% dele), baixa um degrau (1 → 0,85 → 0,72 → 0,6 da resolução escolhida).
 Quadro lento com a CPU ocupada (gerar chunk, por exemplo) não conta: menos pixels não ajudariam. Depois de 5 janelas sem
 nenhum quadro lento, sobe um degrau; se cair logo depois de subir, espera o dobro da vez seguinte. `Post.setScale` só
@@ -55,6 +55,26 @@ durante o teste de desempenho, e zera quando a qualidade muda.
 - **Malhar tudo no worker, inclusive depois de editar:** a latência de ida e volta apareceria ao minerar e ao construir.
 - **Menos chamadas de desenho:** medido em Alta (832×384): 313 chamadas por quadro, mas só ~58 são do terreno; o resto é a
   sombra (137), pós-processamento e objetos. Juntar chunks não mudaria nada.
+
+## Resultado no celular (teste rápido na Alta, 2026-11-12)
+
+| | Antes (versão 2) | Depois (versão 3, 100% da resolução) | Depois (85%, 1414×652) |
+| --- | --- | --- | --- |
+| FPS efetivo (geral) | 39,9 | **55,8** | 55,0 (inclui a 1ª travada do teste) |
+| p95 / p99 do quadro | 50 / 83 ms | **33 / 33 ms** | 33 / 67 ms |
+| Caminhada: FPS | 39,2 | **56,5** | 59,3 |
+| Caminhada: quadros ≥ 50 ms | 14 (até 102 ms) | **0** (máx. 33,5 ms) | 0 |
+| Chunks na thread principal (p95 / máx.) | 23 / 36 ms | **2,0 / 4,4 ms** | 1,7 / 3,4 ms |
+| Quadros no ritmo de 60 Hz: caminhada / tudo junto | 53,8% / 51,8% | 93,8% / 86,3% | 98,9% / 97,4% |
+
+- O worker eliminou os quadros longos ao andar, como esperado. O que sobra a 100% (6% a 14% dos quadros em 33 ms em
+  "caminhada" e "tudo junto") é da GPU: a CPU gasta ~6 ms em quadros de 33 ms. A 85% da resolução esses cenários chegam a
+  97% a 99% no ritmo de 60 Hz. Por isso o limite da resolução dinâmica caiu de 20% para **10%** dos quadros lentos.
+- O teste das 10:53 rodou a 85% porque a resolução dinâmica já tinha baixado durante o jogo; o teste agora mede sempre na
+  resolução escolhida (`Post.benchSet` zera a escala). Nessa rodada a CPU também estava mais lenta (a malha refeita na
+  thread principal levou 6,6 ms contra 2,2 ms na outra), então a comparação entre as duas colunas não é exata.
+- Os "quadros longos" de 125 a 490 ms no começo de cada cenário vêm de o teste carregar a área de partida na hora; não
+  entram nas estatísticas de quadros (só na lista de quadros longos).
 
 ## Consequências
 
