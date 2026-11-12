@@ -45,6 +45,12 @@ export class ItemDrops {
     }
   }
 
+  /** Tira todos os itens soltos da cena (só o teste de desempenho usa: cada etapa começa sem sobras da anterior). */
+  clear(): void {
+    for (const d of this.drops) this.scene.remove(d.obj);
+    this.drops.length = 0;
+  }
+
   /** Um item que já está no chão sai voando até o jogador e entrega `amount` unidades. */
   fly(item: ItemId, from: THREE.Vector3, amount: number): void {
     const obj = this.models.createOutlined(item);

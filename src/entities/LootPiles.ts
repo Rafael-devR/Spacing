@@ -170,6 +170,12 @@ export class LootPiles {
     }
   }
 
+  /** Tira todas as pilhas da cena (só o teste de desempenho usa: cada etapa começa sem sobras da anterior). */
+  clear(): void {
+    for (const p of this.pieces) this.scene.remove(p.mesh, p.halo);
+    this.pieces.length = 0;
+  }
+
   private remove(i: number): void {
     const p = this.pieces[i];
     this.scene.remove(p.mesh, p.halo);

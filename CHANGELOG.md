@@ -5,6 +5,13 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Não lançado]
 
+### Corrigido
+
+- **Teste de desempenho completo medindo com sobras da etapa anterior:** o cenário "pior caso" deixava mais de mil itens e
+  pilhas no chão, e a matriz de efeitos, a curva de resolução e o aquecimento rodavam depois, com cada quadro ~4× mais lento
+  (os custos por efeito saíam até negativos). Agora cada etapa começa sem itens soltos nem pilhas (`ItemDrops.clear()` e
+  `LootPiles.clear()`, usados só pelo teste).
+
 ### Alterado
 
 - **Pós-processamento mais leve** (qualidade Alta e Média; `src/render/post.ts`): o bloom já começava na metade da resolução

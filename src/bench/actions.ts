@@ -8,6 +8,7 @@ import { ITEM_ORDER } from '../data/items';
 import type { BaseDirector } from '../app/BaseDirector';
 import type { MapDirector } from '../app/MapDirector';
 import type { ItemDrops } from '../entities/ItemDrops';
+import type { LootPiles } from '../entities/LootPiles';
 import type { Meteors } from '../entities/Meteors';
 import type { Player } from '../entities/Player';
 import type { IsoRig } from '../render/IsoRig';
@@ -22,6 +23,7 @@ export interface DriverDeps {
   interaction: Interaction;
   meteors: Meteors;
   drops: ItemDrops;
+  loot: LootPiles;
   particles: Particles;
   base: BaseDirector;
   map: MapDirector;
@@ -74,6 +76,9 @@ export class ScenarioDriver {
   begin(sc: BenchScenario, at: { x: number; z: number }, seed: number): void {
     const { d } = this;
     this.end();
+    // itens soltos e pilhas de uma etapa anterior (o "pior caso" junta mais de mil) não podem pesar nas seguintes
+    d.drops.clear();
+    d.loot.clear();
     this.actions = sc.actions;
     this.rng = seeded(BENCH_SEED + seed);
     this.t = this.breakAcc = this.meteorAcc = this.itemAcc = this.emitAcc = this.launched = this.angle = 0;
