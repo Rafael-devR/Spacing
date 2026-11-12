@@ -77,6 +77,16 @@ Começa um jogo novo com a semente pedida (`?semente=`), leva o astronauta à en
 desce a rampa até o tubo de lava e anda por ele. Confere que a câmera aproxima, que ele não fica preso na rocha, que o
 fundo fica escuro e tira capturas de cada ponto ([design/MUNDO.md](../../docs/design/MUNDO.md)).
 
+## Teste dos chunks em worker
+
+```bash
+node worker.mjs http://localhost:5173/ /tmp/shots [semente]
+```
+
+Anda 150 blocos pelo mundo e confere que os chunks novos vêm do worker, que todos os chunks em volta têm malha, mede as
+chamadas de desenho e os triângulos por quadro e que quebrar um bloco ainda refaz a malha na hora
+([ADR 0012](../../docs/adr/0012-chunks-em-worker-e-resolucao-dinamica.md)).
+
 ## Teste do áudio
 
 ```bash

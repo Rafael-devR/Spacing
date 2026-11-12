@@ -132,18 +132,29 @@ const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('spacing
 check('itens caídos estão no salvamento', !!saved && saved.version === 10 && saved.loot.length > 0);
 await page.screenshot({ path: `${out}/play-4-renasceu.png` });
 
-// leva o astronauta até os itens
-await page.evaluate(() => {
+// leva o astronauta até os itens, peça por peça (elas se espalham ao acaso e o ímã só alcança 1,2 bloco)
+const walkToLoot = () => page.evaluate(() => {
   const g = window.spacing;
-  const t = g.loot.latest();
-  g.player.pos.set(t.x, g.world.topY(Math.floor(t.x), Math.floor(t.z)) + 1.05, t.z);
+  const piece = g.loot.pieces[0];
+  if (!piece) return false;
+  const { x, z } = piece.pos;
+  g.player.pos.set(x, g.world.topY(Math.floor(x), Math.floor(z)) + 1.05, z);
   g.player.prevPos.copy(g.player.pos);
   g.player.vel.set(0, 0, 0);
+  return true;
 });
-const recovered = await page
-  .waitForFunction(() => window.spacing.loot.count === 0, null, { timeout: 90000, polling: 250 })
-  .then(() => true, () => false);
+const deadline = Date.now() + 90000;
+while (Date.now() < deadline && (await walkToLoot())) await page.waitForTimeout(700);
+const recovered = await page.evaluate(() => window.spacing.loot.count === 0);
 check('passar por cima recolhe os itens', recovered);
+if (!recovered) {
+  const d = await page.evaluate(() => {
+    const g = window.spacing, t = g.loot.latest(), p = g.player.pos, w = g.world;
+    const c = w.chunks.get(w.key(Math.floor(p.x / 16), Math.floor(p.z / 16)));
+    return { loot: t && { x: t.x, y: t.y, z: t.z }, player: { x: p.x, y: p.y, z: p.z }, top: w.topY(Math.floor(p.x), Math.floor(p.z)), chunk: !!c, mesh: !!c?.mesh, dead: g.state, workers: w.usesWorkers };
+  });
+  check('diagnóstico da coleta', false, JSON.stringify(d));
+}
 const backInInv = await page
   .waitForFunction((b) => { const t = window.spacing.inventory.totals(); return Object.keys(b).length === Object.keys(t).length && Object.keys(b).every((k) => t[k] === b[k]); }, before, { timeout: 90000, polling: 250 })
   .then(() => true, () => false);
