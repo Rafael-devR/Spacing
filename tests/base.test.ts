@@ -102,38 +102,44 @@ describe('fabricação e equipamento', () => {
 
   it('sem materiais não fabrica e diz o que falta', () => {
     const { crafting, map, inventory } = setup();
-    inventory.add('regolith', 2, false);
+    inventory.add('glass', 1, false);
     const c = crafting.check(map);
     expect(c.ok).toBe(false);
     expect(c.missing).toEqual([
-      { item: 'regolith', missing: 4 },
-      { item: 'iron', missing: 2 },
+      { item: 'circuit', missing: 1 },
+      { item: 'iron_bar', missing: 1 },
     ]);
     expect(crafting.start(map)).toBe(false);
   });
 
-  it('fabricar o mapa gasta os materiais na hora e equipa no fim, fora do inventário', () => {
+  it('o mapa gasta os materiais na hora, fica pronto na bancada e só equipa ao pegar', () => {
     const { crafting, map, inventory, equipment, events } = setup();
-    const done = vi.fn();
-    events.on('craft:finished', done);
-    inventory.add('regolith', 8, false);
-    inventory.add('iron', 2, false);
+    const ready = vi.fn();
+    events.on('craft:ready', ready);
+    inventory.add('circuit', 1, false);
+    inventory.add('glass', 2, false);
+    inventory.add('iron_bar', 1, false);
     expect(crafting.start(map)).toBe(true);
-    expect(inventory.totals()).toEqual({ regolith: 2 });
+    expect(inventory.totals()).toEqual({ glass: 1 });
     expect(crafting.check(map).busy).toBe(true);
-    crafting.update(map.seconds / 2);
+    const job = crafting.job('workbench')!;
+    crafting.update(job.duration / 2);
+    expect(crafting.job('workbench')!.ready).toBe(false);
+    crafting.update(job.duration);
+    expect(ready).toHaveBeenCalledOnce();
     expect(equipment.has('map')).toBe(false);
-    crafting.update(map.seconds);
+    expect(crafting.take('workbench')).not.toBeNull();
     expect(equipment.has('map')).toBe(true);
-    expect(done).toHaveBeenCalledOnce();
-    expect(inventory.totals()).toEqual({ regolith: 2 });
+    expect(crafting.busy('workbench')).toBe(false);
+    expect(inventory.totals()).toEqual({ glass: 1 });
   });
 
   it('equipamento que já tem não fabrica de novo', () => {
     const { crafting, map, inventory, equipment } = setup();
     equipment.equip('map');
-    inventory.add('regolith', 6, false);
-    inventory.add('iron', 2, false);
+    inventory.add('circuit', 1, false);
+    inventory.add('glass', 1, false);
+    inventory.add('iron_bar', 1, false);
     expect(crafting.check(map)).toMatchObject({ ok: false, owned: true });
   });
 

@@ -44,7 +44,8 @@ describe('salvamento', () => {
   });
 
   it('descarta itens desconhecidos e quantidades inválidas', () => {
-    expect(totals(migrate(V1, 1)!.inventory)).toEqual({ regolith: 12, iron: 3 });
+    // a placa de circuito é a do Mapa (v7), dada a quem ainda não o tem
+    expect(totals(migrate(V1, 1)!.inventory)).toEqual({ regolith: 12, iron: 3, circuit: 1 });
   });
 
   it('v3 → v4: quantidades viram espaços, na ordem da barra', () => {
@@ -53,7 +54,7 @@ describe('salvamento', () => {
       { item: 'regolith', n: 64 },
       { item: 'regolith', n: 6 },
       { item: 'iron', n: 3 },
-      null,
+      { item: 'circuit', n: 1 },
     ]);
     expect(s.inventory.selected).toBe(0);
   });
@@ -109,7 +110,7 @@ describe('salvamento', () => {
 
   it('v5 → v6: mapa ainda não descoberto', () => {
     const s = migrate({ ...V1, version: 5, inventory: { slots: [], selected: 0 }, equipment: { map: 'map' } }, 1)!;
-    expect(s.version).toBe(6);
+    expect(s.version).toBe(SAVE_VERSION);
     expect(s.explored).toEqual({});
     expect(s.equipment).toEqual({ map: 'map' });
   });
@@ -145,6 +146,10 @@ describe('salvamento', () => {
       equipment: { map: 'map' as const },
       base: { inside: true, respawn: 'base' as const, visited: true },
       explored: { '0,0': 0xffff, '-2,5': 0b1010 },
+      crafting: {
+        built: ['furnace' as const],
+        jobs: [{ station: 'furnace' as const, recipe: 'glass', t: 12, duration: 30 }],
+      },
     };
     expect(writeSave(store, data)).toBe(true);
     const back = loadSave(store, 3);
@@ -156,6 +161,38 @@ describe('salvamento', () => {
     expect(back?.equipment).toEqual({ map: 'map' });
     expect(back?.base).toEqual({ inside: true, respawn: 'base', visited: true });
     expect(back?.explored).toEqual({ '0,0': 0xffff, '-2,5': 0b1010 });
+    expect(back?.crafting).toEqual(data.crafting);
+  });
+
+  it('v7: de antes ganha a placa de circuito só se ainda não tem o Mapa; trabalhos inválidos somem', () => {
+    const v6 = (equipment: object) => ({
+      version: 6, seed: 3, world: V1.world, inventory: slots({ ice: 2 }), player: null, missions: { step: 0, count: 0 },
+      suit: null, loot: [], equipment, base: { inside: false, respawn: 'lander', visited: false }, explored: {},
+    });
+    const noMap = migrate(v6({}), 3);
+    expect(totals(noMap?.inventory)).toEqual({ ice: 2, circuit: 1 });
+    expect(noMap?.crafting).toEqual({ built: [], jobs: [] });
+    const withMap = migrate(v6({ map: 'map' }), 3);
+    expect(totals(withMap?.inventory)).toEqual({ ice: 2 });
+    const v7 = migrate(
+      {
+        ...v6({}), version: 7,
+        crafting: {
+          built: ['furnace', 'workbench', 'lixo'],
+          jobs: [
+            { station: 'electrolyzer', recipe: 'water', t: 50, duration: 40, left: { h2: 2, lixo: 3 }, rest: false },
+            { station: 'nada', recipe: 'water', t: 1, duration: 2 },
+            'lixo',
+          ],
+        },
+      },
+      3,
+    );
+    expect(totals(v7?.inventory)).toEqual({ ice: 2 });
+    expect(v7?.crafting).toEqual({
+      built: ['furnace'],
+      jobs: [{ station: 'electrolyzer', recipe: 'water', t: 50, duration: 40, left: { h2: 2 }, rest: false }],
+    });
   });
 
   it('sem armazenamento (navegador bloqueado) não quebra', () => {
@@ -164,7 +201,7 @@ describe('salvamento', () => {
       writeSave(null, {
         seed: 1, world: { edits: {}, removedProps: [], extraProps: [] }, inventory: slots({}), player: null,
         missions: { step: 0, count: 0 }, suit: null, loot: [], equipment: {},
-        base: { inside: false, respawn: 'lander', visited: false }, explored: {},
+        base: { inside: false, respawn: 'lander', visited: false }, explored: {}, crafting: { built: [], jobs: [] },
       }),
     ).toBe(false);
   });

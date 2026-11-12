@@ -96,9 +96,10 @@ await g(() => {
   const s = window.spacing;
   s.base.placeInside();
   s.inventory.add('crystal', 4, false);
-  s.inventory.add('iron', 8, false);
-  s.inventory.add('basalt', 4, false);
-  s.inventory.add('rock', 4, false);
+  s.inventory.add('titanium', 2, false);
+  s.inventory.add('basalt_fiber', 2, false);
+  s.inventory.add('iron_bar', 4, false);
+  s.inventory.add('brick', 2, false);
   const u = s.base.d.layout.furniture.find((f) => f.def.kind === 'workbench').use;
   s.player.pos.set(u.x, u.y + 0.02, u.z);
   s.player.prevPos.copy(s.player.pos);
@@ -106,19 +107,26 @@ await g(() => {
 await page.waitForTimeout(900);
 await page.click('#btn-use');
 await page.waitForTimeout(500);
-const recipes = await g(() => [...document.querySelectorAll('#craft-list .recipe')].map((r) => r.dataset.recipe));
-check('a bancada lista as três receitas', recipes.length === 3 && recipes.includes('drill_crystal'), recipes.join(','));
+const recipes = await g(() => [...document.querySelectorAll('#craft-list .st-recipe')].map((r) => r.dataset.recipe));
+check('a bancada lista as duas brocas', recipes.includes('drill_iron') && recipes.includes('drill_crystal'), recipes.join(','));
 const state = await g(() => ({
-  iron: document.querySelector('#craft-list .recipe[data-recipe="drill_iron"] button')?.disabled,
-  crystal: document.querySelector('#craft-list .recipe[data-recipe="drill_crystal"] button')?.disabled,
+  iron: document.querySelector('#craft-list .st-recipe[data-recipe="drill_iron"]')?.dataset.state,
+  crystal: document.querySelector('#craft-list .st-recipe[data-recipe="drill_crystal"]')?.dataset.state,
 }));
-check('a de cristal pode ser fabricada; a de ferro já está coberta', state.crystal === false && state.iron === true, JSON.stringify(state));
+check('a de cristal pode ser fabricada; a de ferro já está coberta', state.crystal === 'ok' && state.iron === 'owned', JSON.stringify(state));
+await page.click('#craft-list .st-recipe[data-recipe="drill_crystal"]');
+await page.waitForTimeout(300);
 await page.screenshot({ path: `${out}/drill-4-bancada.png` });
-await page.click('#craft-list .recipe[data-recipe="drill_crystal"] button');
+await page.click('#st-action');
 await page.waitForTimeout(2200);
 await page.screenshot({ path: `${out}/drill-5-impressao.png` });
-const done = await page.waitForFunction(() => window.spacing.equipment.drill.id === 'crystal', null, { timeout: 120000, polling: 500 }).then(() => true, () => false);
-check('a broca de cristal é fabricada e equipada', done);
+// a bancada leva ~2 min: o teste adianta o relógio da estação e pega a broca
+await g(() => window.spacing.crafting.update(window.spacing.crafting.job('workbench').duration));
+await page.waitForTimeout(500);
+await page.click('#st-action');
+const done = await page.waitForFunction(() => window.spacing.equipment.drill.id === 'crystal', null, { timeout: 20000, polling: 500 }).then(() => true, () => false);
+check('a broca de cristal é fabricada e equipada ao pegar', done);
+await page.click('#craft-close');
 await page.waitForTimeout(1500);
 await page.screenshot({ path: `${out}/drill-6-equipada.png` });
 

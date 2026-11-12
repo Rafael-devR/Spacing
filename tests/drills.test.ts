@@ -47,7 +47,7 @@ describe('brocas (dados)', () => {
   it('cada broca tem uma receita com itens que existem e dá para chegar nela', () => {
     for (const id of Object.keys(EQUIPMENT) as EquipId[]) {
       if (!EQUIPMENT[id].drill) continue;
-      const r = RECIPES.find((x) => x.output.kind === 'equip' && x.output.equip === id);
+      const r = RECIPES.find((x) => x.outputs.some((o) => o.kind === 'equip' && o.equip === id));
       expect(r, id).toBeDefined();
       for (const item of Object.keys(r!.inputs)) expect(ITEMS[item as keyof typeof ITEMS]).toBeDefined();
     }
@@ -105,12 +105,14 @@ describe('fabricar brocas', () => {
   };
   const recipe = (id: string) => RECIPES.find((r) => r.id === id)!;
 
-  it('gasta os materiais e equipa a broca ao terminar', () => {
-    const { crafting, inv, eq } = setup({ iron: 5, rock: 4 });
+  it('gasta os materiais e equipa a broca quando o jogador pega', () => {
+    const { crafting, inv, eq } = setup({ iron_bar: 5, brick: 2 });
     expect(crafting.check(recipe('drill_iron')).ok).toBe(true);
     expect(crafting.start(recipe('drill_iron'))).toBe(true);
-    expect(inv.count('iron')).toBe(1);
-    crafting.update(10);
+    expect(inv.count('iron_bar')).toBe(1);
+    crafting.update(1000);
+    expect(eq.drill.id).toBe('basic');
+    crafting.take('workbench');
     expect(eq.drill.id).toBe('iron');
   });
 
@@ -118,7 +120,7 @@ describe('fabricar brocas', () => {
     const { crafting, eq } = setup({ iron: 1 });
     expect(crafting.check(recipe('drill_iron')).missing.length).toBeGreaterThan(0);
     eq.equip('drill_crystal');
-    const full = setup({ iron: 9, rock: 9 });
+    const full = setup({ iron_bar: 9, brick: 9 });
     full.eq.equip('drill_crystal');
     expect(full.crafting.check(recipe('drill_iron')).owned).toBe(true);
     expect(full.crafting.start(recipe('drill_iron'))).toBe(false);

@@ -50,8 +50,11 @@ dedo minera o bloco sob a mira. Rode depois de mexer no HUD, no `index.html` ou 
 node base.mjs http://localhost:5173/ /tmp/shots
 ```
 
-Leva o astronauta até a porta, entra pela câmara de pressurização, anda por dentro, fabrica o mapa na
-bancada, descansa, confere o salvamento e sai, com uma captura de cada passo (`base-*.png`). Como o WebGL
+Leva o astronauta até a porta, entra pela câmara de pressurização, anda por dentro, olha o lugar do forno (holograma e
+tela trancada), fabrica e instala o forno solar, faz vidro e barra de ferro no forno, o mapa na bancada, o eletrolisador e
+a eletrólise do gelo (o relógio das estações é adiantado pelo teste), descansa, confere o salvamento (v7) e sai com o forno
+trabalhando (selo no HUD), com uma captura de cada passo (`base-*.png`). Rode depois de mexer em fabricação
+([design/CRAFTING.md](../../docs/design/CRAFTING.md)). Como o WebGL
 roda por software, o jogo fica bem lento aqui: as esperas são longas de propósito.
 
 ## Teste do áudio

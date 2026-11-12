@@ -23,7 +23,8 @@ describe('dados do jogo', () => {
     for (const [k, it] of Object.entries(ITEMS)) {
       const block = it.block ?? it.icon?.block;
       const prop = it.icon?.prop;
-      expect(block !== undefined || prop !== undefined, `item ${k} sem aparência`).toBe(true);
+      const model = it.icon?.model;
+      expect(block !== undefined || prop !== undefined || model !== undefined, `item ${k} sem aparência`).toBe(true);
       if (block !== undefined) expect(BLOCK_DATA[block], `item ${k}`).toBeDefined();
       if (prop !== undefined) expect(PROP_TYPES).toContain(prop);
     }

@@ -1,5 +1,6 @@
-// Teste da base: anda até a porta, entra (câmara de pressurização), confere o interior, fabrica o mapa na
-// bancada (animação do laser), confere que ele foi equipado fora do inventário, descansa e sai.
+// Teste da base: anda até a porta, entra (câmara de pressurização), confere o interior, fabrica o forno solar na
+// bancada e instala, faz vidro e ferro no forno, o mapa na bancada, o eletrolisador e a eletrólise do gelo (o tempo
+// das estações é adiantado pelo sistema), descansa e sai com o forno trabalhando (selo no HUD).
 // Uso: node base.mjs <url> <pasta-de-saída> [largura] [altura]
 import chromium from '@sparticuz/chromium';
 import { chromium as pw } from 'playwright-core';
@@ -76,7 +77,7 @@ const iso = await g(() => {
 check('dentro: só o interior aparece, com fundo da base e aviso de pressurizado', iso.layers === 2 && iso.bg && iso.body && iso.chip !== 'none', JSON.stringify(iso));
 const world0 = await g(() => JSON.stringify(window.spacing.world.serialize()));
 await g(() => window.spacing.interaction.setBuildMode(true));
-const box = await page.locator('canvas').boundingBox();
+const box = await page.locator('#game canvas').boundingBox();
 for (const [fx, fy] of [[0.15, 0.8], [0.85, 0.2], [0.5, 0.9]]) {
   await page.mouse.move(box.x + box.width * fx, box.y + box.height * fy);
   await page.mouse.down();
@@ -96,33 +97,139 @@ await page.keyboard.up('d');
 const after = await g(() => ({ p: window.spacing.player.pos.clone(), box: window.spacing.base.d.layout.structure.box }));
 check('anda por dentro sem sair pela parede', after.p.x !== before.x && after.p.x < after.box.x1 && after.p.x > after.box.x0 + 1, `x ${before.x.toFixed(2)} → ${after.p.x.toFixed(2)}`);
 
-// bancada: dá os materiais e vai até ela
-await g(() => {
+// estações (docs/design/CRAFTING.md): vai até um móvel, abre a tela; o tempo é adiantado pelo sistema
+const goTo = (kind) => g((k) => {
   const s = window.spacing;
-  s.inventory.add('regolith', 6, false);
-  s.inventory.add('iron', 2, false);
-  const u = s.base.d.layout.furniture.find((f) => f.def.kind === 'workbench').use;
+  const u = s.base.d.layout.furniture.find((f) => f.def.kind === k).use;
   s.player.pos.set(u.x, u.y + 0.02, u.z);
   s.player.prevPos.copy(s.player.pos);
-});
-await page.waitForTimeout(600);
-check('botão "Usar bancada" aparece', (await page.textContent('#btn-use'))?.includes('bancada'));
+}, kind);
+const openStation = async (kind) => {
+  await goTo(kind);
+  await page.waitForTimeout(500);
+  await page.click('#btn-use');
+  await page.waitForTimeout(500);
+};
+const craftRecipe = async (id) => {
+  await page.click(`#craft-list .st-recipe[data-recipe="${id}"]`);
+  await page.waitForTimeout(150);
+  await page.click('#st-action');
+  await page.waitForTimeout(200);
+};
+const finish = (station) => g((st) => window.spacing.crafting.update(window.spacing.crafting.job(st)?.duration ?? 0), station);
+const closePanel = async () => {
+  await page.click('#craft-close');
+  await page.waitForTimeout(250);
+};
+
+// lugar do forno: ainda não existe (só holograma) e a tela explica onde fabricar
+await goTo('furnace');
+await page.waitForTimeout(500);
+check('botão do lugar do forno aparece', (await page.textContent('#btn-use'))?.includes('Lugar do Forno'), await page.textContent('#btn-use'));
+await shot('5-lugar-forno');
 await page.click('#btn-use');
-await page.waitForTimeout(400);
+await page.waitForTimeout(500);
+check('forno não instalado: tela trancada', await g(() => document.querySelector('.st-card').dataset.status === 'locked'));
+await shot('5b-forno-trancado');
+await closePanel();
+
+// bancada: fabrica o forno solar
+await g(() => {
+  const s = window.spacing;
+  s.inventory.add('rock', 6, false);
+  s.inventory.add('iron', 3, false);
+});
+await openStation('workbench');
 check('tela da bancada abre', await page.isVisible('#craft'));
-await shot('5-bancada');
-await page.click('#craft-list .recipe[data-recipe="map"] button');
-await page.waitForTimeout(1600);
-await shot('6-laser');
-const crafting = await g(() => ({ busy: window.spacing.crafting.busy, inv: window.spacing.inventory.totals() }));
-check('fabricando: materiais gastos', crafting.busy && !crafting.inv.iron, JSON.stringify(crafting));
-await page.waitForTimeout(1300);
-await shot('7-laser-fim');
+await shot('6-bancada');
+await craftRecipe('furnace');
+await page.waitForTimeout(1500);
+await shot('7-bancada-trabalhando');
+const working = await g(() => ({ busy: window.spacing.crafting.busy('workbench'), inv: window.spacing.inventory.totals(), status: document.querySelector('.st-card').dataset.status }));
+check('fabricando: materiais gastos, tela mostra trabalhando', working.busy && !working.inv.rock && working.status === 'work', JSON.stringify(working));
+await finish('workbench');
+await page.waitForTimeout(700);
+check('pronto: botão Pegar', (await page.textContent('#st-action')) === 'Pegar');
+await shot('8-bancada-pronta');
+await page.click('#st-action');
+const installed = await page
+  .waitForFunction(() => window.spacing.crafting.isBuilt('furnace') && window.spacing.base.d.model.stations.get('furnace').isBuilt, null, { timeout: 15000 })
+  .then(() => true, () => false);
+check('forno instalado (a peça voa da bancada e a máquina aparece)', installed);
+await closePanel();
+await shot('9-forno-instalado');
+
+// forno: vidro e barra de ferro, depois o Mapa na bancada (a placa de circuito veio do módulo de pouso)
+await g(() => {
+  const s = window.spacing;
+  s.inventory.add('regolith', 3, false);
+  s.inventory.add('iron', 2, false);
+});
+check('jogo novo começa com a placa de circuito', await g(() => window.spacing.inventory.count('circuit') === 1));
+await openStation('furnace');
+await craftRecipe('glass');
+await page.waitForTimeout(2200);
+await shot('10-forno-vidro');
+await finish('furnace');
+await page.waitForTimeout(300);
+await page.click('#st-action');
+await craftRecipe('iron_bar');
+await g(() => window.spacing.crafting.update(window.spacing.crafting.job('furnace').duration * 0.55));
+await page.waitForTimeout(1500);
+await shot('11-forno-ferro');
+await finish('furnace');
+await page.waitForTimeout(300);
+await page.click('#st-action');
+await page.waitForTimeout(300);
+const bars = await g(() => window.spacing.inventory.totals());
+check('forno entregou vidro e barra de ferro', bars.glass === 1 && bars.iron_bar === 1, JSON.stringify(bars));
+await closePanel();
+await openStation('workbench');
+await craftRecipe('map');
+await page.waitForTimeout(1200);
+await shot('12-mapa-imprimindo');
+await finish('workbench');
+await page.waitForTimeout(400);
+await page.click('#st-action');
 const equipped = await page.waitForFunction(() => window.spacing.equipment.has('map'), null, { timeout: 15000 }).then(() => true, () => false);
 check('mapa equipado', equipped);
-await page.waitForTimeout(1600);
-await shot('8-equipado');
-check('mapa fora do inventário', await g(() => !JSON.stringify(window.spacing.inventory.serialize()).includes('map')));
+check('mapa fora do inventário', await g(() => !JSON.stringify(window.spacing.inventory.serialize()).includes('"map"')));
+await closePanel();
+
+// eletrolisador: fabricado na bancada, depois gelo → H₂ + O₂
+await g(() => {
+  const s = window.spacing;
+  s.inventory.add('iron_bar', 4, false);
+  s.inventory.add('glass', 2, false);
+  s.inventory.add('brick', 2, false);
+  s.inventory.add('ice', 2, false);
+});
+await openStation('workbench');
+await craftRecipe('electrolyzer');
+await finish('workbench');
+await page.waitForTimeout(300);
+await page.click('#st-action');
+await page.waitForTimeout(1500);
+await closePanel();
+await openStation('electrolyzer');
+await craftRecipe('water');
+await g(() => window.spacing.crafting.update(window.spacing.crafting.job('electrolyzer').duration * 0.4));
+await page.waitForTimeout(2000);
+await shot('13-eletrolisador');
+await finish('electrolyzer');
+await page.waitForTimeout(300);
+await page.click('#st-action');
+await page.waitForTimeout(300);
+const gases = await g(() => window.spacing.inventory.totals());
+check('eletrólise: 2 H₂ + 1 O₂', gases.h2 === 2 && gases.o2 === 1, JSON.stringify(gases));
+await closePanel();
+
+// deixa o forno trabalhando para ver o selo no HUD lá fora
+await g(() => window.spacing.inventory.add('regolith', 4, false));
+await openStation('furnace');
+await craftRecipe('brick');
+await closePanel();
+await shot('14-estacoes');
 
 // descansar
 await g(() => {
@@ -136,16 +243,16 @@ await page.waitForTimeout(500);
 check('botão "Descansar" aparece', (await page.textContent('#btn-use'))?.includes('Descansar'));
 await page.click('#btn-use');
 await page.waitForTimeout(800);
-await shot('9-descanso');
+await shot('15-descanso');
 await page.waitForFunction(() => window.spacing.base.mode === 'inside', null, { timeout: 8000 }).catch(() => {});
 const rested = await g(() => ({ o2: window.spacing.survival.o2, respawn: window.spacing.base.respawn }));
 check('descanso enche o traje e marca o renascimento na base', rested.o2 === 100 && rested.respawn === 'base', JSON.stringify(rested));
 
-// salvamento v5
+// salvamento v7
 await page.keyboard.press('Escape');
 await page.waitForTimeout(300);
 const save = await g(() => JSON.parse(localStorage.getItem('spacing.save')));
-check('salvou dentro da base com o mapa', save.version === 6 && save.base.inside && save.equipment.map === 'map', JSON.stringify({ v: save.version, base: save.base, eq: save.equipment }));
+check('salvou dentro da base com o mapa, as estações e o forno trabalhando', save.version === 7 && save.base.inside && save.equipment.map === 'map' && save.crafting.built.length === 2 && save.crafting.jobs[0]?.recipe === 'brick', JSON.stringify({ v: save.version, base: save.base, eq: save.equipment, c: save.crafting }));
 await page.click('#pause-resume');
 await page.waitForTimeout(300);
 
@@ -161,7 +268,8 @@ await page.click('#btn-use');
 const exited = await page.waitForFunction(() => window.spacing.base.mode === 'outside', null, { timeout: 120000, polling: 500 }).then(() => true, () => false);
 check('sai da base', exited, await g(() => window.spacing.base.mode));
 await page.waitForTimeout(1200);
-await shot('10-fora');
+await shot('16-fora');
+check('lá fora, o selo mostra o forno trabalhando', await g(() => document.querySelectorAll('#jobs .job').length === 1));
 const outside = await g(() => {
   const s = window.spacing, p = s.player.pos, b = s.base.d.layout.structure.box;
   return { inBox: p.x >= b.x0 && p.x < b.x1 + 1 && p.z >= b.z0 && p.z < b.z1 + 1, cut: s.base.d.layout.structure.cutaway };
