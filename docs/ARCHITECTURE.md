@@ -32,7 +32,8 @@ src/
                      workerPool), registro de blocos, estruturas da base (ADR 0005, 0011, 0012)
   entities/          jogador, destroços, meteoros, itens soltos, itens caídos na morte (LootPiles)
   systems/           interação (minerar/construir), inventário, missões, sobrevivência, fabricação, energia, equipamento
-  render/            materiais e shaders, céu, luzes, pós-processamento, partículas, modelos, câmera, ícones,
+  assets/models/     modelos .glb gerados pelos scripts de tools/models (ADR 0013)
+  render/            modelos do Blender (gltfModels), materiais e shaders, céu, luzes, pós-processamento, partículas, modelos, câmera, ícones,
                      modelo da base, bancada com laser (Fabricator), forno e eletrolisador (stationModels),
                      itens fabricados (craftedModels) e camada do interior (indoors)
   ui/                HUD, menu de pausa, mochila, telas cheias em Canvas (canvasScreen: estações em CraftPanel, energia em

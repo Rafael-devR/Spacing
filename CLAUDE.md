@@ -55,6 +55,9 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). **Sessão nova?
   fórmula do tempo em `recipes.ts`, regras em `src/systems/Crafting.ts`, tela técnica em `src/ui/CraftPanel.ts`, máquinas em
   `src/render/stationModels.ts` ([design/CRAFTING.md](docs/design/CRAFTING.md), panorama em [design/ITENS.md](docs/design/ITENS.md)).
   Todo item novo precisa de `about` e de uso; o teste `tests/crafting.test.ts` confere. Estações têm vagas e lotes.
+- Modelos 3D (ADR 0013, [design/MODELOS.md](docs/design/MODELOS.md)): scripts do Blender em `tools/models/` (`build.sh`, `lib.py`,
+  um `.py` por modelo) geram `src/assets/models/*.glb`; `src/render/gltfModels.ts` carrega e troca os materiais pelos do jogo. O
+  Blender roda sem janela em `/tmp/blender` (ver `tools/models/README.md`). Teto de triângulos em `tests/models.test.ts`.
 - Chunks em worker e resolução dinâmica (ADR 0012): `src/world/chunkJobs.ts` + `chunk.worker.ts` + `workerPool.ts`, malha e luz em
   `chunkMesher.ts`, modo assíncrono em `World.enableWorkers`; `src/render/scaler.ts` + `Post.setScale`; testes `tests/chunkjobs.test.ts`,
   `tests/scaler.test.ts`, `tools/visual-check/worker.mjs`. `?semWorker` desliga o worker. Mexeu em quem lê blocos de chunks que podem não ter chegado? `getBlock` gera na hora; não presuma carregado.

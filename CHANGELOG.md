@@ -7,6 +7,11 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Adicionado
 
+- **Modelos 3D feitos no Blender** ([design/MODELOS.md](docs/design/MODELOS.md),
+  [ADR 0013](docs/adr/0013-modelos-do-blender-por-script.md)). Scripts em `tools/models/` geram `.glb` com chanfros, cor por
+  face e oclusão assada; o jogo carrega e usa os seus próprios materiais. Piloto: **módulo de pouso novo** (folha dourada
+  amassada, escada, cabine com escotilha e janelas triangulares, propulsores, antena), de ~25 peças para 2 malhas.
+
 - **Desempenho no celular: chunks em worker e resolução dinâmica** ([ADR 0012](docs/adr/0012-chunks-em-worker-e-resolucao-dinamica.md)).
   O teste do dono mostrou quadros de 50 a 100 ms ao andar (gerar e malhar chunks na thread principal) e o limite de pixels
   da GPU. Agora o terreno e a malha dos chunks novos são feitos em **Web Workers** (1 ou 2), e a **resolução cai sozinha**

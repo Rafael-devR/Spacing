@@ -87,7 +87,12 @@ Em ordem de execução, tudo com testes e documentação:
    **Medido no celular do dono:** Alta de ~40 para ~56 FPS efetivos; caminhada sem nenhum quadro ≥ 50 ms; o que sobra (6% a 14%
    dos quadros em 33 ms) é da GPU, e a 85% da resolução chega a 97% a 99% no ritmo de 60 Hz (tabela no ADR 0012).
 
+11. **Modelos 3D no Blender** (ADR 0013): o Claude modela por script no Blender sem janela e o jogo carrega `.glb` com os
+   próprios materiais. Piloto: o módulo de pouso novo. [design/MODELOS.md](design/MODELOS.md).
+
 ## O que o dono ainda **não viu** no celular
+
+- **O módulo de pouso novo** (aparência no celular; se o estilo agrada antes de refazer os outros modelos).
 
 - **A resolução dinâmica no jogo de verdade:** o limite caiu para 10% dos quadros lentos; ver se o tamanho no menu de gráficos oscila demais.
 
