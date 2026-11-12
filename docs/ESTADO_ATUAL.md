@@ -73,6 +73,8 @@ Em ordem de execução, tudo com testes e documentação:
 7. **Energia e telas novas** (segunda rodada, depois de o dono testar): regra "nada vem do nada" (painéis solares livres
    no mundo, bateria da base, forno pelo sol), vagas e lotes nas estações, telas cheias em Canvas (estações e energia no
    console), salvamento v8. [design/ENERGIA.md](design/ENERGIA.md), ADR 0010. Falta aplicar a regra ao oxigênio.
+8. **Terceira rodada da fabricação:** tempos ~10× menores, pegar por unidade, pausar e cancelar, receitas à direita,
+   painel técnico no estilo do jogo Idle CPU (referência do dono). Salvamento v9.
 
 ## O que o dono ainda **não viu** no celular
 

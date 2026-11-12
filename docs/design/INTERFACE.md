@@ -57,8 +57,9 @@ pouco vai para os cantos de cima.**
   em arco) no polegar direito; barra de itens no centro.
 - **Em pé (retrato):** a barra de itens fica na borda de baixo e os polegares logo acima dela.
 - **Telas cheias em Canvas** (estações e energia da base): ocupam a tela inteira, desenhadas na resolução do aparelho
-  (`src/ui/canvasScreen.ts`). Voltar no canto de cima à esquerda. Estações: receitas à esquerda (no retrato, faixa que
-  rola de lado), máquina com as vagas em cima, receita e botão embaixo, no polegar direito ([CRAFTING.md](CRAFTING.md)).
+  (`src/ui/canvasScreen.ts`). Voltar no canto de cima à esquerda. Estações: receitas **à direita** (perto do polegar; no
+  retrato, faixa embaixo), máquina com módulos, barramento e vagas em grade de células, e a receita ou a vaga escolhida
+  embaixo ([CRAFTING.md](CRAFTING.md)). Estilo de painel técnico (referência: o jogo Idle CPU), letras JetBrains Mono.
   Energia: sol → painéis → bateria → consumidores ([ENERGIA.md](ENERGIA.md)). Regra: poucos números; cor, barra,
   palavra e movimento que significa algo de verdade. O HTML fica só para o HUD e os menus simples.
 - Nome do lugar e coordenadas saíram do HUD e foram para o cabeçalho do menu de pausa.

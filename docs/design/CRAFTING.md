@@ -36,6 +36,16 @@
 | Fazer coisas diferentes ao mesmo tempo | **Vagas:** forno 3, eletrolisador 2, bancada 1. A energia da estação é **dividida** entre as que trabalham |
 | De onde vem a energia? | **Nada vem do nada** ([ENERGIA.md](ENERGIA.md)): painéis solares, bateria da base, espelhos do forno |
 
+### Terceira rodada (2026-11-12, depois de testar de novo)
+
+| Pedido | O que mudou |
+| --- | --- |
+| Lista de receitas na esquerda fica embaixo do dedo | **Receitas à direita** (perto do polegar); no retrato, faixa embaixo |
+| Demorava demais (15 min para uns minérios). "No Minecraft é quase instantâneo" | Tempos **~10× menores**: uma barra de ferro em ~4 s, vidro ~3 s, a broca de cristal ~13 s |
+| Tinha que esperar o lote inteiro para pegar | **Cada unidade pronta já pode ser pega** ("Pegar 2" na vaga, ou "Pegar tudo") |
+| Não dava para cancelar nem pausar | **Pausar/Retomar** (pausado não gasta energia; os outros aceleram) e **Cancelar** com confirmação (devolve os materiais do que não ficou pronto, e o pronto vai para a mochila) |
+| Ficou limpo demais, sem sensação de fabricar | **Painel técnico** no estilo do jogo Idle CPU: módulos rotulados (espelhos/rede, temperatura/corrente/laser), barramento de energia com pacotes correndo, cada vaga como uma grade de células (uma por unidade) que acendem |
+
 ## Princípio: o minério não vira ferramenta direto
 
 Como no Minecraft (ferro bruto → fornalha → barra → ferramenta), com química de verdade:
@@ -49,9 +59,9 @@ recurso bruto  →  (estação) refinado  →  (bancada) peça / equipamento / m
 
 | Estação | Faz o quê (ciência real) | Vagas | Energia | Tempo (1 vez, sozinha) | Como se obtém |
 | --- | --- | --- | --- | --- | --- |
-| **Bancada** | Monta peças refinadas em equipamentos, chips e máquinas, com dois lasers | 1 | eletricidade, 1,2 kW | 61 a 125 s | Já vem na base |
-| **Forno solar** | Espelhos no telhado concentram o sol: funde, sinteriza, reduz (fornos solares de regolito são testados pela ESA) | 3 cadinhos | sol dos espelhos | 29 a 45 s | Bancada: 6 rocha lunar + 3 minério de ferro |
-| **Eletrolisador** | Corrente separa água em H₂ e O₂ e tira metal e silício de óxidos | 2 células | eletricidade, 2,4 kW | 36 a 51 s | Bancada: 4 barras de ferro + 2 vidros + 2 tijolos |
+| **Bancada** | Monta peças refinadas em equipamentos, chips e máquinas, com dois lasers | 1 | eletricidade, 1,2 kW | 5 a 13 s | Já vem na base |
+| **Forno solar** | Espelhos no telhado concentram o sol: funde, sinteriza, reduz (fornos solares de regolito são testados pela ESA) | 3 cadinhos | sol dos espelhos | 3 a 5 s | Bancada: 6 rocha lunar + 3 minério de ferro |
+| **Eletrolisador** | Corrente separa água em H₂ e O₂ e tira metal e silício de óxidos | 2 células | eletricidade, 2,4 kW | 4 a 7 s | Bancada: 4 barras de ferro + 2 vidros + 2 tijolos |
 | *(depois)* **Reator de CO₂** | Marte: CO₂ do ar vira O₂ (como o MOXIE do Perseverance) e metano (Sabatier) | — | Só em Marte |
 
 As três ficam no Habitat 01: a bancada na parede norte, o forno e o eletrolisador lado a lado na parede leste. Antes de
@@ -143,60 +153,62 @@ fabricação** (o forno pede rocha lunar e minério de ferro, que lá não exist
 
 ## Tempo
 
+Rápido de propósito (o dono comparou com o Minecraft e não quer o jogador esperando):
+
 ```
-segundos = preparo da estação + por ponto × esforço × Σ (quantidade × pontos do ingrediente) × lote
+segundos = preparo da estação + lote × tempo de uma unidade
+tempo de uma unidade = por ponto × esforço × Σ (quantidade × pontos do ingrediente)
 pontos de um item = 1 + 0,6 × calor + 0,4 × peso + 0,8 × raridade
 ```
 
-| Estação | Preparo | Por ponto |
-| --- | --- | --- |
-| Bancada | 40 s | 2,4 s |
-| Forno solar | 14 s | 3,2 s |
-| Eletrolisador | 18 s | 4 s |
+| Estação | Preparo | Por ponto | Exemplos (uma unidade) |
+| --- | --- | --- | --- |
+| Bancada | 2 s | 0,3 s | Mapa ~5 s, broca de cristal ~13 s, forno solar ~9 s |
+| Forno solar | 1 s | 0,45 s | Vidro ~3 s, barra de ferro ~4 s, redução da ilmenita ~5 s |
+| Eletrolisador | 1,5 s | 0,6 s | Água ~4 s, titânio ~6 s, silício ~6,5 s |
 
 - `esforço` (padrão 1) é dos processos químicos lentos: redução da ilmenita ×1,4, titânio ×1,6, silício ×1,3.
-- **Lote:** fazer 5 de uma vez multiplica só a parte dos ingredientes; o preparo conta uma vez. Até 32 por vez (só
-  receitas que dão itens; equipamento e máquina, um por vez).
-- Cada fabricação sorteia **±12%** (`JITTER`).
+- **Lote:** o preparo conta uma vez e depois sai **uma unidade de cada vez** (10 barras de ferro ≈ 35 s). Cada unidade
+  pronta já pode ser pega. Até 32 por vez (só receitas que dão itens).
+- Cada fabricação sorteia **±12%** no preparo e no tempo da unidade (`JITTER`).
 - Esse é o tempo com **energia cheia** e a estação só com esse trabalho. Com 3 trabalhos no forno, cada um recebe 1/3 do
-  calor e anda 3× mais devagar; quando um termina, os outros aceleram. Com a energia a 70%, tudo anda a 70%.
-- A tela mostra o tempo em palavras ("Leva ~2 min 30 s"), já contando a divisão e a energia de agora.
+  calor; quando um termina ou é pausado, os outros aceleram. Com a energia a 70%, tudo anda a 70%.
 
 ## Como funciona no jogo
 
-1. "Usar" a estação abre a **tela cheia** dela. Escolhe a receita, a quantidade (− / + / Tudo) e "Fazer": os materiais
-   saem **na hora** e entram numa **vaga** livre.
+1. "Usar" a estação abre a **tela cheia** dela. Escolhe a receita na lista à direita, a quantidade (− / + / Tudo) e
+   "Fazer": os materiais saem **na hora** e entram numa **vaga** livre.
 2. A estação **trabalha sozinha** com o jogo aberto, em qualquer lugar. Várias vagas trabalham juntas dividindo a
    energia; as três estações são independentes.
-3. A máquina mostra o trabalho no mundo: a bancada imprime a peça com os lasers; o forno brilha e solta brasas; o
-   eletrolisador borbulha. Luz de estado: azul livre, âmbar trabalhando, verde piscando pronto.
-4. Pronto: som e aviso (ou a IA do traje, se o jogador está fora). O resultado **fica na vaga**. "**Pegar tudo**" (ou
-   tocar na vaga pronta) recolhe: itens para o inventário (o que não couber espera), equipamento equipado, máquina
-   instalada.
-5. **Selo no HUD** (abaixo do objetivo): um por trabalho, com o ícone do produto e o tempo que falta, ou "Pronto".
+3. Cada unidade pronta fica na vaga (célula verde). **Pegar tudo** (no alto da máquina) recolhe o pronto de todas as
+   vagas; tocar numa vaga mostra embaixo **Pegar N**, **Pausar/Retomar** e **Cancelar** (pede confirmação).
+4. Cancelar: o que já ficou pronto vai para a mochila e os materiais do que não ficou (inclusive a unidade pela metade)
+   voltam. O que não couber fica na vaga como sobra para pegar depois.
+5. A máquina mostra o trabalho no mundo (lasers, brilho do forno, bolhas) e o **selo no HUD** diz o tempo que falta.
 
-## Tela da estação (Canvas, tela cheia)
+## Tela da estação (Canvas, tela cheia, painel técnico)
 
-Desenhada em Canvas 2D na resolução do aparelho (`ui/canvasScreen.ts` + `ui/CraftPanel.ts`), ocupando a tela toda.
+Desenhada em Canvas 2D na resolução do aparelho (`ui/canvasScreen.ts` + `ui/CraftPanel.ts`). Referência visual do dono:
+o jogo **Idle CPU** (servidor montado peça por peça, com energia e dados correndo, simplificado). Letras de painel em
+**JetBrains Mono** maiúscula com espaço entre as letras; molduras finas na cor da estação.
 
-- **Cima:** voltar, nome da estação e uma linha do que ela faz. No canto, **de onde vem a energia** (sol ou raio) com
-  barra e uma palavra: cheia, fraca, muito fraca, sem energia.
-- **Esquerda: receitas** em cartões (ícone, nome, ingredientes em miniatura, e `×N` = quantas dá para fazer agora; ✓ =
-  já tem). Rola com o dedo. No retrato, vira uma faixa que rola de lado.
-- **Direita, em cima: a máquina.** A fonte de energia no alto, um fio até cada vaga. Cada vaga mostra a câmara (cadinho
-  com metal fundido subindo, célula com bolhas na cor de cada gás, mesa com a peça impressa de baixo para cima), o funil
-  com o que ainda vai entrar, a bandeja com o que já saiu (`2/5`), a etapa atual e o tempo que falta. Vaga vazia é
-  tracejada.
-- **Movimento com significado:**
-  - cada **minério** que a máquina gasta sai do funil e entra na câmara (o ícone dele, um por unidade);
-  - cada **produto** que fica pronto sai da câmara para a bandeja;
-  - cada **pontinho de energia** desce da fonte e vai para uma vaga que trabalha; com 3 vagas, o fluxo se divide em 3;
-    com energia fraca, chegam menos pontinhos.
-- **Direita, embaixo: a receita escolhida.** Ingredientes → produtos já na quantidade do lote (vermelho = falta), nome,
-  "Leva ~X" (com "dividindo a energia" e "energia fraca" quando for o caso), − / quantidade / + / Tudo, e o botão
-  (Fazer, Fazer 5×, Faltam itens, Vagas cheias, Trabalhando…, Equipado, Instalada, Fabrique na bancada).
-- **"?"**: abre a ciência da receita (fórmula, etapas, nota científica, e por que demora em palavras: "quente, pesado,
-  raro"). Escondida por padrão para a tela não ficar poluída.
+- **Cima:** voltar, nome da estação, o que ela faz e quantas vagas. À direita, selos de **Sol** (forno) ou **Rede** e
+  **Bateria** (bancada, eletrolisador) com porcentagem e barra.
+- **Direita: RECEITAS** em cartões (ícone, nome, ingredientes em miniatura, `×N` = quantas dá para fazer agora, ✓ = já
+  tem). Rola com o dedo. Fica à direita, perto do polegar; no retrato, faixa que rola de lado embaixo.
+- **Meio: a máquina.**
+  - Módulos à esquerda: **ESPELHOS** ou **REDE** (onda que cresce com a energia e os kW que chegam) e **TEMPERATURA**,
+    **CORRENTE** ou **LASER** (valor, barra, e no forno a marca do limite).
+  - **Barramento:** linha de energia que sai do módulo e desce até cada vaga; os pacotes de energia correm por ele, na
+    velocidade da energia, e se dividem entre as vagas que trabalham.
+  - **Vagas (V1, V2, V3):** cada uma é uma **grade de células, uma por unidade do lote**. Célula cinza com o minério
+    apagado = na fila; laranja enchendo de baixo para cima = sendo feita; verde com o produto = pronta para pegar;
+    apagada = já pega. Em cima, o tempo que falta (ou PAUSA, PRONTO); embaixo, `2/5` e uma barra segmentada.
+  - **Pontinhos que significam algo:** quando uma unidade fica pronta, o produto sai da célula para a bandeja e os
+    minérios da próxima unidade caem na célula dela.
+- **Embaixo:** a receita escolhida (ingredientes → produtos já no tamanho do lote, nome, tempo total e por unidade,
+  − / + / Tudo e Fazer), ou a **vaga escolhida** (o que faz, quantas prontas, falta, e Cancelar · Pausar · Pegar N).
+- **"?"**: a ciência da receita (fórmula, etapas, nota).
 
 ## Onde está no código
 

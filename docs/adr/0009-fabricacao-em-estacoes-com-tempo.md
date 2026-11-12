@@ -33,6 +33,13 @@ fechado, para).
 - Salvamento **v7**: `crafting` com as estações construídas e os trabalhos (receita, tempo passado, duração sorteada e,
   se pronto, o que falta entregar). Quem vem de antes e não tem o Mapa ganha a placa de circuito que o Mapa agora pede.
 
+## Revisão (2026-11-12)
+
+O dono achou longo demais e pediu tempos bem menores, pegar cada unidade pronta, pausar e cancelar. O trabalho passou a
+ter **preparo** e **tempo por unidade** (`prep`, `unit`, ambos com a variação), o que já foi pego (`taken`), pausa e
+sobras de cancelamento; salvamento **v9** (v7 e v8 migram como "tudo por unidade, sem preparo"). Os números das estações
+caíram ~10×.
+
 ## Consequências
 
 - Receita nova = uma entrada de dados; o tempo sai sozinho e é coerente com as outras. Ajustar o ritmo do jogo é mexer

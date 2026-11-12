@@ -7,6 +7,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Adicionado
 
+- **Fabricação mais rápida e mais controle** (terceira rodada do dono): tempos ~10× menores (barra de ferro ~4 s, vidro
+  ~3 s, broca de cristal ~13 s), cada unidade de um lote pronta já pode ser pega, e cada vaga pode ser **pausada** ou
+  **cancelada** (devolve os materiais do que não ficou pronto). Tela das estações em estilo de **painel técnico**
+  (módulos rotulados, barramento de energia, vagas como grade de células, uma por unidade) e **receitas à direita**,
+  perto do polegar. Salvamento v9.
+
 - **Energia da base: nada vem do nada** ([design/ENERGIA.md](docs/design/ENERGIA.md),
   [ADR 0010](docs/adr/0010-energia-da-base.md)). Painéis do telhado e **painéis solares** fabricados na bancada e
   **colocados livres no chão** (cabo alcança 24 blocos; na sombra, na Lua, não geram), **bateria da base**, consumo do
