@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { HISTORY_SIZE } from '../src/data/bench';
-import { SUB } from '../src/bench/probe';
+import { Probe, Recorder, SUB } from '../src/bench/probe';
 import {
   compareReports, effectResult, findings, latency, resolutionResult, seriesOf, setupDiff, stepStat, summarize, thermalResult,
   type ResolutionPoint,
@@ -64,6 +64,26 @@ describe('resumo de um trecho do teste', () => {
     expect(s.bucketMs).toBe(250);
     expect(s.avg.length).toBe(4);
     expect(s.avg[0]).toBeCloseTo(10);
+  });
+
+  it('os percentis de CPU e de latência não são o máximo (um quadro lento isolado não vira o p95 nem o p99)', () => {
+    const rec = new Recorder();
+    const p = new Probe();
+    for (let i = 0; i < 100; i++) {
+      p.reset();
+      p.add(SUB.render, i === 99 ? 50 : 2);
+      rec.push(8.3, i === 99 ? 40 : 3, p);
+    }
+    const s = summarize(rec, 120, NO_CHUNKS);
+    expect(s.cpu.maxMs).toBe(40);
+    expect(s.cpu.p95Ms).toBe(3);
+    expect(s.cpu.p99Ms).toBe(3);
+    const render = s.subsystems.find((x) => x.id === 'render');
+    expect(render?.maxMs).toBe(50);
+    expect(render?.p95Ms).toBe(2);
+    const lat = latency([...Array.from({ length: 99 }, () => 10), 200]);
+    expect(lat?.p95Ms).toBe(10);
+    expect(lat?.maxMs).toBe(200);
   });
 
   it('latência: lista vazia é null (não disponível)', () => {

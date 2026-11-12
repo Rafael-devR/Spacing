@@ -206,13 +206,13 @@ export interface BenchReport {
 export function latency(values: readonly number[]): LatencyStats | null {
   if (!values.length) return null;
   const s = sorted(values);
-  return { count: s.length, meanMs: round1(mean(s)), p95Ms: round1(percentile(s, 95)), maxMs: round1(s[s.length - 1]) };
+  return { count: s.length, meanMs: round1(mean(s)), p95Ms: round1(percentile(s, 0.95)), maxMs: round1(s[s.length - 1]) };
 }
 
 function seriesStats(a: ArrayLike<number>): { mean: number; p95: number; max: number } {
   if (!a.length) return { mean: 0, p95: 0, max: 0 };
   const s = sorted(a);
-  return { mean: mean(s), p95: percentile(s, 95), max: s[s.length - 1] };
+  return { mean: mean(s), p95: percentile(s, 0.95), max: s[s.length - 1] };
 }
 
 /**
@@ -241,7 +241,7 @@ export function summarize(rec: Recorder, vsyncHz: number, chunks: Summary['chunk
     pacing: pacing(iv, vsyncMs),
     fpsPresented: fpsPresented(iv, vsyncMs),
     targets: BENCH_TARGETS.map((hz) => targetFluidity(iv, hz)),
-    cpu: { meanMs: cpu.mean, p95Ms: cpu.p95, p99Ms: cpuSorted.length ? percentile(cpuSorted, 99) : 0, maxMs: cpu.max },
+    cpu: { meanMs: cpu.mean, p95Ms: cpu.p95, p99Ms: cpuSorted.length ? percentile(cpuSorted, 0.99) : 0, maxMs: cpu.max },
     steps: {
       mean: mean(stepVals),
       max: stepMax,
