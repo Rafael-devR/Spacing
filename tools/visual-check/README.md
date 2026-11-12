@@ -92,14 +92,17 @@ o mapa e que fechar devolve o mundo. Leva o astronauta 70 blocos adiante e confe
 novo (captura do mapa afastado e girado). Depois minera blocos em sequência com a broca de cristal e confere que o
 tremor não passa do nível de um golpe (`tablet-*.png`).
 
-## Teste do benchmark
+## Teste do teste de desempenho
 
 ```bash
 node bench.mjs http://localhost:5173/ /tmp/shots
 ```
 
-Abre o menu de pausa, roda o teste de desempenho abreviado (14% do tempo) e confere que ele mede de verdade (FPS, etapas,
-chunks, triângulos), que guarda o resultado, que compara com o anterior, que **o salvamento do jogo não muda** (nem ao
-terminar nem ao cancelar) e que voltar ao jogo recarrega no progresso de antes (`bench-*.png`). Os números dali não valem
-como desempenho: o WebGL roda por software.
+Abre o menu de pausa, escolhe o modo **rápido** (a 10% do tempo, com `?benchEscala=0.1`, só para este teste) e depois o
+**completo** (a 2%), e confere que o teste **funciona**: o botão e a escolha do modo, a detecção da taxa da tela, a medição
+dos 15 cenários, dos 13 subsistemas, dos efeitos, da resolução e do aquecimento, o painel (veredictos de 120 e 60 Hz, gráfico
+desenhado no canvas, "não disponível" onde falta), a **exportação do JSON**, o histórico, que **o salvamento e as preferências
+não mudam** (nem ao terminar nem ao cancelar) e que voltar ao jogo recarrega no progresso de antes (`bench-*.png`).
 
+**Os números dali NÃO valem para o celular:** o Chromium daqui roda o WebGL por software e é um navegador automatizado (o
+painel avisa). A medição de verdade é no celular de 120 Hz, pelo menu de pausa. O `npm run dev` precisa estar rodando.
