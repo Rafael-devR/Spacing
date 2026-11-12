@@ -54,7 +54,10 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). **Sessão nova?
 - Fabricação (ADR 0009): itens com propósito e calor/peso/raridade em `src/data/items.ts`, estações em `stations.ts`, receitas e
   fórmula do tempo em `recipes.ts`, regras em `src/systems/Crafting.ts`, tela técnica em `src/ui/CraftPanel.ts`, máquinas em
   `src/render/stationModels.ts` ([design/CRAFTING.md](docs/design/CRAFTING.md), panorama em [design/ITENS.md](docs/design/ITENS.md)).
-  Todo item novo precisa de `about` e de uso; o teste `tests/crafting.test.ts` confere.
+  Todo item novo precisa de `about` e de uso; o teste `tests/crafting.test.ts` confere. Estações têm vagas e lotes.
+- Energia (ADR 0010, regra do dono: **nada vem do nada**): números em `src/data/power.ts`, regras em `src/systems/Power.ts`,
+  tela no console em `src/ui/PowerPanel.ts`; painel solar é um objeto colocado no mundo ([design/ENERGIA.md](docs/design/ENERGIA.md)).
+  Telas cheias em Canvas herdam de `src/ui/canvasScreen.ts`; teste `tools/visual-check/stations.mjs`.
 - Base: dados em `src/data/base.ts` (módulos), `recipes.ts`, `equipment.ts`; experiência em
   `src/app/BaseDirector.ts`; teste no navegador `tools/visual-check/base.mjs` ([design/BASE.md](docs/design/BASE.md)).
 - Brocas: `src/data/drills.ts` (velocidade, nível, bateria), `equipment.ts` e `recipes.ts`; microgravidade dos

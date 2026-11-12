@@ -70,11 +70,14 @@ Em ordem de execução, tudo com testes e documentação:
    raridade (±12%), tela técnica com diagrama ao vivo, selo no HUD, cilindro de O₂ de reserva, salvamento v7.
    [design/CRAFTING.md](design/CRAFTING.md), [design/ITENS.md](design/ITENS.md), ADR 0009. **Marte ainda não fabrica**
    (próxima fase: hematita, gipsita, olivina).
+7. **Energia e telas novas** (segunda rodada, depois de o dono testar): regra "nada vem do nada" (painéis solares livres
+   no mundo, bateria da base, forno pelo sol), vagas e lotes nas estações, telas cheias em Canvas (estações e energia no
+   console), salvamento v8. [design/ENERGIA.md](design/ENERGIA.md), ADR 0010. Falta aplicar a regra ao oxigênio.
 
 ## O que o dono ainda **não viu** no celular
 
-- A **fabricação nova** inteira: tela técnica das estações (leitura no celular, toque na lista), forno e eletrolisador na
-  base, ritmo dos tempos (1 a 2 min na bancada), selo no HUD.
+- As **telas cheias em Canvas** das estações e da energia (legibilidade, toque, rolagem da lista), vagas e lotes, o
+  painel solar colocado no chão, e o ritmo com a energia (eletrolisador fica lento sem painéis).
 
 - **Marte inteiro** (cores, gravidade, tempestade, vulcão, desempenho dos efeitos novos).
 - O **menu de gráficos avançados** (tocar nos botões, a Nativa, o limite de FPS em 60 com o dedo na tela).

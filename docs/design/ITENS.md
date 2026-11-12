@@ -6,7 +6,7 @@ coisa, a química, os tempos e a tela estão em [CRAFTING.md](CRAFTING.md). Se e
 
 Legenda: ✅ tem uso em receita · 🧱 só construção · 🔬 Marte, uso planejado (ainda sem receita).
 
-## Itens (26)
+## Itens (27)
 
 ### Lua: minerados (8)
 
@@ -21,7 +21,7 @@ Legenda: ✅ tem uso em receita · 🧱 só construção · 🔬 Marte, uso plan
 | Ouro | Pedras com pepitas, nível 2 | Placa de circuito (bancada) | ✅ |
 | Cristal lunar | Bloco e pedra solta, nível 1, meteorito | Broca de cristal (bancada) | ✅ |
 
-### Lua: fabricados (10)
+### Lua: fabricados (11)
 
 | Item | Feito em | Com | Entra em |
 | --- | --- | --- | --- |
@@ -33,8 +33,9 @@ Legenda: ✅ tem uso em receita · 🧱 só construção · 🔬 Marte, uso plan
 | Cilindro de H₂ (×2) | Eletrolisador | 2 gelo | Redução da ilmenita |
 | Cilindro de O₂ | Eletrolisador | sai da água, do titânio e do silício | **Reserva do traje** (conecta sozinho a 15% de ar) |
 | Lingote de titânio | Eletrolisador | 1 óxido de titânio | Broca de cristal |
-| Silício | Eletrolisador | 4 regolito | Placa de circuito |
+| Silício | Eletrolisador | 4 regolito | Placa de circuito, Painel solar |
 | Placa de circuito | Bancada (e 1 do módulo de pouso no começo) | 1 silício + 1 ouro | Mapa |
+| Painel solar | Bancada | 2 silício + 1 vidro + 1 barra de ferro | **Colocado no chão**: gera eletricidade para a base ([ENERGIA.md](ENERGIA.md)) |
 
 ### Marte (8)
 
@@ -51,11 +52,11 @@ Legenda: ✅ tem uso em receita · 🧱 só construção · 🔬 Marte, uso plan
 
 ## Estações (3)
 
-| Estação | Como se obtém | Faz |
-| --- | --- | --- |
-| Bancada de fabricação | Já vem na base | Equipamentos, máquinas, placa de circuito |
-| Forno solar | Bancada: 6 rocha lunar + 3 minério de ferro | Fundir, sinterizar, reduzir |
-| Eletrolisador | Bancada: 4 barras de ferro + 2 vidros + 2 tijolos | Separar água; tirar metal e silício de óxidos |
+| Estação | Como se obtém | Faz | Vagas | Energia |
+| --- | --- | --- | --- | --- |
+| Bancada de fabricação | Já vem na base | Equipamentos, máquinas, placa de circuito, painel solar | 1 | eletricidade |
+| Forno solar | Bancada: 6 rocha lunar + 3 minério de ferro | Fundir, sinterizar, reduzir | 3 | sol dos espelhos |
+| Eletrolisador | Bancada: 4 barras de ferro + 2 vidros + 2 tijolos | Separar água; tirar metal e silício de óxidos | 2 | eletricidade |
 
 ## Equipamentos (3 + a broca do traje)
 
@@ -66,11 +67,11 @@ Legenda: ✅ tem uso em receita · 🧱 só construção · 🔬 Marte, uso plan
 | Broca de ferro | 4 barras de ferro + 2 tijolos | Nível 1, 1,7× mais rápida |
 | Broca de cristal | 4 cristais + 2 lingotes de titânio + 2 fibras de basalto | Nível 2 (ouro), 2,6× mais rápida |
 
-## Receitas (14)
+## Receitas (15)
 
 | Estação | Receitas |
 | --- | --- |
-| Bancada (6) | Forno solar, Eletrolisador, Mapa, Placa de circuito, Broca de ferro, Broca de cristal |
+| Bancada (7) | Forno solar, Eletrolisador, Mapa, Placa de circuito, Painel solar, Broca de ferro, Broca de cristal |
 | Forno solar (5) | Barra de ferro, Tijolo, Vidro, Fibra de basalto, Redução da ilmenita |
 | Eletrolisador (3) | Água → H₂ + O₂, Titânio, Silício |
 

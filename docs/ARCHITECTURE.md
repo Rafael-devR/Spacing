@@ -30,11 +30,12 @@ src/
                      memória, condutor dos cenários, resultado, histórico, gráfico e telas (ADR 0007)
   world/             terreno, chunks (World), mesher, registro de blocos, estruturas da base (ADR 0005)
   entities/          jogador, destroços, meteoros, itens soltos, itens caídos na morte (LootPiles)
-  systems/           interação (minerar/construir), inventário, missões, sobrevivência, fabricação, equipamento
+  systems/           interação (minerar/construir), inventário, missões, sobrevivência, fabricação, energia, equipamento
   render/            materiais e shaders, céu, luzes, pós-processamento, partículas, modelos, câmera, ícones,
                      modelo da base, bancada com laser (Fabricator), forno e eletrolisador (stationModels),
                      itens fabricados (craftedModels) e camada do interior (indoors)
-  ui/                HUD, menu de pausa, mochila, tela das estações (CraftPanel), selo dos trabalhos (JobsChip),
+  ui/                HUD, menu de pausa, mochila, telas cheias em Canvas (canvasScreen: estações em CraftPanel, energia em
+                     PowerPanel), selo dos trabalhos (JobsChip),
                      botão de ação e transições da base, estilos
   audio/             sons sintetizados e áudio posicional (design/AUDIO.md)
   i18n/              textos da interface (pt-BR)

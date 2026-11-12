@@ -56,9 +56,11 @@ pouco vai para os cantos de cima.**
 - **Embaixo:** joystick no polegar esquerdo; pular (botão grande, no canto) e minerar/construir (ao lado,
   em arco) no polegar direito; barra de itens no centro.
 - **Em pé (retrato):** a barra de itens fica na borda de baixo e os polegares logo acima dela.
-- **Tela das estações** (bancada, forno, eletrolisador): ocupa quase a tela; receitas numa coluna à esquerda (no retrato,
-  numa faixa que rola de lado) e o processo ao vivo à direita, com o botão principal fixo embaixo, no polegar direito
-  ([CRAFTING.md](CRAFTING.md)).
+- **Telas cheias em Canvas** (estações e energia da base): ocupam a tela inteira, desenhadas na resolução do aparelho
+  (`src/ui/canvasScreen.ts`). Voltar no canto de cima à esquerda. Estações: receitas à esquerda (no retrato, faixa que
+  rola de lado), máquina com as vagas em cima, receita e botão embaixo, no polegar direito ([CRAFTING.md](CRAFTING.md)).
+  Energia: sol → painéis → bateria → consumidores ([ENERGIA.md](ENERGIA.md)). Regra: poucos números; cor, barra,
+  palavra e movimento que significa algo de verdade. O HTML fica só para o HUD e os menus simples.
 - Nome do lugar e coordenadas saíram do HUD e foram para o cabeçalho do menu de pausa.
 - O HUD fica escondido no menu inicial e na pausa. Na tela de morte só ficam os medidores.
 - **Menu de pausa, Teste de desempenho:** logo abaixo de **Continuar** está o botão **Teste de desempenho**. Ele abre a

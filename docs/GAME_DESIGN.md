@@ -23,6 +23,8 @@ legível, mesmo no espaço. A base é ciência real, com uma camada de ficção 
 5. **Bonito com poucos polígonos.** Cor, luz e shader fazem o trabalho, não a quantidade de geometria.
 6. **Ciência de verdade, ficção onde encanta.** O que existe na Lua real entra como é; a ficção aparece em
    poucos elementos marcantes.
+7. **Nada vem do nada.** Toda matéria vem de um minério e toda energia vem de uma fonte (o sol, por painéis e espelhos,
+   guardado na bateria). Antes de criar algo no jogo, dizer de onde vem ([design/ENERGIA.md](design/ENERGIA.md)).
 
 ## Loop de jogo
 

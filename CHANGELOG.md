@@ -7,6 +7,18 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Adicionado
 
+- **Energia da base: nada vem do nada** ([design/ENERGIA.md](docs/design/ENERGIA.md),
+  [ADR 0010](docs/adr/0010-energia-da-base.md)). Painéis do telhado e **painéis solares** fabricados na bancada e
+  **colocados livres no chão** (cabo alcança 24 blocos; na sombra, na Lua, não geram), **bateria da base**, consumo do
+  habitat, da bancada, do eletrolisador e da recarga do traje. O forno esquenta com o sol dos espelhos. Sem energia, as
+  máquinas desaceleram na proporção. **Tela de energia** no console do habitat: sol → painéis → bateria → máquinas, com o
+  fluxo em pontinhos. Em Marte o sol é 43% e a tempestade tira mais.
+- **Vagas e lotes nas estações:** o forno faz 3 coisas ao mesmo tempo e o eletrolisador 2, dividindo a energia; dá para
+  pôr todos os minérios de uma vez ("Tudo"), com o preparo contado uma vez só.
+- **Telas das estações em Canvas, tela cheia,** na resolução do aparelho, mais limpas e com movimento que significa algo:
+  cada minério sai do funil e entra na vaga, cada produto sai para a bandeja, cada pontinho de energia desce da fonte.
+  A ciência da receita ficou atrás do "?". Ícones em 256 px. Salvamento v8.
+
 - **Fabricação em estações, com química de verdade** ([design/CRAFTING.md](docs/design/CRAFTING.md),
   [ADR 0009](docs/adr/0009-fabricacao-em-estacoes-com-tempo.md)). O minério não vira ferramenta direto: passa por uma
   estação e vira material refinado. Duas estações novas, fabricadas na bancada e instaladas na parede leste da base: o
