@@ -1,35 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { HISTORY_SIZE } from '../src/data/bench';
-import type { EnvInfo } from '../src/bench/env';
-import { Probe, Recorder, SUB } from '../src/bench/probe';
+import { SUB } from '../src/bench/probe';
 import {
   compareReports, effectResult, findings, latency, resolutionResult, seriesOf, setupDiff, stepStat, summarize, thermalResult,
-  type BenchReport, type ResolutionPoint, type ScenarioResult, type Summary,
+  type ResolutionPoint,
 } from '../src/bench/report';
 import { BENCH_HISTORY_KEY, loadHistory, saveReport, withoutSeries } from '../src/bench/store';
-import { detectRefreshRate } from '../src/bench/stats';
 import type { KeyValueStore } from '../src/core/save';
-
-const NO_CHUNKS: Summary['chunks'] = {
-  gen: { count: 0, totalMs: 0, avgMs: 0, maxMs: 0 },
-  mesh: { count: 0, totalMs: 0, avgMs: 0, maxMs: 0 },
-  remesh: { count: 0, totalMs: 0, avgMs: 0, maxMs: 0 },
-};
-
-/** grava `n` quadros de `ms` (e `cpu` ms de CPU) */
-function record(intervals: number[], cpu = 3, setup?: (p: Probe, i: number) => void): Recorder {
-  const rec = new Recorder();
-  const p = new Probe();
-  intervals.forEach((ms, i) => {
-    p.reset();
-    p.steps = 1;
-    p.add(SUB.render, 2);
-    setup?.(p, i);
-    rec.push(ms, cpu, p);
-  });
-  return rec;
-}
-const rep = (ms: number, n: number): number[] => Array.from({ length: n }, () => ms);
+import { NO_CHUNKS, record, rep, report } from './bench-fixture';
 
 describe('resumo de um trecho do teste', () => {
   it('120 Hz liso: sustenta 120 e 60, ritmo regular, FPS apresentado ≈ 120', () => {
@@ -140,39 +118,6 @@ describe('efeitos, resolução e aquecimento', () => {
 });
 
 // ---------- conclusões, comparação e histórico ----------
-
-const ENV: EnvInfo = {
-  userAgent: 'x', cores: 8, deviceMemoryGb: null,
-  gl: { renderer: 'GPU A', vendor: 'V', version: 'WebGL 2', glsl: null, webgl2: true, maxTextureSize: 4096, maxRenderbufferSize: null, maxSamples: 4, extensions: [], timerQuery: false },
-  devicePixelRatio: 3, screen: { width: 400, height: 900 }, viewport: { width: 400, height: 800 }, orientation: 'portrait-primary',
-  battery: null, perfMemory: false, longTask: true, longAnimationFrame: false, eventTiming: true,
-};
-
-function scenario(id: string, intervals: number[], hz = 120, cpu = 3): ScenarioResult {
-  const rec = record(intervals, cpu);
-  return {
-    id,
-    summary: summarize(rec, hz, NO_CHUNKS),
-    scene: {} as ScenarioResult['scene'],
-    creations: { geometries: 0, materials: 0, textures: 0, objects: 0 },
-    longTasks: { count: 0, totalMs: 0, maxMs: 0, worst: [] },
-    longFrames: { count: 0, totalMs: 0, maxMs: 0, worst: [] },
-    series: seriesOf(rec, 250),
-  };
-}
-
-function report(over: Partial<BenchReport> = {}, intervals = rep(1000 / 120, 300), hz = 120): BenchReport {
-  const refresh = detectRefreshRate(rep(1000 / hz, 100));
-  const sc = scenario('idle', intervals, hz);
-  return {
-    version: 2, gameVersion: '0.3.0', date: '2026-11-12T10:00:00.000Z', mode: 'quick', scale: 1, seconds: 100, env: ENV, refresh,
-    graphics: { quality: 'alto', auto: false, pixelRatio: 2, shadow: 2048, samples: 4, bloom: true, css: [400, 800], buffer: [800, 1600] },
-    muted: false, overall: sc.summary, scenarios: [sc], effects: null, resolution: null, thermal: null,
-    input: { touch: null, fallback: null, touchCount: 0 },
-    memory: { heapStartMb: null, heapEndMb: null, saveBytes: null, resourceCount: null, resourceBytes: null },
-    battery: null, findings: [], ...over,
-  };
-}
 
 describe('conclusões', () => {
   it('sempre traz a investigação do laço principal; aponta um limite de 60 quando a tela é de 120 Hz e o ritmo é regular em 2 vsyncs', () => {
