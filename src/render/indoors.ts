@@ -12,8 +12,21 @@ export const INTERIOR_LAYER = 1;
 /** Põe o objeto e tudo dentro dele na camada do interior (continua na do mundo também). */
 export function showIndoors(obj: THREE.Object3D): void {
   if (obj.userData.exteriorOnly) return; // o grupo inteiro fica de fora, inclusive o que for posto nele depois
+  if (obj.userData.interiorOnly) {
+    obj.traverse((o) => o.layers.set(INTERIOR_LAYER));
+    return;
+  }
   obj.layers.enable(INTERIOR_LAYER);
   for (const c of obj.children) showIndoors(c);
+}
+
+/**
+ * Marca uma parte que só a câmera de dentro vê (some da camada do mundo). Com o casco do Blender, as paredes montadas em
+ * código são só o forro de dentro: de fora quem aparece é o casco.
+ */
+export function interiorOnly<T extends THREE.Object3D>(obj: T): T {
+  obj.userData.interiorOnly = true;
+  return obj;
 }
 
 /** Marca uma parte que só existe do lado de fora (pernas, degrau, círculo da porta, telhado). */

@@ -11,6 +11,9 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
   [ADR 0013](docs/adr/0013-modelos-do-blender-por-script.md)). Scripts em `tools/models/` geram `.glb` com chanfros, cor por
   face e oclusão assada; o jogo carrega e usa os seus próprios materiais. Piloto: **módulo de pouso novo** (folha dourada
   amassada, escada, cabine com escotilha e janelas triangulares, propulsores, antena), de ~25 peças para 2 malhas.
+  **Casco novo da base** por fora (colunas, janelas acesas, radiadores, câmara de entrada com marquise, abóbada, painéis
+  solares, antena); o interior continua o mesmo, numa camada só de dentro. **Luzes de sinalização com halo** (módulo, porta,
+  antena e balizas da base): parecem acesas sem usar luz de verdade.
 
 - **Desempenho no celular: chunks em worker e resolução dinâmica** ([ADR 0012](docs/adr/0012-chunks-em-worker-e-resolucao-dinamica.md)).
   O teste do dono mostrou quadros de 50 a 100 ms ao andar (gerar e malhar chunks na thread principal) e o limite de pixels

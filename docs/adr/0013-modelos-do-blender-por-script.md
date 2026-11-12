@@ -34,3 +34,11 @@ O ambiente é um Codespace sem `apt` e sem GPU; o Claude não opera programas co
 - Mudar um modelo pede o Blender montado (README de `tools/models/`), que vive em `/tmp` e pode sumir ao reiniciar.
 - `vite.config.ts` trata `.glb` como arquivo (`assetsInclude`); o jogo importa com `?url`, os testes com `?inline`.
 - Começar o jogo espera os `.glb` (pequenos: 140 KB o módulo).
+
+## Adendo (2026-11-12): luzes falsas e casco da base
+
+- Luzes de sinalização dos modelos são `SignalLamp` (`render/lamps.ts`): núcleo + halos aditivos, sem `PointLight`, para
+  não mexer na conta de luzes dos shaders. O dono pediu luz que pareça luz de verdade; esta é a forma barata.
+- Peças `lit*` ganham um material aceso (básico, cor acima de 1, sem tone mapping), para janelas com luz dentro.
+- O casco de fora da base é o segundo modelo (2.550 triângulos). Por dentro, a base continua em código, só na camada do
+  interior (ver o adendo do ADR 0006).

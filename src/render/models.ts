@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32, type Rand } from '../core/noise';
 import { PROP_TYPES, type PropType } from '../data/props';
+import { SignalLamp } from './lamps';
 
 type V3 = [number, number, number];
 
@@ -335,16 +336,16 @@ export function createLander(body: THREE.Object3D | null = null): Lander {
   const g = new THREE.Group();
   if (body) g.add(body);
   else buildLanderBody(g);
-  // luzes de status (vermelho = avariado, verde = reparado)
-  const lampMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 0.25, 0.15) });
-  const lamps: THREE.Mesh[] = [];
+  // luzes de status (vermelho = avariado, verde = reparado): núcleo e halo, sem luz de verdade (render/lamps.ts)
+  const RED = new THREE.Color(2.2, 0.25, 0.15), GREEN = new THREE.Color(0.4, 2.4, 0.8);
+  const lamps: SignalLamp[] = [];
   for (let i = 0; i < 3; i++) {
     const a = (i / 3) * Math.PI * 2;
-    const l = new THREE.Mesh(new THREE.OctahedronGeometry(0.09), lampMat);
+    const l = new SignalLamp({ size: 0.07, halo: 1.3, color: RED });
     const at = body?.getObjectByName(`lamp_${i}`)?.position;
-    if (at) l.position.copy(at);
-    else l.position.set(Math.cos(a) * 0.8, 2.98, Math.sin(a) * 0.8);
-    g.add(l);
+    if (at) l.group.position.copy(at);
+    else l.group.position.set(Math.cos(a) * 0.8, 2.98, Math.sin(a) * 0.8);
+    g.add(l.group);
     lamps.push(l);
   }
   const beamMat = new THREE.MeshBasicMaterial({
@@ -361,11 +362,12 @@ export function createLander(body: THREE.Object3D | null = null): Lander {
     group: g,
     setRepaired(on) {
       repaired = on;
-      lampMat.color.setRGB(on ? 0.4 : 2.2, on ? 2.4 : 0.25, on ? 0.8 : 0.15);
+      for (const l of lamps) l.setColor(on ? GREEN : RED);
     },
     update(t) {
       const blink = repaired ? 0.6 + 0.4 * Math.sin(t * 3) : Math.sin(t * 5) > 0.3 ? 1 : 0.15;
-      lamps.forEach((l, i) => (l.visible = repaired || blink > 0.5 || i === Math.floor(t * 2) % 3));
+      // avariado: piscam juntas e uma corre em volta; reparado: verdes, respirando devagar
+      lamps.forEach((l, i) => l.set(repaired ? blink : blink > 0.5 || i === Math.floor(t * 2) % 3 ? 1 : 0));
       beamMat.opacity = repaired ? 0.12 + 0.06 * Math.sin(t * 2) : 0;
     },
   };

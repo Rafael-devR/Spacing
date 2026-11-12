@@ -1,5 +1,8 @@
 // Modelo 3D de um módulo da base, montado a partir do mesmo layout que gera a colisão (world/baseLayout.ts).
 // Low poly como o módulo de pouso: casco branco, faixa laranja, luzes azul-gelo.
+// Casco do Blender (tools/models/habitat.py, docs/design/MODELOS.md): quando o módulo tem as medidas do modelo, o lado de
+// fora é o .glb (só na camada do mundo) e as paredes montadas aqui viram o forro de dentro (só na camada do interior).
+// Sem o .glb, ou com outras medidas, tudo é montado em código como antes.
 // Corte (cutaway): com o astronauta dentro, o telhado some e as paredes viradas para a câmera abaixam,
 // mostrando o interior. Dentro, a câmera só vê a camada do interior (render/indoors.ts): as partes de fora
 // (pernas, degrau, círculo da porta, telhado) ficam só na camada do mundo.
@@ -9,12 +12,22 @@ import type { ModuleLayout } from '../world/baseLayout';
 import { Fabricator } from './Fabricator';
 import { createStationModel, type StationModel } from './stationModels';
 import type { StationId } from '../data/stations';
-import { exteriorOnly, showIndoors } from './indoors';
+import { exteriorOnly, interiorOnly, showIndoors } from './indoors';
+import { SignalLamp } from './lamps';
 
 const lam = (hex: THREE.ColorRepresentation, extra: THREE.MeshLambertMaterialParameters = {}): THREE.MeshLambertMaterial =>
   new THREE.MeshLambertMaterial({ color: hex, flatShading: true, ...extra });
 const glow = (r: number, g: number, b: number): THREE.MeshBasicMaterial =>
   new THREE.MeshBasicMaterial({ color: new THREE.Color(r, g, b), toneMapped: false });
+
+/** medidas para as quais o casco do Blender foi feito (data/base.ts, HAB_MODULE) */
+export const HABITAT_SHELL = { x: 9, z: 7, interiorHeight: 3, door: { side: 'south' as Side, at: 4 } };
+
+/** o casco do Blender serve para este módulo? */
+export function shellFits(def: ModuleLayout['def']): boolean {
+  const s = HABITAT_SHELL;
+  return def.size.x === s.x && def.size.z === s.z && def.interiorHeight === s.interiorHeight && def.door.side === s.door.side && def.door.at === s.door.at;
+}
 
 const NORMAL: Record<Side, [number, number]> = { north: [0, -1], south: [0, 1], west: [-1, 0], east: [1, 0] };
 
@@ -48,7 +61,12 @@ export class BaseModel {
   private readonly doorFrame: THREE.Group;
   private readonly doorLamps: THREE.MeshBasicMaterial;
   private readonly padMat: THREE.MeshBasicMaterial;
-  private readonly antennaLamp: THREE.Mesh;
+  private readonly antennaLamp: SignalLamp;
+  /** casco do Blender (null = lado de fora montado em código) */
+  readonly shell: THREE.Object3D | null;
+  private readonly shellDoors: { mesh: THREE.Object3D; x: number; dir: number }[] = [];
+  private readonly shellDoorLamp: SignalLamp | null = null;
+  private readonly beacons: SignalLamp[] = [];
   private readonly light: THREE.PointLight;
   private readonly stripMat: THREE.MeshBasicMaterial;
   /** 0 = porta fechada, 1 = aberta */
@@ -67,7 +85,9 @@ export class BaseModel {
   constructor(
     readonly layout: ModuleLayout,
     groundAt: (x: number, z: number) => number,
+    shell: THREE.Object3D | null = null,
   ) {
+    this.shell = shell && shellFits(layout.def) ? shell : null;
     const { def, floorY } = layout;
     const box = layout.structure.box;
     const g = this.group;
@@ -92,16 +112,21 @@ export class BaseModel {
     const boxAt = (parent: THREE.Object3D, mat: THREE.Material, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, shadow = true): THREE.Mesh =>
       add(parent, new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), mat, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, shadow);
 
+    // paredes, base e porta em código: com o casco do Blender, só por dentro
+    const hullG = new THREE.Group();
+    g.add(this.shell ? interiorOnly(hullG) : hullG);
+
     // ---- base, pernas e piso ----
-    boxAt(g, metal, 0, 0, 0, SX, 1, SZ);
-    boxAt(g, orange, -0.03, 0.78, -0.03, SX + 0.03, 0.92, SZ + 0.03, false);
-    for (const [lx, lz] of [[0.5, 0.5], [SX - 0.5, 0.5], [0.5, SZ - 0.5], [SX - 0.5, SZ - 0.5], [SX / 2, 0.5], [SX / 2, SZ - 0.5]]) {
-      const ground = groundAt(box.x0 + lx, box.z0 + lz) - floorY;
-      if (ground < -0.05) {
-        exteriorOnly(add(g, new THREE.CylinderGeometry(0.16, 0.2, -ground, 6), dark, lx, ground / 2, lz));
-        exteriorOnly(add(g, new THREE.CylinderGeometry(0.34, 0.38, 0.1, 8), dark, lx, ground + 0.05, lz));
+    boxAt(hullG, metal, 0, 0, 0, SX, 1, SZ);
+    boxAt(hullG, orange, -0.03, 0.78, -0.03, SX + 0.03, 0.92, SZ + 0.03, false);
+    if (!this.shell)
+      for (const [lx, lz] of [[0.5, 0.5], [SX - 0.5, 0.5], [0.5, SZ - 0.5], [SX - 0.5, SZ - 0.5], [SX / 2, 0.5], [SX / 2, SZ - 0.5]]) {
+        const ground = groundAt(box.x0 + lx, box.z0 + lz) - floorY;
+        if (ground < -0.05) {
+          exteriorOnly(add(g, new THREE.CylinderGeometry(0.16, 0.2, -ground, 6), dark, lx, ground / 2, lz));
+          exteriorOnly(add(g, new THREE.CylinderGeometry(0.34, 0.38, 0.1, 8), dark, lx, ground + 0.05, lz));
+        }
       }
-    }
 
     // ---- paredes: fileira de baixo sempre de pé; as de cima abaixam no corte ----
     const door = layout.door;
@@ -111,7 +136,7 @@ export class BaseModel {
       const lower = new THREE.Group();
       const upper = new THREE.Group();
       upper.position.y = 2; // pivô na base das fileiras de cima
-      g.add(lower, upper);
+      hullG.add(lower, upper);
       // retângulo da parede no plano xz
       const along: 'x' | 'z' = side === 'north' || side === 'south' ? 'x' : 'z';
       const [a0, a1] = along === 'x' ? [0, SX] : [1, SZ - 1];
@@ -188,7 +213,7 @@ export class BaseModel {
     const frame = (this.doorFrame = new THREE.Group());
     frame.position.set(dcx, 1, dcz);
     if (this.doorAxis === 'z') frame.rotation.y = Math.PI / 2;
-    g.add(frame);
+    hullG.add(frame);
     boxAt(frame, dark, -0.62, 0, -0.56, -0.48, 2.12, 0.56);
     boxAt(frame, dark, 0.48, 0, -0.56, 0.62, 2.12, 0.56);
     boxAt(frame, dark, -0.62, 1.98, -0.56, 0.62, 2.14, 0.56);
@@ -204,7 +229,7 @@ export class BaseModel {
     const stepW = exteriorOnly(new THREE.Group());
     stepW.position.set(dcx + dnx * 1.0, 0, dcz + dnz * 1.0);
     stepW.rotation.y = this.doorAxis === 'z' ? Math.PI / 2 : 0;
-    g.add(stepW);
+    if (!this.shell) g.add(stepW);
     boxAt(stepW, metal, -0.7, 0, -0.35, 0.7, 0.5, 0.35);
     boxAt(stepW, orange, -0.7, 0.5, 0.28, 0.7, 0.53, 0.35, false);
     this.padMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.5, 1.8, 2.2), transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false });
@@ -219,7 +244,12 @@ export class BaseModel {
     const off = (v: number): number => (v > 0 ? 0.53 : v < 0 ? -0.53 : 0);
     sign.position.set(dcx + (this.doorAxis === 'x' ? 1.45 : 0) + dnx * 0.5 + off(dnx) * 0.06, 0.45, dcz + (this.doorAxis === 'z' ? 1.45 : 0) + dnz * 0.5 + off(dnz) * 0.06);
     sign.rotation.y = Math.atan2(dnx, dnz);
-    this.walls.find((w) => w.side === door.side)?.upper.add(sign);
+    const signAt = this.shell?.getObjectByName('sign')?.position;
+    if (signAt) {
+      sign.position.copy(signAt);
+      sign.rotation.y = 0;
+      g.add(exteriorOnly(sign));
+    } else this.walls.find((w) => w.side === door.side)?.upper.add(sign);
 
     // ---- telhado (some no corte) ----
     const roofMat = (m: THREE.MeshLambertMaterial): THREE.MeshLambertMaterial => {
@@ -228,7 +258,7 @@ export class BaseModel {
       return m;
     };
     const rHull = roofMat(lam('#e4e6ec')), rMetal = roofMat(lam('#8c90a0')), rPanel = roofMat(lam('#283157', { emissive: new THREE.Color('#121c48') }));
-    g.add(exteriorOnly(this.roof));
+    if (!this.shell) g.add(exteriorOnly(this.roof));
     boxAt(this.roof, rHull, -0.05, H + 1, -0.05, SX + 0.05, H + 1.55, SZ + 0.05);
     const ridge = add(this.roof, new THREE.CylinderGeometry(1.1, 1.1, SX - 2.4, 8, 1, false, 0, Math.PI), rHull, SX / 2, H + 1.55, SZ / 2);
     ridge.rotation.z = Math.PI / 2;
@@ -239,8 +269,50 @@ export class BaseModel {
       add(this.roof, new THREE.CylinderGeometry(0.05, 0.05, 0.45, 5), rMetal, px, H + 1.75, SZ / 2 - 0.2);
     }
     add(this.roof, new THREE.CylinderGeometry(0.04, 0.04, 1.6, 5), rMetal, SX - 1.2, H + 2.35, 1.0);
-    this.antennaLamp = add(this.roof, new THREE.OctahedronGeometry(0.1), glow(2.4, 0.3, 0.2), SX - 1.2, H + 3.2, 1.0, false);
+    this.antennaLamp = new SignalLamp({ size: 0.08, halo: 1.3, color: new THREE.Color(2.4, 0.3, 0.2) });
+    this.antennaLamp.group.position.set(SX - 1.2, H + 3.2, 1.0);
+    this.roof.add(this.antennaLamp.group);
     boxAt(this.roof, rMetal, 1.0, H + 1.55, SZ - 1.6, 2.0, H + 1.95, SZ - 0.9);
+
+    // ---- casco do Blender: pernas até o chão, folhas da porta, luzes com halo ----
+    if (this.shell) {
+      const sh = this.shell;
+      g.add(exteriorOnly(sh));
+      for (let i = 0; ; i++) {
+        const at = sh.getObjectByName(`leg_${i}`)?.position;
+        if (!at) break;
+        const ground = groundAt(box.x0 + at.x, box.z0 + at.z) - floorY;
+        if (ground > -0.05) continue;
+        const len = -ground + at.y;
+        // perna telescópica: tubo grosso em cima, haste fina embaixo, pé largo
+        add(sh, new THREE.CylinderGeometry(0.2, 0.2, len * 0.55, 8), dark, at.x, at.y - len * 0.275, at.z);
+        add(sh, new THREE.CylinderGeometry(0.12, 0.12, len, 6), metal, at.x, at.y - len / 2, at.z);
+        add(sh, new THREE.CylinderGeometry(0.3, 0.4, 0.12, 8), dark, at.x, ground + 0.06, at.z);
+      }
+      for (const [name, dir] of [['door_l', -1], ['door_r', 1]] as const) {
+        const m = sh.getObjectByName(name);
+        if (m) this.shellDoors.push({ mesh: m, x: m.position.x, dir });
+      }
+      const doorLampAt = sh.getObjectByName('door_lamp')?.position;
+      if (doorLampAt) {
+        this.shellDoorLamp = new SignalLamp({ size: 0.08, halo: 1.4 });
+        this.shellDoorLamp.group.position.copy(doorLampAt);
+        sh.add(this.shellDoorLamp.group);
+      }
+      const antennaAt = sh.getObjectByName('antenna_lamp')?.position;
+      if (antennaAt) {
+        this.antennaLamp.group.position.copy(antennaAt);
+        sh.add(this.antennaLamp.group);
+      }
+      for (let i = 0; ; i++) {
+        const at = sh.getObjectByName(`beacon_${i}`)?.position;
+        if (!at) break;
+        const b = new SignalLamp({ size: 0.06, halo: 0.9, color: new THREE.Color(0.55, 1.9, 2.3) });
+        b.group.position.copy(at);
+        sh.add(b.group);
+        this.beacons.push(b);
+      }
+    }
 
     // ---- interior ----
     g.add(this.interior);
@@ -307,8 +379,17 @@ export class BaseModel {
     const red = !this.doorGreen;
     const blink = red && this.door > 0.05 ? (Math.sin(t * 14) > 0 ? 1 : 0.2) : 1;
     this.doorLamps.color.setRGB(red ? 2.2 * blink : 0.4, red ? 0.25 * blink : 2.4, red ? 0.15 : 0.8);
+    if (this.shellDoorLamp) {
+      this.shellDoorLamp.setColor(red ? DOOR_RED : DOOR_GREEN);
+      this.shellDoorLamp.set(blink);
+    }
+    for (const d of this.shellDoors) {
+      d.mesh.position.x = d.x + d.dir * o;
+      d.mesh.visible = this.door < 0.97;
+    }
+    this.beacons.forEach((b, i) => b.set(0.75 + 0.25 * Math.sin(t * 1.6 + i * 1.7)));
     this.padMat.opacity = 0.35 + 0.25 * Math.sin(t * 3) * 0.5 + this.padHighlight * 0.5;
-    this.antennaLamp.visible = Math.sin(t * 2.4) > 0.6;
+    this.antennaLamp.set(Math.sin(t * 2.4) > 0.6 ? 1 : 0);
 
     // corte: telhado some, paredes viradas para a câmera abaixam
     for (const m of this.roofMats) m.opacity = 1 - ins;
@@ -338,6 +419,9 @@ export class BaseModel {
     for (const w of this.walls) w.lowered = 0;
   }
 }
+
+const DOOR_RED = new THREE.Color(2.2, 0.25, 0.15);
+const DOOR_GREEN = new THREE.Color(0.4, 2.4, 0.8);
 
 interface Mats {
   hull: THREE.Material;

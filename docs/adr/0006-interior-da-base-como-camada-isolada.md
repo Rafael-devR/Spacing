@@ -47,3 +47,10 @@ Opção 3 (`src/render/indoors.ts`):
   instantânea.
 - Objetos novos que precisem aparecer dentro da base devem passar por `showIndoors`.
 - Se um dia a base virar um lugar grande (vários módulos com corredores), a opção 1 pode voltar à mesa.
+
+## Adendo (2026-11-12): casco de fora separado do interior
+
+O lado de fora da base passou a ser um modelo do Blender (ADR 0013), só na camada do mundo. As paredes montadas em código
+ficaram só na camada do interior (`interiorOnly` em `indoors.ts`). Com isso a base já tem os "dois modelos" que a opção 1
+pedia. O dono sugeriu levar o interior para uma área separada, com tela de carregamento, quando o interior detalhado for
+feito; a separação em camadas deixa esse passo mais fácil, mas ele ainda não foi decidido.

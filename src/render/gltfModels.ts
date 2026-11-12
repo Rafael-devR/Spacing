@@ -1,24 +1,28 @@
 // Modelos feitos no Blender (docs/design/MODELOS.md, ADR 0013). Os .glb saem dos scripts de tools/models/ e trazem só
 // geometria, cor por vértice (com a oclusão assada) e pontos marcados (vazios). O material é sempre o nosso: o modelo
-// fica com a mesma luz, sombra, brilho e névoa que o resto do mundo. Peças com nome começando por "glow" brilham.
+// fica com a mesma luz, sombra, brilho e névoa que o resto do mundo. Peças com nome começando por "glow" brilham de leve
+// (vidro escuro); por "lit", ficam acesas de verdade (janelas com luz dentro: cor acima de 1, o bloom pega).
 // Se um arquivo não carregar, `model()` devolve null e o jogo usa o modelo feito em código (render/models.ts).
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import habitatUrl from '../assets/models/habitat.glb?url';
 import landerUrl from '../assets/models/lander.glb?url';
 import { patchMaterial } from './materials';
 
-export type ModelId = 'lander';
+export type ModelId = 'lander' | 'habitat';
 
-const URLS: Record<ModelId, string> = { lander: landerUrl };
+const URLS: Record<ModelId, string> = { lander: landerUrl, habitat: habitatUrl };
 const loaded = new Map<ModelId, THREE.Object3D>();
 
 let body: THREE.MeshLambertMaterial | null = null;
 let glow: THREE.MeshLambertMaterial | null = null;
+let lit: THREE.MeshBasicMaterial | null = null;
 
-function materials(): { body: THREE.MeshLambertMaterial; glow: THREE.MeshLambertMaterial } {
+function materials(): { body: THREE.MeshLambertMaterial; glow: THREE.MeshLambertMaterial; lit: THREE.MeshBasicMaterial } {
   body ??= patchMaterial(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), { glow: true, name: 'models' });
   glow ??= new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, emissive: new THREE.Color('#1b2a6a') });
-  return { body, glow };
+  lit ??= new THREE.MeshBasicMaterial({ vertexColors: true, color: new THREE.Color(1.7, 1.7, 1.7), toneMapped: false });
+  return { body, glow, lit };
 }
 
 /** Troca os materiais do arquivo pelos do jogo e liga as sombras. */
@@ -29,9 +33,9 @@ export function prepareModel(root: THREE.Object3D): THREE.Object3D {
     if (!mesh.isMesh) return;
     const old = mesh.material as THREE.Material | THREE.Material[];
     for (const x of Array.isArray(old) ? old : [old]) x.dispose();
-    const lit = /^glow/i.test(mesh.name);
-    mesh.material = lit ? m.glow : m.body;
-    mesh.castShadow = !lit;
+    const glows = /^glow/i.test(mesh.name), lights = /^lit/i.test(mesh.name);
+    mesh.material = lights ? m.lit : glows ? m.glow : m.body;
+    mesh.castShadow = !glows && !lights;
     mesh.receiveShadow = true;
   });
   return root;

@@ -93,7 +93,7 @@ Para ligar: definir comidas e receitas, `enabled: true`, um medidor no HUD e os 
 | -------------------------------- | --------------------------------------------------- | --------------------------------------------- |
 | Módulos (tamanho, porta, móveis) | `src/data/base.ts`                                  | Novos `ModuleDef` em `BASE_MODULES`           |
 | Colisão e pontos de uso          | `src/world/baseLayout.ts`, `src/world/Structure.ts` | Corredores entre módulos (porta interna)      |
-| Modelo e corte                   | `src/render/baseModel.ts`                           | Novos tipos de móvel em `buildFurniture`      |
+| Modelo e corte                   | `src/render/baseModel.ts` (casco: `tools/models/habitat.py`) | Novos tipos de móvel em `buildFurniture`      |
 | Receitas                         | `src/data/recipes.ts`                               | Novas entradas; outras estações (`Station`)   |
 | Equipamentos                     | `src/data/equipment.ts`, `src/systems/Equipment.ts` | Novos encaixes (capacete, tanque, ferramenta) |
 | Experiência                      | `src/app/BaseDirector.ts`                           | Novas ações no botão do lugar                 |

@@ -1,14 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { Group, Object3D, Mesh, BufferGeometry, MeshBasicMaterial } from 'three';
 import { createLander } from '../src/render/models';
+import { shellFits } from '../src/render/baseModel';
+import { HAB_MODULE } from '../src/data/base';
 
 /** os .glb do jogo, como data URL (sem depender das APIs do Node) */
 const GLBS = import.meta.glob('../src/assets/models/*.glb', { query: '?inline', import: 'default', eager: true }) as Record<string, string>;
 
 /** orçamento de triângulos por modelo (docs/design/MODELOS.md): o celular já desenha o terreno e a sombra */
-const BUDGET: Record<string, number> = { lander: 3000 };
+const BUDGET: Record<string, number> = { lander: 3000, habitat: 4000 };
 /** pontos que o código procura em cada modelo */
-const MARKERS: Record<string, string[]> = { lander: ['lamp_0', 'lamp_1', 'lamp_2', 'beam'] };
+const MARKERS: Record<string, string[]> = {
+  lander: ['lamp_0', 'lamp_1', 'lamp_2', 'beam'],
+  habitat: ['leg_0', 'leg_5', 'door_lamp', 'antenna_lamp', 'beacon_0', 'beacon_3', 'sign', 'door_l', 'door_r', 'lit_windows'],
+};
 
 interface Gltf {
   nodes: { name?: string; mesh?: number; translation?: number[] }[];
@@ -55,6 +60,14 @@ describe('modelos do Blender', () => {
   });
 });
 
+describe('casco da base', () => {
+  it('serve para o habitat inicial e não para módulos de outras medidas', () => {
+    expect(shellFits(HAB_MODULE)).toBe(true);
+    expect(shellFits({ ...HAB_MODULE, size: { x: 11, z: 7 } })).toBe(false);
+    expect(shellFits({ ...HAB_MODULE, door: { side: 'east', at: 3 } })).toBe(false);
+  });
+});
+
 describe('módulo de pouso', () => {
   it('com o modelo do Blender, as luzes e o feixe vão para os pontos marcados', () => {
     const body = new Group();
@@ -71,8 +84,14 @@ describe('módulo de pouso', () => {
     body.add(tip);
     const l = createLander(body);
     expect(l.group.children).toContain(body);
-    const lamps = l.group.children.filter((c) => (c as Mesh).geometry?.type === 'OctahedronGeometry');
+    const lamps = l.group.children.filter((c) => c.name === 'lamp');
     expect(lamps.map((c) => c.position.toArray())).toEqual([[0, 3, 0], [1, 3, 2], [2, 3, 4]]);
+    // luz falsa: núcleo e halos, nenhuma luz de verdade (não muda a conta de luzes dos shaders)
+    let lights = 0;
+    l.group.traverse((o) => void (lights += (o as unknown as { isLight?: boolean }).isLight ? 1 : 0));
+    expect(lights).toBe(0);
+    l.update(0.3);
+    expect(lamps.some((c) => c.visible)).toBe(true);
     const beam = l.group.children.find((c) => (c as Mesh).geometry?.type === 'CylinderGeometry')!;
     expect(beam.position.toArray()).toEqual([0.3, 24.1, 0]);
   });

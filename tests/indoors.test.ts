@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { exteriorOnly, INTERIOR_LAYER, showIndoors } from '../src/render/indoors';
+import { exteriorOnly, interiorOnly, INTERIOR_LAYER, showIndoors } from '../src/render/indoors';
 
 describe('camada do interior da base', () => {
   it('põe a base na camada do interior, menos as partes de fora', () => {
@@ -18,6 +18,23 @@ describe('camada do interior da base', () => {
     expect(wall.layers.test(world)).toBe(true); // continua visível de fora
     expect(legs.layers.test(inside)).toBe(false);
     expect(leg.layers.test(inside)).toBe(false);
+  });
+
+  it('o forro de dentro (com o casco do Blender) só aparece para a câmera de dentro', () => {
+    const base = new THREE.Group();
+    const lining = interiorOnly(new THREE.Group());
+    const wall = new THREE.Mesh();
+    lining.add(wall);
+    const shell = exteriorOnly(new THREE.Mesh());
+    base.add(lining, shell);
+    showIndoors(base);
+    const inside = new THREE.Layers();
+    inside.set(INTERIOR_LAYER);
+    const world = new THREE.Layers();
+    expect(wall.layers.test(inside)).toBe(true);
+    expect(wall.layers.test(world)).toBe(false);
+    expect(shell.layers.test(world)).toBe(true);
+    expect(shell.layers.test(inside)).toBe(false);
   });
 
   it('o terreno, que não entra na camada, some para a câmera de dentro', () => {

@@ -1,6 +1,6 @@
 # Modelos 3D feitos no Blender
 
-- **Status:** pedido pelo dono em 2026-11-12; piloto pronto (módulo de pouso). Decisão técnica em
+- **Status:** pedido pelo dono em 2026-11-12; prontos o módulo de pouso (piloto) e o casco de fora da base. Decisão técnica em
   [ADR 0013](../adr/0013-modelos-do-blender-por-script.md).
 
 ## O pedido
@@ -30,7 +30,10 @@ ficam com **vazios** do Blender (`lamp_0`, `beam`...), e o código procura por n
   "amassada" (vértices deslocados ao acaso e brilho variando por face).
 - **Oclusão ambiente assada nas cores:** cantos e encaixes mais escuros. Dá profundidade sem custo no celular.
 - **Sem texturas e sem materiais no arquivo:** o `.glb` leva só geometria, normais, cor por vértice e os vazios.
-- **Peças que brilham** têm nome começando por `glow` (janelas): o jogo dá a elas um material com brilho próprio.
+- **Peças que brilham** têm nome começando por `glow` (vidro escuro com brilho fraco, janelas do módulo) ou `lit` (acesas de
+  verdade, com cor acima de 1 para o bloom pegar: janelas da base com a luz de dentro).
+- **Referência, não molde** (pedido do dono): o modelo antigo dá o tamanho, o lugar e a identidade (casco branco, faixa
+  laranja, luz azul-gelo), mas o modelo novo deve trazer coisas que o antigo não tinha.
 - 1 unidade = 1 bloco; Z para cima no Blender (sai Y para cima no `.glb`); o chão do modelo é z = 0.
 
 ## Orçamento (celular)
@@ -41,6 +44,7 @@ teto, conferido por `tests/models.test.ts`:
 | Modelo | Teto | Hoje | Peças no jogo |
 | --- | --- | --- | --- |
 | Módulo de pouso | 3.000 | 2.060 | corpo (1 malha) + janelas (1) + 3 luzes + feixe |
+| Casco da base (Habitat 01) | 4.000 | 2.550 | corpo (1) + janelas acesas (1) + 2 folhas da porta + pernas + 6 luzes + placa |
 
 Juntar tudo numa malha só importa tanto quanto os triângulos: o módulo antigo era ~25 peças (≈50 chamadas de desenho com a
 sombra); o novo é 2.
@@ -53,9 +57,35 @@ astronauta nasce; motor embaixo; cabine facetada com escotilha e duas janelas tr
 Apollo), caixa de equipamentos atrás, quatro blocos de propulsores, túnel de acoplamento e antena com prato; a bandeira ao
 lado. Se o arquivo não carregar, o jogo usa o modelo antigo em código.
 
+## Luzes de sinalização
+
+Luzes que piscam ou mudam de cor (status do módulo, porta e antena da base, balizas) são `SignalLamp`
+(`src/render/lamps.ts`): um núcleo pequeno muito claro, que o bloom faz brilhar, e dois halos aditivos virados para a
+câmera. Parecem acesas e espalham luz em volta, **sem `PointLight`**: luz de verdade entra na conta de luzes de todos os
+shaders do mundo (cada pixel paga, e mudar o número recompila). Elas não iluminam o chão; se um dia uma luz precisar
+iluminar de verdade, que seja uma só, fixa, medida no celular.
+
+## Casco da base (Habitat 01)
+
+Só o lado de fora (`tools/models/habitat.py`). O interior continua em código e será um modelo à parte depois, com mais
+detalhe (equipamentos). Feito para as medidas do `HAB_MODULE` (9×7, 3 de altura, porta no meio da parede sul);
+`shellFits()` confere, e um módulo de outras medidas é montado em código como antes.
+
+- Colunas facetadas nos cantos, nervuras e faixa laranja; três janelas com moldura em cada lado (leste e oeste), acesas em
+  azul-gelo como a luz de dentro; dois radiadores de aletas na parede norte.
+- Câmara de entrada com batentes, faixas de atenção, marquise laranja, soleira e degrau; as duas folhas da porta são peças
+  à parte (`door_l`, `door_r`) que o código abre.
+- Telhado com beiral e abóbada com nervuras; dois painéis solares num mastro, antena com luz vermelha, prato de
+  comunicação e caixa de ventilação.
+- Pontos marcados: `leg_0..5` (o código faz pernas telescópicas até o chão, que muda com o terreno), `door_lamp`,
+  `antenna_lamp`, `beacon_0..3` (balizas azul-gelo nos cantos do telhado) e `sign` (a placa com o nome do módulo).
+- **Fora e dentro em camadas separadas** (ADR 0006): o casco fica só na camada do mundo (`exteriorOnly`); as paredes, a
+  porta e a base montadas em código ficam só na do interior (`interiorOnly`), como forro de dentro. De fora não se
+  desenha mais o que é de dentro (nem a sombra dele), e de dentro o casco não aparece.
+
 ## Próximos candidatos
 
-Astronauta (peças separadas, que o código continua animando), base (Habitat), forno solar e eletrolisador, bancada,
+Interior da base, astronauta (peças separadas, que o código continua animando), forno solar e eletrolisador, bancada,
 painel solar, pedras e minérios soltos (variações por semente), meteorito. Cada um com o seu teto no teste.
 
 ## Montar o Blender no Codespace

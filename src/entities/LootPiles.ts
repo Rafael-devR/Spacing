@@ -6,6 +6,7 @@ import type { GameBus } from '../app/events';
 import { ITEM_ORDER, type ItemId } from '../data/items';
 import { SURVIVAL } from '../data/survival';
 import type { ItemModels } from '../render/itemModels';
+import { getHaloTexture } from '../render/lamps';
 import type { World } from '../world/World';
 import type { ItemDrops } from './ItemDrops';
 import type { Player } from './Player';
@@ -38,24 +39,6 @@ interface Piece {
   phase: number;
   /** segundos até poder ser recolhido (evita pegar de volta no instante da morte) */
   cooldown: number;
-}
-
-let haloTexture: THREE.Texture | null = null;
-function getHaloTexture(): THREE.Texture {
-  if (haloTexture) return haloTexture;
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = 64;
-  const g = cv.getContext('2d');
-  if (g) {
-    const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-    grd.addColorStop(0, 'rgba(255,255,255,0.9)');
-    grd.addColorStop(0.35, 'rgba(255,255,255,0.35)');
-    grd.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = grd;
-    g.fillRect(0, 0, 64, 64);
-  }
-  haloTexture = new THREE.CanvasTexture(cv);
-  return haloTexture;
 }
 
 export class LootPiles {

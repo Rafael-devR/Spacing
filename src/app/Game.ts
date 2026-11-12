@@ -338,7 +338,7 @@ export class Game {
 
     // modelo e experiência da base
     const terrain = this.world.terrain;
-    this.baseModel = new BaseModel(baseLayout, (x, z) => terrain.column(Math.floor(x), Math.floor(z)).h + 1);
+    this.baseModel = new BaseModel(baseLayout, (x, z) => terrain.column(Math.floor(x), Math.floor(z)).h + 1, model('habitat'));
     scene.add(this.baseModel.group);
     this.base = new BaseDirector(
       {
