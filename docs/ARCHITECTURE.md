@@ -22,7 +22,8 @@ src/
   main.ts            ponto de entrada: cria o renderizador e o Game
   app/               Game (laço, estados, ligação dos sistemas), SurvivalDirector (resposta à sobrevivência),
                      BaseDirector (entrada na base, bancada, descanso), MarsDirector (clima, lava e vulcão de
-                     Marte), eventos do jogo, configuração, passo fixo
+                     Marte), MeteorDirector (som, câmera e ondas de choque do meteoro), TestMode (executor do modo
+                     de teste), eventos do jogo, configuração, passo fixo
   core/              barramento de eventos, entrada, salvamento, preferências, tela cheia, ruído, cor, vibração,
   data/              conteúdo como dados: blocos, itens, objetos, missões, base, estações, receitas, equipamentos e os
                      cenários do teste de desempenho
@@ -154,6 +155,7 @@ Chave `spacing.save` no `localStorage`, em JSON, formato **versão 6** (`src/cor
 | `tests/data.test.ts`          | Consistência do conteúdo e dos textos                               |
 | `tests/survival.test.ts`      | Gasto e recarga do traje, avisos, dano, morte, itens caídos         |
 | `tools/visual-check/play.mjs` | Jogo real no navegador: começar, minerar, coletar, pausar, salvar, recarregar, morrer, renascer, recolher os itens |
+| `tests/testmode.test.ts`, `tools/visual-check/testmode.mjs` | Modo de teste: catálogo, executor e todas as ações no navegador (docs/design/TESTE.md) |
 
 ## Dívidas técnicas conhecidas
 

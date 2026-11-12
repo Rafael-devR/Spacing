@@ -95,6 +95,10 @@ Em ordem de execução, tudo com testes e documentação:
    choque que entorta a imagem (passada final, opção no menu Gráficos), bola de fogo, blocos que quebram, câmera lenta curta.
    O dono já testou no celular e aprovou (funcionou). Os meteoros sorteados caem mais perto e dentro da tela.
 
+13. **Modo de teste** ([design/TESTE.md](design/TESTE.md), ADR 0015), pedido do dono para testar rápido: `?teste` (ou o botão na tela
+   inicial) liga um painel de depuração com salvamento próprio. **Use-o para testar o que você mexer**; o `testmode.mjs` roda tudo em
+   menos de 1 minuto.
+
 ## O que o dono ainda **não viu** no celular
 
 - **O interior novo da base** (maior, móveis novos) e **as estações do Blender com animação**. Antes disso o dono viu o casco
@@ -138,7 +142,7 @@ Em ordem de execução, tudo com testes e documentação:
 ## Testes que existem
 
 `npm test` (Vitest, ~240 testes) e, em `tools/visual-check/` (precisa de `npm run dev`; veja o README da pasta):
-`play.mjs` (jogabilidade), `ui.mjs` (HUD), `audio.mjs`, `base.mjs`, `drill.mjs`, `tablet.mjs` (mapa), `bench.mjs` (teste
+`testmode.mjs` (modo de teste, o mais rápido), `meteors.mjs` (meteoros), `play.mjs` (jogabilidade), `ui.mjs` (HUD), `audio.mjs`, `base.mjs`, `drill.mjs`, `tablet.mjs` (mapa), `bench.mjs` (teste
 de desempenho), `gfx.mjs` (gráficos avançados), `mars.mjs` (Marte), `stations.mjs` (estações e energia), `caves.mjs` (cavernas e câmera), `shot.mjs <url> <pasta> <largura> <altura> <qualidade>`
 (capturas). Rode o que combina com a mudança; para mexer em shader/pós-processamento, compare capturas antes e depois.
 

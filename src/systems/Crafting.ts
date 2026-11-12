@@ -173,6 +173,11 @@ export class Crafting {
     return this.built.has(station);
   }
 
+  /** Só no modo de teste: instala a estação sem fabricá-la (docs/design/TESTE.md). */
+  unlock(station: StationId): void {
+    this.built.add(station);
+  }
+
   /** quantos o jogador tem de um item (para a tela da estação) */
   has(item: ItemId): number {
     return this.d.inventory.count(item);

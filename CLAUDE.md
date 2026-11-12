@@ -61,6 +61,11 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). **Sessão nova?
   de fora, interior (`habitat_interior.py`) só na de dentro (`interiorOnly`, `src/render/indoors.ts`); medidas em `lib.HAB`. Móveis:
   `furniture.py` (um nó por tipo). Estações: `workbench/furnace/electrolyzer.py`, com animação em laço feita no Blender
   (`lib.keys`, `export(anim=True)`), tocada por `AnimationMixer`.
+- **Modo de teste** ([design/TESTE.md](docs/design/TESTE.md), ADR 0015): `?teste` liga um painel de depuração (dar itens, soltar meteoros,
+  teleportar, parar o tempo…) com **salvamento próprio**. Catálogo em `src/data/testmode.ts`, executor em `src/app/TestMode.ts`, painel em
+  `src/ui/TestPanel.ts`. **Para testar uma mudança, provoque a situação com `window.spacing.testMode.run('…')` em vez de jogar até ela**; o
+  `tools/visual-check/testmode.mjs` roda todas as ações em menos de 1 min, e `lib.mjs` é o arranque comum dos testes novos. Ação nova no jogo?
+  Acrescente ao catálogo, quando fizer sentido testá-la na hora.
 - Meteoros ([design/METEOROS.md](docs/design/METEOROS.md), ADR 0014): números em `src/data/meteors.ts`; lógica em `src/entities/Meteors.ts`;
   visual em `src/render/meteorFx.ts` e `puffs.ts`; **onda de choque que entorta a imagem** em `src/render/shockwave.ts` + `FX_SHOCK` na passada
   final de `post.ts`; som, câmera, pausa e clarão em `src/app/MeteorDirector.ts`; teste `tools/visual-check/meteors.mjs`.

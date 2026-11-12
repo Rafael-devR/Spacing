@@ -5,6 +5,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Não lançado]
 
+### Adicionado
+
+- **Modo de teste** ([design/TESTE.md](docs/design/TESTE.md), [ADR 0015](docs/adr/0015-modo-de-teste-com-salvamento-proprio.md)). `?teste`
+  (ou o botão **Modo de teste** na tela inicial) liga um painel de depuração com **salvamento próprio**: dar qualquer item, soltar
+  meteoros (inclusive o impacto na hora), objetos e destroços, instalar estações, concluir fabricações, teleportar, entrar e sair da
+  base já, parar ou acelerar o tempo, tremor e câmera lenta, morrer, pular a missão e tocar cada som. `testmode.mjs` roda todas as ações
+  no navegador em menos de 1 minuto.
+
 ### Alterado
 
 - **Meteoros cinematográficos** ([design/METEOROS.md](docs/design/METEOROS.md), [ADR 0014](docs/adr/0014-onda-de-choque-na-passada-final.md)).

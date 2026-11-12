@@ -7,6 +7,7 @@ import { Haptics } from '../core/haptics';
 import { Input } from '../core/Input';
 import { SHAKE_SCALE, loadPrefs, savePrefs, type Prefs } from '../core/prefs';
 import { PLANET } from '../core/planet';
+import { SAVE_KEY_NOW, TEST_MODE } from '../core/testmode';
 import { clearSave, defaultStore, loadSave, renewWorld, writeSave, type SaveData } from '../core/save';
 import { randomSeed, seedFromSearch } from '../core/seed';
 import { BASALT, DARK_SAND, ICE, MARS_DUST, REGOLITH } from '../data/blocks';
@@ -48,6 +49,7 @@ import { el, maybeEl } from '../ui/dom';
 import { Bag } from '../ui/Bag';
 import { Hud } from '../ui/Hud';
 import { FpsMeter } from '../ui/FpsMeter';
+import { TestPanel } from '../ui/TestPanel';
 import { GraphicsMenu } from '../ui/GraphicsMenu';
 import { PauseMenu } from '../ui/PauseMenu';
 import { CH, LANDER, SPAWN, WORLD_GEN } from '../world/terrain';
@@ -68,6 +70,7 @@ import { INTERIOR_LAYER, IndoorView, showIndoors } from '../render/indoors';
 import { Exploration } from '../systems/Exploration';
 import { MapDirector, TABLET_LAYER } from './MapDirector';
 import { MeteorDirector } from './MeteorDirector';
+import { TestMode } from './TestMode';
 import { BenchRunner } from '../bench/runner';
 import { SUB, type Probe } from '../bench/probe';
 import { loadHistory, saveReport } from '../bench/store';
@@ -174,6 +177,10 @@ export class Game {
   private readonly meteorFx: MeteorFx;
   /** a experiência do meteoro: som, câmera, tempo, clarão e ondas de choque (app/MeteorDirector.ts) */
   private readonly meteorDirector: MeteorDirector;
+  /** modo de teste (`?teste`, docs/design/TESTE.md): executor das ações do painel; nulo no jogo normal */
+  readonly testMode: TestMode | null;
+  /** velocidade do jogo no modo de teste (1 = normal) */
+  private testScale = 1;
 
   private readonly fixed = new FixedStep(FIXED_STEP, MAX_STEPS_PER_FRAME);
   private readonly focus = new THREE.Vector3();
@@ -235,7 +242,7 @@ export class Game {
 
     // semente: a do salvamento; num jogo novo, a do endereço (`?semente=`) ou uma sorteada (docs/design/MUNDO.md)
     const fresh = (): number => seedFromSearch(location.search) ?? randomSeed();
-    let save = loadSave(this.store, PLANET.seed, PLANET.saveKey);
+    let save = loadSave(this.store, PLANET.seed, SAVE_KEY_NOW);
     // o gerador mudou desde que o mundo foi salvo: o progresso fica, o mundo é refeito
     if (save && save.worldGen !== WORLD_GEN[PLANET.id]) {
       save = renewWorld(save, fresh(), WORLD_GEN[PLANET.id]);
@@ -469,6 +476,21 @@ export class Game {
       indoors: () => this.indoors.on,
       cinematic: () => this.state === 'playing',
     });
+    this.testMode = TEST_MODE
+      ? new TestMode({
+        world: this.world, player: this.player, rig: this.rig, inventory: this.inventory, equipment: this.equipment,
+        crafting: this.crafting, power: this.power, missions: this.missions, survival: this.survival, exploration: this.exploration,
+        meteors: this.meteors, debris: this.debris, loot: this.loot, drops: this.drops, base: this.base, hud: this.hud, sfx: this.sfx,
+        setTimeScale: (k) => (this.testScale = Math.max(1e-6, k)),
+        hitStop: (seconds) => (this.hitStop = Math.max(this.hitStop, seconds)),
+        slowMotion: (seconds, scale) => (this.slowMo = { t: seconds, scale }),
+        resetSave: () => this.newGame(),
+      })
+      : null;
+    if (this.testMode) {
+      document.body.classList.add('test-mode');
+      new TestPanel(this.testMode);
+    }
     const landerPos = this.lander.group.position;
     this.map = new MapDirector({
       events, overlay: this.post.overlay, camera: this.camera, renderer, sfx: this.sfx, haptics: this.haptics,
@@ -700,7 +722,7 @@ export class Game {
         muted: () => this.prefs.muted,
         saveBytes: () => {
           try {
-            const raw = this.store?.getItem(PLANET.saveKey);
+            const raw = this.store?.getItem(SAVE_KEY_NOW);
             return raw ? new Blob([raw]).size : null;
           } catch {
             return null;
@@ -768,7 +790,7 @@ export class Game {
 
   private newGame(): void {
     this.resetting = true;
-    clearSave(this.store, PLANET.saveKey);
+    clearSave(this.store, SAVE_KEY_NOW);
     location.reload();
   }
 
@@ -1169,7 +1191,7 @@ export class Game {
       base: this.base.serialize(),
       crafting: this.crafting.serialize(),
       power: this.power.serialize(),
-    }, PLANET.saveKey);
+    }, SAVE_KEY_NOW);
   }
 
   // ---------- pegadas ----------
@@ -1251,6 +1273,7 @@ export class Game {
       this.slowMo.t -= realDt;
       dt = realDt * this.slowMo.scale;
     }
+    dt *= this.testScale;
     this.time += dt;
     const time = this.time;
     if (bench) {

@@ -24,6 +24,26 @@ node shot.mjs http://localhost:5173/ /tmp/shots 960 540 alto
 node shot.mjs http://localhost:5173/ /tmp/shots 390 844 medio mobile retrato-
 ```
 
+## Teste do modo de teste (o mais rápido)
+
+```bash
+node testmode.mjs http://localhost:5173/ /tmp/shots
+```
+
+Abre `?teste` e roda **todas** as ações do painel de depuração pela mesma porta que o celular usa, conferindo o efeito de cada
+uma (item, meteoro, teleporte, tempo, morte, salvamento separado…). Menos de 1 minuto. Para testar uma mudança, o caminho
+rápido é provocar a situação por `window.spacing.testMode.run('meteor.instant')` em vez de jogar até ela
+([design/TESTE.md](../../docs/design/TESTE.md)). `lib.mjs` é o arranque comum (`boot({ test: true })`) dos scripts novos.
+
+## Teste dos meteoros
+
+```bash
+node meteors.mjs http://localhost:5173/ /tmp/shots
+```
+
+Lança um meteoro, congela o jogo em momentos-chave (aviso, voo, impacto e o depois) e tira capturas, conferindo por dentro as
+ondas de choque, as baforadas e os destroços ([design/METEOROS.md](../../docs/design/METEOROS.md)).
+
 ## Teste jogado
 
 ```bash

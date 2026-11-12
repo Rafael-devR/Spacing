@@ -104,11 +104,16 @@ async function open(w, h, prefix) {
   await page.click('#btn-bag');
   await page.waitForTimeout(300);
   check('mochila abre', await page.isVisible('#bag'));
-  await page.click('#bag-hotbar .slot[data-index="1"]');
+  // o ouro fica no primeiro espaço livre da barra; qual é depende de quanto regolito já chegou (por isso procura, em vez de supor o 1)
+  const gi = await page.evaluate(() => {
+    for (let i = 0; i < 8; i++) if (window.spacing.inventory.slot(i)?.item === 'gold') return i;
+    return -1;
+  });
+  await page.click(`#bag-hotbar .slot[data-index="${gi}"]`);
   await page.click('#bag-grid .slot[data-index="10"]');
   await page.waitForTimeout(200);
-  const moved = await page.evaluate(() => [window.spacing.inventory.slot(1), window.spacing.inventory.slot(10)]);
-  check('tocar e tocar move o item para a mochila', moved[0] === null && moved[1]?.item === 'gold', JSON.stringify(moved));
+  const moved = await page.evaluate((i) => [window.spacing.inventory.slot(i), window.spacing.inventory.slot(10)], gi);
+  check('tocar e tocar move o item para a mochila', gi >= 0 && moved[0] === null && moved[1]?.item === 'gold', JSON.stringify({ gi, moved }));
   await page.screenshot({ path: `${out}/paisagem-4-mochila.png` });
   await page.click('#bag-close');
   await page.waitForTimeout(200);

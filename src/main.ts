@@ -5,6 +5,7 @@ import { loadModels } from './render/gltfModels';
 import { t } from './i18n';
 import { el } from './ui/dom';
 import { setupPlanetPicker } from './ui/PlanetPicker';
+import { setupTestEntry } from './ui/TestPanel';
 
 const loading = el('#loading');
 loading.textContent = t('boot.loadingEngine');
@@ -18,6 +19,7 @@ try {
 }
 
 setupPlanetPicker();
+setupTestEntry();
 // os modelos do Blender carregam antes do jogo montar a cena; se algum falhar, o jogo usa o modelo em código
 await loadModels();
 const game = new Game(el('#game'), renderer);

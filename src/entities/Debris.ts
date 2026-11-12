@@ -138,6 +138,17 @@ export class Debris {
     return this.items.length;
   }
 
+  /** tira todos os destroços (o modo de teste, para medir sem eles) */
+  clear(): void {
+    const zero = this.m4.makeScale(0, 0, 0);
+    for (const it of this.items) {
+      this.meshes[it.kind].setMatrixAt(it.i, zero);
+      this.free[it.kind].push(it.i);
+    }
+    this.items.length = 0;
+    for (const m of this.meshes) m.instanceMatrix.needsUpdate = true;
+  }
+
   spawn(pos: THREE.Vector3, vel: THREE.Vector3, size: number, rgb: RGB, kind: Kind = 0, opts: SpawnOptions = {}): void {
     let i = this.free[kind].pop();
     if (i === undefined) {

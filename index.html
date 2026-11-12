@@ -55,6 +55,10 @@
       <button class="chip" id="btn-fullscreen" type="button" title="Tela cheia" aria-label="Tela cheia" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
       </button>
+      <button class="chip" id="btn-test" type="button" title="Modo de teste (F2)" aria-label="Modo de teste" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2.2h12.4a1.5 1.5 0 0 0 1.3-2.2L14 9V3"/></svg>
+        <span class="lbl">Teste</span>
+      </button>
       <button class="chip" id="btn-pause" type="button" title="Pausar (Esc)" aria-label="Pausar">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6v12M15 6v12"/></svg>
         <span class="lbl">Pausa</span>
@@ -180,6 +184,8 @@
 <!-- telas cheias em Canvas (src/ui/canvasScreen.ts): estações e energia da base -->
 <div id="craft" class="screen" hidden role="dialog" aria-modal="true" aria-label="Estação de fabricação"><canvas></canvas></div>
 <div id="power" class="screen" hidden role="dialog" aria-modal="true" aria-label="Energia da base"><canvas></canvas></div>
+
+<div id="testpanel" hidden role="dialog" aria-label="Modo de teste"></div>
 
 <div id="bag" hidden role="dialog" aria-modal="true" aria-labelledby="bag-title">
   <div class="bag-card">
@@ -344,6 +350,7 @@
     <div class="start-row">
       <button class="cta" id="btn-start" type="button" disabled>Carregando…</button>
       <button class="ghost-btn" id="btn-reset" type="button" hidden>Novo jogo</button>
+      <button class="ghost-btn" id="btn-testmode" type="button">Modo de teste</button>
       <span id="loading">Carregando motor 3D…</span>
       <span id="rotate-hint"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M3 14a9 9 0 0 0 6 6"/></svg>Melhor deitado: gire o celular</span>
     </div>

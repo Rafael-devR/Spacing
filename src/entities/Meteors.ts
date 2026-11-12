@@ -125,9 +125,11 @@ export class Meteors {
 
   /** sem novas quedas (astronauta dentro da base); as que já estão no ar terminam */
   holdSpawns = false;
+  /** liga e desliga o sorteio de meteoros (o modo de teste desliga para soltar só os que pedir) */
+  autoSpawn = true;
 
   update(dt: number, t: number): void {
-    if (!this.holdSpawns) this.timer -= dt;
+    if (!this.holdSpawns && this.autoSpawn) this.timer -= dt;
     if (this.timer <= 0) {
       this.timer = METEOR.everyMin + Math.random() * (METEOR.everyMax - METEOR.everyMin);
       this.launch(this.pickTarget(METEOR.pickMin, METEOR.pickMax), { radius: METEOR.radiusMin + Math.random() * (METEOR.radiusMax - METEOR.radiusMin), meteorite: Math.random() < 0.6 });

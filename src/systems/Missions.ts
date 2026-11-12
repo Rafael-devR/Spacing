@@ -111,6 +111,12 @@ export class Missions {
     if (s.kind === 'prop' && s.prop === type) this.complete();
   }
 
+  /** Só no modo de teste: dá a missão de agora por cumprida (docs/design/TESTE.md). */
+  skip(): void {
+    if (this.wait > 0) this.wait = 0.001;
+    else this.complete();
+  }
+
   /** Ponto que o marcador de objetivo deve indicar, se houver. */
   target(): THREE.Vector3 | null {
     const s = this.current;
