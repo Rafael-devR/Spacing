@@ -7,6 +7,18 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Adicionado
 
+- **Fabricação em estações, com química de verdade** ([design/CRAFTING.md](docs/design/CRAFTING.md),
+  [ADR 0009](docs/adr/0009-fabricacao-em-estacoes-com-tempo.md)). O minério não vira ferramenta direto: passa por uma
+  estação e vira material refinado. Duas estações novas, fabricadas na bancada e instaladas na parede leste da base: o
+  **forno solar** (barra de ferro, tijolo de regolito, vidro, fibra de basalto, redução da ilmenita) e o **eletrolisador**
+  (gelo → 2 H₂ + O₂, titânio, silício). Dez itens novos com modelo próprio; todo item da Lua agora entra em alguma
+  receita. As estações **trabalham sozinhas** (uma receita por vez cada, as três juntas), com o jogo aberto e o jogador em
+  qualquer lugar, e guardam o resultado até ele usar **"Pegar"**. O **tempo vem dos ingredientes** (calor, peso e
+  raridade) e varia ±12% a cada vez: forno ~30 a 45 s, eletrolisador ~35 a 50 s, bancada ~1 a 2 min. **Tela técnica**
+  nova: diagrama ao vivo com os materiais correndo pelos canos e esvaziando, a câmara trabalhando (calor, bolhas,
+  laser), o produto enchendo, fórmula química, etapas, medidores, porquê do tempo e nota científica. **Selo no HUD** com o
+  que cada estação faz e quanto falta. **Cilindro de O₂** conecta sozinho a 15% de ar longe da base (+50). Salvamento v7.
+
 - **Marte** ([design/MARTE.md](docs/design/MARTE.md), [ADR 0008](docs/adr/0008-planetas-por-sessao.md)), escolhido por
   enquanto na tela inicial e com salvamento próprio (o da Lua não muda). Elysium Planitia: poeira vermelha, céu cor de
   caramelo sem estrelas com **Fobos e Deimos** e o halo azul do sol, **gravidade de Marte** (pulo mais baixo, queda mais
@@ -31,6 +43,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
   `LootPiles.clear()`, usados só pelo teste).
 
 ### Alterado
+
+- **Receitas refeitas:** Mapa = placa de circuito + vidro + barra de ferro (o módulo de pouso dá a placa no começo, e a
+  quem vem de um salvamento antigo sem o Mapa); broca de ferro = 4 barras de ferro + 2 tijolos; broca de cristal = 4
+  cristais + 2 lingotes de titânio + 2 fibras de basalto.
 
 - **Qualidade Média e Alta com MSAA 2× (era 4×):** no teste de desempenho o MSAA era o efeito mais caro (~5 ms por quadro). Com a
   resolução 2× as bordas continuam lisas; a diferença, se aparecer, é nas bordas finas. A Baixa não usa MSAA.

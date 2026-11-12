@@ -44,7 +44,9 @@ Detalhes em [design/SOBREVIVENCIA.md](design/SOBREVIVENCIA.md) e [design/GAME_JU
 
 ## v0.4: Sobrevivência II
 
-- [ ] Crafting com receitas e tela de crafting (bancada e primeira receita prontas na base inicial).
+- [x] Crafting em estações que trabalham sozinhas (bancada, forno solar, eletrolisador), itens com propósito e química
+      real, tempo pelo material e tela técnica ([design/CRAFTING.md](design/CRAFTING.md), ADR 0009).
+- [ ] Fabricação em Marte (hematita, gipsita, olivina; reator de CO₂).
 - [ ] Gerador de Domo (esfera de atmosfera, ficção).
 - [ ] Painéis solares e eletrolisador (gelo vira O₂ e H₂).
 - [ ] Escuridão e frio nas crateras; lanterna e aquecimento.

@@ -65,8 +65,16 @@ Em ordem de execução, tudo com testes e documentação:
 5. **Marte** (tela inicial → "Planeta (provisório)", ou `?planeta=marte`): terreno, gravidade, clima (tempestades de
    poeira), redemoinhos, lava que queima o traje, vulcão com erupções, minerais novos, duas luas, missões próprias, salvamento
    próprio. A **lava ativa é ficção que o dono pediu** (registrada no design). [design/MARTE.md](design/MARTE.md), ADR 0008.
+6. **Fabricação em estações** (pedido do dono em 2026-11-12): forno solar e eletrolisador ao lado da bancada, 10 itens
+   fabricados com química real (ISRU), estações que trabalham sozinhas e guardam o resultado, tempo pelo calor, peso e
+   raridade (±12%), tela técnica com diagrama ao vivo, selo no HUD, cilindro de O₂ de reserva, salvamento v7.
+   [design/CRAFTING.md](design/CRAFTING.md), [design/ITENS.md](design/ITENS.md), ADR 0009. **Marte ainda não fabrica**
+   (próxima fase: hematita, gipsita, olivina).
 
 ## O que o dono ainda **não viu** no celular
+
+- A **fabricação nova** inteira: tela técnica das estações (leitura no celular, toque na lista), forno e eletrolisador na
+  base, ritmo dos tempos (1 a 2 min na bancada), selo no HUD.
 
 - **Marte inteiro** (cores, gravidade, tempestade, vulcão, desempenho dos efeitos novos).
 - O **menu de gráficos avançados** (tocar nos botões, a Nativa, o limite de FPS em 60 com o dedo na tela).

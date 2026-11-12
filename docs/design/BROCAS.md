@@ -22,8 +22,8 @@ IA do traje avisa uma vez: **"Basalto pede a broca de ferro. Fabrique na bancada
 | Broca               | Nível | Velocidade | Bateria | Como conseguir                              |
 | ------------------- | ----- | ---------- | ------- | ------------------------------------------- |
 | Broca de regolito   | 0     | 1×         | 1×      | já vem no traje                             |
-| Broca de ferro      | 1     | 1,7×       | 1,15×   | bancada: 4 ferro, 4 rocha lunar             |
-| Broca de cristal    | 2     | 2,6×       | 1,35×   | bancada: 4 cristal, 4 ferro, 4 basalto      |
+| Broca de ferro      | 1     | 1,7×       | 1,15×   | bancada: 4 barras de ferro, 2 tijolos       |
+| Broca de cristal    | 2     | 2,6×       | 1,35×   | bancada: 4 cristais, 2 lingotes de titânio, 2 fibras de basalto |
 
 O que cada nível abre:
 
@@ -32,8 +32,9 @@ O que cada nível abre:
 - **Nível 1:** basalto, cristal (bloco e pedra solta) e ilmenita.
 - **Nível 2:** ouro.
 
-A progressão sai do próprio jogo: o ferro e o cristal do meteorito pagam a broca de ferro, o basalto que ela abre
-paga a de cristal, e a de cristal abre o ouro.
+A progressão sai do próprio jogo e passa pelas estações ([CRAFTING.md](CRAFTING.md)): o forno funde o ferro e
+sinteriza o tijolo da broca de ferro; ela abre basalto, cristal e ilmenita; a ilmenita vira titânio (forno e
+eletrolisador) e o basalto vira fibra, que com o cristal pagam a broca de cristal; e a de cristal abre o ouro.
 
 ## No jogo
 

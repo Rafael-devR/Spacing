@@ -54,17 +54,22 @@ astronauta morrer, acorda dentro da base em vez de no módulo de pouso.
 
 ### Bancada de fabricação
 
-1. "Usar bancada" abre a lista de receitas, com o que cada uma precisa (verde = tem, vermelho = falta).
-2. "Fabricar" gasta os materiais na hora e começa a impressão:
+A bancada é uma das estações de fabricação; o forno solar e o eletrolisador ficam na parede leste. Como as estações
+trabalham sozinhas, a tela técnica e os tempos estão em [CRAFTING.md](CRAFTING.md).
+
+1. Usar a bancada abre a tela técnica dela: receitas à esquerda, processo ao vivo à direita.
+2. "Fabricar" gasta os materiais na hora e começa a impressão, que dura de 1 a 2 minutos (o jogador pode sair):
    - o tampo da bancada acende em grade azul;
    - um **holograma** em linhas mostra a peça inteira;
    - a peça é **impressa de baixo para cima**: um plano de corte sobe com uma camada brilhante;
    - **dois lasers** num pórtico varrem a camada atual, soltando **faíscas**, com o som do laser vindo da bancada.
-3. No fim: clarão, a peça gira no ar, **voa até o astronauta** e aparece "Fabricação concluída".
+3. No fim: clarão e a peça fica girando na bancada até o jogador usar **"Pegar"**; então ela **voa até o astronauta**
+   (ou até o lugar da máquina nova) e aparece "Fabricação concluída".
 
 ## Primeira receita: Mapa
 
-- **Materiais:** 6 regolito + 2 minério de ferro (ajustável em `src/data/recipes.ts`).
+- **Materiais:** 1 placa de circuito + 1 vidro + 1 barra de ferro (`src/data/recipes.ts`). A placa vem do módulo de
+  pouso no começo do jogo; o vidro e a barra saem do forno solar, que a bancada fabrica primeiro.
 - **Equipamento**, não item: não ocupa espaço no inventário. Ao terminar já fica **equipado** no traje e
   aparece em "Equipamento no traje", na mochila.
 - **Uso:** libera o botão do tablet, que abre o mapa da cratera ([MAPA.md](MAPA.md)).

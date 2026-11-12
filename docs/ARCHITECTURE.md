@@ -24,7 +24,7 @@ src/
                      BaseDirector (entrada na base, bancada, descanso), MarsDirector (clima, lava e vulcão de
                      Marte), eventos do jogo, configuração, passo fixo
   core/              barramento de eventos, entrada, salvamento, preferências, tela cheia, ruído, cor, vibração,
-  data/              conteúdo como dados: blocos, itens, objetos, missões, base, receitas, equipamentos e os
+  data/              conteúdo como dados: blocos, itens, objetos, missões, base, estações, receitas, equipamentos e os
                      cenários do teste de desempenho
   bench/             teste de desempenho: estatísticas puras, sondas de CPU, observadores, GPU, efeitos só na
                      memória, condutor dos cenários, resultado, histórico, gráfico e telas (ADR 0007)
@@ -32,8 +32,10 @@ src/
   entities/          jogador, destroços, meteoros, itens soltos, itens caídos na morte (LootPiles)
   systems/           interação (minerar/construir), inventário, missões, sobrevivência, fabricação, equipamento
   render/            materiais e shaders, céu, luzes, pós-processamento, partículas, modelos, câmera, ícones,
-                     modelo da base, bancada com laser (Fabricator) e camada do interior (indoors)
-  ui/                HUD, menu de pausa, mochila, bancada, botão de ação e transições da base, estilos
+                     modelo da base, bancada com laser (Fabricator), forno e eletrolisador (stationModels),
+                     itens fabricados (craftedModels) e camada do interior (indoors)
+  ui/                HUD, menu de pausa, mochila, tela das estações (CraftPanel), selo dos trabalhos (JobsChip),
+                     botão de ação e transições da base, estilos
   audio/             sons sintetizados e áudio posicional (design/AUDIO.md)
   i18n/              textos da interface (pt-BR)
 tests/               testes automatizados (Vitest)

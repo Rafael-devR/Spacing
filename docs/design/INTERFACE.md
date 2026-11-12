@@ -48,12 +48,17 @@ pouco vai para os cantos de cima.**
 
 - **Canto superior esquerdo:** medidores do traje e objetivo. No celular, o objetivo fica compacto (título
   e progresso); ele abre o texto completo por 7 s ao começar e quando o objetivo muda. Um toque abre ou fecha.
+  Abaixo do objetivo, um **selo por estação trabalhando** (ícone do produto e tempo que falta, ou "Pronto"), para o
+  jogador saber lá fora quando voltar à base ([CRAFTING.md](CRAFTING.md)).
 - **Topo, no centro:** bússola e mensagens (IA do traje, avisos). Saíram de cima do joystick.
 - **Canto superior direito:** tela cheia, pausa e câmera (girar e zoom), que se usam pouco. O zoom também
   funciona com pinça.
 - **Embaixo:** joystick no polegar esquerdo; pular (botão grande, no canto) e minerar/construir (ao lado,
   em arco) no polegar direito; barra de itens no centro.
 - **Em pé (retrato):** a barra de itens fica na borda de baixo e os polegares logo acima dela.
+- **Tela das estações** (bancada, forno, eletrolisador): ocupa quase a tela; receitas numa coluna à esquerda (no retrato,
+  numa faixa que rola de lado) e o processo ao vivo à direita, com o botão principal fixo embaixo, no polegar direito
+  ([CRAFTING.md](CRAFTING.md)).
 - Nome do lugar e coordenadas saíram do HUD e foram para o cabeçalho do menu de pausa.
 - O HUD fica escondido no menu inicial e na pausa. Na tela de morte só ficam os medidores.
 - **Menu de pausa, Teste de desempenho:** logo abaixo de **Continuar** está o botão **Teste de desempenho**. Ele abre a
