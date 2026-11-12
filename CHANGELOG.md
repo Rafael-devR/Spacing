@@ -5,6 +5,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Não lançado]
 
+### Alterado
+
+- **Pós-processamento mais leve** (qualidade Alta e Média; `src/render/post.ts`): o bloom já começava na metade da resolução
+  do desenho (e cai pela metade a cada faixa), então isso ficou como estava. O que mudou: o bloom não é mais somado por cima da
+  imagem numa passada própria, e o mapeamento de tons e a conversão para sRGB (antes numa passada separada) foram para dentro
+  da passada final, junto com a correção de cor, a vinheta, o ruído e a aberração. Eram 3 passadas de tela cheia sobre o alvo
+  com MSAA depois do mundo; agora é 1. Nenhum efeito foi removido nem a resolução mudou. A imagem fica igual, com diferença
+  mínima só nas bordas dos objetos (a aberração agora filtra a luz antes do mapeamento de tons). Sem medição de FPS: falta
+  rodar o teste de desempenho no celular.
+
 ### Adicionado
 
 - **Teste de desempenho completo** ([design/BENCHMARK.md](docs/design/BENCHMARK.md), [ADR 0007](docs/adr/0007-teste-de-desempenho-completo.md)):

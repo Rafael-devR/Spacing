@@ -9,8 +9,8 @@ import type { Post, QualityPreset } from '../render/post';
 export const GRADE_PATCHES: Record<'chromatic' | 'vignette' | 'noise', { find: string; replace: string }[]> = {
   chromatic: [
     {
-      find: 'vec3 c = vec3(texture2D(tDiffuse, vUv + dir * ca).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - dir * ca).b);',
-      replace: 'vec3 c = texture2D(tDiffuse, vUv).rgb;',
+      find: 'vec3 c = vec3(scene(vUv + dir * ca).r, scene(vUv).g, scene(vUv - dir * ca).b);',
+      replace: 'vec3 c = scene(vUv);',
     },
   ],
   vignette: [{ find: 'c *= mix(0.74, 1.0, smoothstep(1.0, 0.3, length(d)));', replace: '' }],
