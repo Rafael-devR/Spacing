@@ -59,10 +59,15 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). Leia o [README]
   120 Hz (principal) e 60 Hz. Meça antes de otimizar e compare com o resultado guardado. A sonda do jogo (`Game.probe`) é nula
   fora do teste: ao medir uma parte nova do laço, use `probe?.begin(SUB.x)` / `probe?.end(SUB.x)`. Mudou um cenário? Suba
   `BENCH_VERSION`.
+- Planetas (ADR 0008): dados em `src/data/planets.ts`, planeta da sessão em `src/core/planet.ts` (`?planeta=marte`). Marte:
+  terreno `src/world/marsTerrain.ts`, vida (clima, redemoinhos, lava, vulcão) em `src/app/MarsDirector.ts`, clima puro em
+  `src/systems/Weather.ts`, efeitos em `src/render/marsFx.ts`; teste `tools/visual-check/mars.mjs` ([design/MARTE.md](docs/design/MARTE.md)).
+  Cada planeta tem o próprio salvamento.
 - Gráficos avançados: `src/render/graphics.ts` (trocas do jogador por cima da qualidade), `src/ui/GraphicsMenu.ts` e `FpsMeter.ts`;
   efeito novo de tela = `#ifdef` na passada final de `src/render/post.ts` + linha em `GraphicsMenu` ([design/GRAFICOS.md](docs/design/GRAFICOS.md)).
 - Sobrevivência: números em `src/data/survival.ts`, regras em `src/systems/Survival.ts`, resposta
   (avisos, sons, efeitos, morte) em `src/app/SurvivalDirector.ts`.
 - Salvamento: `localStorage`, chave `spacing.save` (com versão e migração em `src/core/save.ts`) e
   `spacing.prefs.v1`. Mudou o formato? Nova versão, migração e teste.
-- Semente do mundo: `SEED` em `src/app/config.ts`. Mudar o gerador em `src/world/terrain.ts` invalida saves.
+- Semente do mundo: por planeta, em `src/data/planets.ts`. Mudar o gerador em `src/world/terrain.ts` (Lua) ou `marsTerrain.ts`
+  invalida os saves daquele planeta.

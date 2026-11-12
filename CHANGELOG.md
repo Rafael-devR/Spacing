@@ -7,6 +7,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Adicionado
 
+- **Marte** ([design/MARTE.md](docs/design/MARTE.md), [ADR 0008](docs/adr/0008-planetas-por-sessao.md)), escolhido por
+  enquanto na tela inicial e com salvamento próprio (o da Lua não muda). Elysium Planitia: poeira vermelha, céu cor de
+  caramelo sem estrelas com **Fobos e Deimos** e o halo azul do sol, **gravidade de Marte** (pulo mais baixo, queda mais
+  perigosa, pedaços que caem com arrasto do ar), **dunas de areia escura**, **cânion em camadas** com **veios de gipsita**,
+  **gelo sob a poeira**, **esferas de hematita** soltas no chão, **olivina** no basalto e um **vulcão** com caldeira, lago e
+  rios de **lava** (brilha, queima o traje, solta brasas e fumaça) e **erupções** com tremor e ronco. **Tempestades de
+  poeira** (a IA avisa; a visão cai, a luz escurece, a poeira corre, o vento empurra e apaga as **pegadas**, que em Marte
+  duram bem mais), **redemoinhos** que limpam os painéis do traje (+bateria), som abafado com **vento** e missões próprias.
+  Teste `tools/visual-check/mars.mjs`.
+
 - **Gráficos avançados** ([design/GRAFICOS.md](docs/design/GRAFICOS.md)): no menu de pausa, **Gráficos avançados…** deixa
   trocar por cima da qualidade a **resolução** (0,5× a 2× ou **nativa** da tela, com o tamanho do desenho em pixels), o
   **MSAA** (desligado, 2×, 4×), as **sombras** (sem sombra, 1024, 2048, 4096), o **bloom**, a aberração de cor, a vinheta,

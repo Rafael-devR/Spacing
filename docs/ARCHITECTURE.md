@@ -21,8 +21,8 @@ do `MeshLambertMaterial` (`src/render/materials.ts`). Atualizar exige revisar es
 src/
   main.ts            ponto de entrada: cria o renderizador e o Game
   app/               Game (laço, estados, ligação dos sistemas), SurvivalDirector (resposta à sobrevivência),
-                     BaseDirector (entrada na base, bancada, descanso), eventos do jogo, configuração,
-                     passo fixo
+                     BaseDirector (entrada na base, bancada, descanso), MarsDirector (clima, lava e vulcão de
+                     Marte), eventos do jogo, configuração, passo fixo
   core/              barramento de eventos, entrada, salvamento, preferências, tela cheia, ruído, cor, vibração,
   data/              conteúdo como dados: blocos, itens, objetos, missões, base, receitas, equipamentos e os
                      cenários do teste de desempenho
@@ -44,6 +44,12 @@ docs/                documentação e referências de arte
 
 Convenção de nomes: arquivo cuja exportação principal é uma classe usa PascalCase (`World.ts`, `Player.ts`);
 os demais usam camelCase (`terrain.ts`, `materials.ts`).
+
+## Planetas
+
+O planeta (Lua ou Marte) é escolhido **antes** de o jogo montar o mundo e fica fixo na sessão; trocar recarrega a página
+(ADR 0008). `src/data/planets.ts` guarda o que muda (semente, salvamento, céu, luz, física, som, pegadas) e
+`src/core/planet.ts` diz qual é o planeta desta sessão. Cada terreno implementa `TerrainGen`.
 
 ## Como as peças conversam
 
