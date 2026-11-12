@@ -6,9 +6,9 @@ coisa, a química, os tempos e a tela estão em [CRAFTING.md](CRAFTING.md). Se e
 
 Legenda: ✅ tem uso em receita · 🧱 só construção · 🔬 Marte, uso planejado (ainda sem receita).
 
-## Itens (27)
+## Itens (28)
 
-### Lua: minerados (8)
+### Lua: minerados (9)
 
 | Item | De onde vem | Vira / entra em | |
 | --- | --- | --- | --- |
@@ -17,9 +17,10 @@ Legenda: ✅ tem uso em receita · 🧱 só construção · 🔬 Marte, uso plan
 | Basalto | Mares escuros, nível 1 | Fibra de basalto (forno); construir | ✅ |
 | Gelo | Fundo de crateras | H₂ + O₂ (eletrolisador); construir | ✅ |
 | Minério de ferro | Veios, meteorito | Barra de ferro (forno); Forno solar (bancada) | ✅ |
-| Ilmenita | Pedras escuras soltas, nível 1 | Óxido de titânio + ferro + água (forno, com H₂) | ✅ |
-| Ouro | Pedras com pepitas, nível 2 | Placa de circuito (bancada) | ✅ |
+| Ilmenita | Pedras escuras soltas e blocos no basalto e no norito, nível 1 | Óxido de titânio + ferro + água (forno, com H₂) | ✅ |
+| Ouro | Pedras com pepitas e blocos no fundo (norito), nível 2 | Placa de circuito (bancada) | ✅ |
 | Cristal lunar | Bloco e pedra solta, nível 1, meteorito | Broca de cristal (bancada) | ✅ |
+| Anortosito | Picos das terras altas | Vidro (forno, 2 → 1); construir | ✅ |
 
 ### Lua: fabricados (11)
 
@@ -27,7 +28,7 @@ Legenda: ✅ tem uso em receita · 🧱 só construção · 🔬 Marte, uso plan
 | --- | --- | --- | --- |
 | Barra de ferro | Forno | 2 minério de ferro (ou da ilmenita) | Mapa, Broca de ferro, Eletrolisador |
 | Tijolo de regolito (×2) | Forno | 4 regolito | Broca de ferro, Eletrolisador |
-| Vidro | Forno | 3 regolito | Mapa, Eletrolisador |
+| Vidro | Forno | 3 regolito, ou 2 anortosito | Mapa, Eletrolisador |
 | Fibra de basalto | Forno | 2 basalto | Broca de cristal |
 | Óxido de titânio | Forno | 1 ilmenita + 1 H₂ | Lingote de titânio |
 | Cilindro de H₂ (×2) | Eletrolisador | 2 gelo | Redução da ilmenita |
@@ -50,6 +51,11 @@ Legenda: ✅ tem uso em receita · 🧱 só construção · 🔬 Marte, uso plan
 | Olivina | Basalto do vulcão, nível 1 | Missão | Forno refratário | 🔬 |
 | Gipsita | Veios do cânion | Missão | Água e gesso | 🔬 |
 
+## Blocos que não são itens próprios
+
+Brecha e norito soltam **rocha lunar**; basalto vítreo solta **basalto**; os blocos de ilmenita e de ouro soltam o
+minério. Onde cada um aparece: [MUNDO.md](MUNDO.md).
+
 ## Estações (3)
 
 | Estação | Como se obtém | Faz | Vagas | Energia |
@@ -67,12 +73,12 @@ Legenda: ✅ tem uso em receita · 🧱 só construção · 🔬 Marte, uso plan
 | Broca de ferro | 4 barras de ferro + 2 tijolos | Nível 1, 1,7× mais rápida |
 | Broca de cristal | 4 cristais + 2 lingotes de titânio + 2 fibras de basalto | Nível 2 (ouro), 2,6× mais rápida |
 
-## Receitas (15)
+## Receitas (16)
 
 | Estação | Receitas |
 | --- | --- |
 | Bancada (7) | Forno solar, Eletrolisador, Mapa, Placa de circuito, Painel solar, Broca de ferro, Broca de cristal |
-| Forno solar (5) | Barra de ferro, Tijolo, Vidro, Fibra de basalto, Redução da ilmenita |
+| Forno solar (6) | Barra de ferro, Tijolo, Vidro (de regolito), Vidro (de anortosito), Fibra de basalto, Redução da ilmenita |
 | Eletrolisador (3) | Água → H₂ + O₂, Titânio, Silício |
 
 ## O que mudou (2026-11-12)

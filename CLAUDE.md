@@ -55,6 +55,9 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). **Sessão nova?
   fórmula do tempo em `recipes.ts`, regras em `src/systems/Crafting.ts`, tela técnica em `src/ui/CraftPanel.ts`, máquinas em
   `src/render/stationModels.ts` ([design/CRAFTING.md](docs/design/CRAFTING.md), panorama em [design/ITENS.md](docs/design/ITENS.md)).
   Todo item novo precisa de `about` e de uso; o teste `tests/crafting.test.ts` confere. Estações têm vagas e lotes.
+- Mundo (ADR 0011, [design/MUNDO.md](docs/design/MUNDO.md)): semente sorteada por jogo (`src/core/seed.ts`, `?semente=`), mundo de
+  96 blocos, relevo e camadas em `src/world/terrain.ts`, cavernas em `src/world/caves.ts`, luz do céu em `World.skyLight` + `aSky`
+  no mesher, corte da câmera em `src/render/cutaway.ts`; teste `tools/visual-check/caves.mjs`. Mudou o gerador? Suba `WORLD_GEN`.
 - Energia (ADR 0010, regra do dono: **nada vem do nada**): números em `src/data/power.ts`, regras em `src/systems/Power.ts`,
   tela no console em `src/ui/PowerPanel.ts`; painel solar é um objeto colocado no mundo ([design/ENERGIA.md](docs/design/ENERGIA.md)).
   Telas cheias em Canvas herdam de `src/ui/canvasScreen.ts`; teste `tools/visual-check/stations.mjs`.
@@ -78,5 +81,5 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). **Sessão nova?
   (avisos, sons, efeitos, morte) em `src/app/SurvivalDirector.ts`.
 - Salvamento: `localStorage`, chave `spacing.save` (com versão e migração em `src/core/save.ts`) e
   `spacing.prefs.v1`. Mudou o formato? Nova versão, migração e teste.
-- Semente do mundo: por planeta, em `src/data/planets.ts`. Mudar o gerador em `src/world/terrain.ts` (Lua) ou `marsTerrain.ts`
-  invalida os saves daquele planeta.
+- Semente do mundo: sorteada em cada jogo novo e guardada no salvamento (a de `src/data/planets.ts` é só a dos salvamentos antigos).
+  Mudar o gerador em `src/world/terrain.ts` (Lua) ou `marsTerrain.ts` pede subir `WORLD_GEN`: o mundo dos saves é refeito, o progresso fica.

@@ -31,8 +31,10 @@ rodar em celular, ter oclusão ambiente nos cantos e mostrar minérios como pepi
 ## Consequências
 
 - Poucos draw calls e malhas pequenas; editar é barato.
-- A altura do mundo é fixa em 48 blocos, e há no máximo 255 tipos de bloco.
+- A altura do mundo é fixa (48 blocos na origem; **96 desde o [ADR 0011](0011-semente-por-jogo-cavernas-e-luz-do-ceu.md)**), e há no
+  máximo 255 tipos de bloco.
 - Geração e malha rodam na thread principal e podem engasgar em aparelho fraco. **Próximo passo:** mover
   para um Web Worker (ver [roadmap](../ROADMAP.md), v0.7).
 - Mudar o gerador muda o mundo de todos os saves existentes. Qualquer mudança em `terrain.js` precisa de
-  um novo número de versão do mundo ou deve ser tratada como quebra de compatibilidade.
+  um novo número de versão do mundo ou deve ser tratada como quebra de compatibilidade. **Desde o ADR 0011** a semente é
+  sorteada por jogo e o salvamento guarda a versão do gerador (`WORLD_GEN`): mudou, o mundo é refeito e o progresso fica.

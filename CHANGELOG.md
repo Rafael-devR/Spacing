@@ -7,6 +7,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Adicionado
 
+- **Mundo novo a cada jogo, maior e com cavernas** ([design/MUNDO.md](docs/design/MUNDO.md),
+  [ADR 0011](docs/adr/0011-semente-por-jogo-cavernas-e-luz-do-ceu.md)). A **semente é sorteada** em cada jogo novo
+  (`?semente=` escolhe). O mundo foi de 48 para **96 blocos de altura**, com terras altas de anortosito e crateras
+  gigantes. **Cavernas na Lua**: tubos de lava, túneis que se cruzam, salões, rampas para descer andando e claraboias.
+  Seis **blocos novos** (anortosito, brecha, norito, basalto vítreo, ilmenita e ouro em bloco) e minérios por
+  profundidade. **Escuro de verdade** (luz do céu por bloco) e **lanterna do capacete**. Dentro da caverna a **câmera
+  aproxima e a rocha na frente do astronauta é cortada**. Salvamento v10: quem tinha um mundo antigo mantém os itens e
+  ganha um mundo novo.
+
 - **Fabricação mais rápida e mais controle** (terceira rodada do dono): tempos ~10× menores (barra de ferro ~4 s, vidro
   ~3 s, broca de cristal ~13 s), cada unidade de um lote pronta já pode ser pega, e cada vaga pode ser **pausada** ou
   **cancelada** (devolve os materiais do que não ficou pronto). Tela das estações em estilo de **painel técnico**

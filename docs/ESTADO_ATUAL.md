@@ -76,7 +76,15 @@ Em ordem de execução, tudo com testes e documentação:
 8. **Terceira rodada da fabricação:** tempos ~10× menores, pegar por unidade, pausar e cancelar, receitas à direita,
    painel técnico no estilo do jogo Idle CPU (referência do dono). Salvamento v9.
 
+9. **Mundo novo** (pedido do dono em 2026-11-12): semente sorteada por jogo, 96 blocos de altura, terras altas, seis
+   blocos novos, **cavernas na Lua** (tubos de lava, túneis, salões, rampas, claraboias), escuro com lanterna do capacete,
+   câmera que aproxima e corta a rocha dentro da caverna. Salvamento v10 (mundo antigo é refeito, progresso fica).
+   [design/MUNDO.md](design/MUNDO.md), ADR 0011. **Marte ainda não tem cavernas.**
+
 ## O que o dono ainda **não viu** no celular
+
+- **O mundo novo**: cavernas, câmera com corte, escuro e lanterna, montanhas, e principalmente o **desempenho** (gerar
+  chunk ficou ~2,5× mais caro; o material do corte desenha os dois lados das faces).
 
 - As **telas cheias em Canvas** das estações e da energia (legibilidade, toque, rolagem da lista), vagas e lotes, o
   painel solar colocado no chão, e o ritmo com a energia (eletrolisador fica lento sem painéis).
@@ -103,7 +111,8 @@ Em ordem de execução, tudo com testes e documentação:
 - Cuidado ao encadear verificações com `| tail`: esconde a falha. Rode `lint`, `typecheck`, `test` e `build` em laço, sem pipe.
 - Os testes do Vitest rodam sempre **na Lua** (`PLANET` é lido no carregamento); Marte é testado gerando `MarsTerrain`
   direto e no navegador com `mars.mjs`.
-- Mudar o gerador de terreno de um planeta invalida os salvamentos dele. Mudou um cenário do teste de desempenho? Suba
+- Mudar o gerador de terreno de um planeta pede subir `WORLD_GEN` (o mundo dos salvamentos é refeito; o progresso fica).
+  Testes e scripts não podem depender de uma semente: use `?semente=` ou confira em várias. Mudou um cenário do teste de desempenho? Suba
   `BENCH_VERSION`. Mudou o formato do salvamento? Nova versão, migração e teste.
 - O Three.js 0.160.0 está fixado: o material dos blocos injeta GLSL nos nomes internos dos shaders.
 
@@ -111,7 +120,7 @@ Em ordem de execução, tudo com testes e documentação:
 
 `npm test` (Vitest, ~240 testes) e, em `tools/visual-check/` (precisa de `npm run dev`; veja o README da pasta):
 `play.mjs` (jogabilidade), `ui.mjs` (HUD), `audio.mjs`, `base.mjs`, `drill.mjs`, `tablet.mjs` (mapa), `bench.mjs` (teste
-de desempenho), `gfx.mjs` (gráficos avançados), `mars.mjs` (Marte), `shot.mjs <url> <pasta> <largura> <altura> <qualidade>`
+de desempenho), `gfx.mjs` (gráficos avançados), `mars.mjs` (Marte), `stations.mjs` (estações e energia), `caves.mjs` (cavernas e câmera), `shot.mjs <url> <pasta> <largura> <altura> <qualidade>`
 (capturas). Rode o que combina com a mudança; para mexer em shader/pós-processamento, compare capturas antes e depois.
 
 ## Próximos passos possíveis (o dono decide)
