@@ -171,13 +171,9 @@
 
 <div id="fade" hidden><span id="fade-text"></span></div>
 
-<!-- teste de desempenho (app/Benchmark.ts): acompanhamento enquanto roda e tela de resultado -->
-<div id="bench" hidden role="status">
-  <div class="bench-top"><strong id="bench-title"></strong><button class="chip" id="bench-cancel" type="button"></button></div>
-  <span id="bench-phase"></span>
-  <div class="bench-bar"><i id="bench-fill"></i></div>
-  <span id="bench-fps"></span>
-</div>
+<!-- teste de desempenho (src/bench/): escolha do modo, acompanhamento enquanto roda e resultado; o conteúdo vem de bench/ui.ts -->
+<div id="bench" hidden role="status"></div>
+<div id="bench-choose" hidden role="dialog" aria-modal="true"></div>
 <div id="bench-result" hidden role="dialog" aria-modal="true" aria-labelledby="bench-result-title"></div>
 
 <div id="craft" hidden role="dialog" aria-modal="true" aria-labelledby="craft-title">
@@ -235,7 +231,6 @@
       </div>
       <div class="bench-box-actions">
         <button class="ghost-btn bench-go" id="pause-bench" type="button"></button>
-        <button class="ghost-btn" id="pause-bench-last" type="button" hidden></button>
       </div>
     </div>
     <div class="settings">

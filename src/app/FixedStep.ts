@@ -2,6 +2,8 @@
 
 export class FixedStep {
   private acc = 0;
+  /** o último `advance` bateu no limite de passos e descartou o atraso (o jogo desacelerou) */
+  capped = false;
 
   constructor(
     readonly step: number,
@@ -15,7 +17,8 @@ export class FixedStep {
   advance(frameDt: number): number {
     this.acc += Math.max(0, frameDt);
     let n = Math.floor(this.acc / this.step);
-    if (n > this.maxSteps) {
+    this.capped = n > this.maxSteps;
+    if (this.capped) {
       n = this.maxSteps;
       this.acc = 0;
     } else {

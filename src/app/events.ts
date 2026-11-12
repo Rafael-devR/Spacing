@@ -39,8 +39,8 @@ export interface GameEvents {
   'inventory:full': { item: ItemId; amount: number };
   /** o astronauta descobriu ladrilhos novos do mapa (chunks "cx,cz" que mudaram) */
   'map:revealed': { chunks: string[] };
-  /** o teste de desempenho terminou (resultado completo em `window.spacing.benchStore` e no armazenamento) */
-  'bench:finished': { avgFps: number; minFps: number };
+  /** o teste de desempenho terminou (resultado completo em `window.spacing.benchHistory[0]` e no armazenamento) */
+  'bench:finished': { fps: number; p99Ms: number; hz: number };
   /** o mapa do tablet abriu ou começou a fechar */
   'map:toggled': { open: boolean };
   /** a mochila abriu ou fechou */

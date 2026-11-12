@@ -100,6 +100,10 @@ export interface Step {
 /** Descarta uma fração de segundo mínima para que o teste encurtado (usado nos testes automáticos) ainda tenha quadros. */
 const MIN_MEASURE = 0.35;
 const MIN_WARMUP = 0.2;
+/** Um passo só termina com pelo menos este tanto de quadros medidos (num aparelho lento, um quadro pode durar segundos). */
+const MIN_FRAMES = 3;
+/** ...mas nunca fica preso: passado este múltiplo da duração, termina assim mesmo */
+const GIVE_UP = 4;
 
 /** passos do teste, na ordem (puro: testado sem WebGL) */
 export function buildSteps(mode: BenchMode, scale = 1): Step[] {
@@ -412,7 +416,8 @@ export class BenchRunner {
     d.renderer.info.reset();
     this.probe.reset();
     c.elapsed += rawMs / 1000;
-    if (c.elapsed >= stepSeconds(c.step)) {
+    const planned = stepSeconds(c.step);
+    if (c.elapsed >= planned && (c.rec.frames >= MIN_FRAMES || c.elapsed >= planned * GIVE_UP + 5)) {
       this.nextStep();
       if (this.state !== 'running') return;
       return this.beforeFrame(rawMs);
