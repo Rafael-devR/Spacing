@@ -21,11 +21,13 @@ do `MeshLambertMaterial` (`src/render/materials.ts`). Atualizar exige revisar es
 src/
   main.ts            ponto de entrada: cria o renderizador e o Game
   app/               Game (laço, estados, ligação dos sistemas), SurvivalDirector (resposta à sobrevivência),
-                     BaseDirector (entrada na base, bancada, descanso), Benchmark (teste de desempenho),
-                     eventos do jogo, configuração, passo fixo
+                     BaseDirector (entrada na base, bancada, descanso), eventos do jogo, configuração,
+                     passo fixo
   core/              barramento de eventos, entrada, salvamento, preferências, tela cheia, ruído, cor, vibração,
-                     estatísticas e armazenamento do teste de desempenho
-  data/              conteúdo como dados: blocos, itens, objetos, missões, base, receitas, equipamentos
+  data/              conteúdo como dados: blocos, itens, objetos, missões, base, receitas, equipamentos e os
+                     cenários do teste de desempenho
+  bench/             teste de desempenho: estatísticas puras, sondas de CPU, observadores, GPU, efeitos só na
+                     memória, condutor dos cenários, resultado, histórico, gráfico e telas (ADR 0007)
   world/             terreno, chunks (World), mesher, registro de blocos, estruturas da base (ADR 0005)
   entities/          jogador, destroços, meteoros, itens soltos, itens caídos na morte (LootPiles)
   systems/           interação (minerar/construir), inventário, missões, sobrevivência, fabricação, equipamento

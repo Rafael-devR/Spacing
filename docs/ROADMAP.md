@@ -67,7 +67,10 @@ Detalhes em [design/SOBREVIVENCIA.md](design/SOBREVIVENCIA.md) e [design/GAME_JU
 
 ## v0.7: Desempenho e distribuição
 
-- [x] Teste de desempenho no menu de pausa, com resultado guardado para comparar ([design/DESEMPENHO.md](design/DESEMPENHO.md)).
+- [x] Teste de desempenho completo no menu de pausa (rápido e completo), com fluidez em 120 e 60 Hz, CPU por subsistema,
+      custo de cada efeito, curva de resolução, aquecimento, histórico dos últimos 10 resultados e exportação em JSON
+      ([design/BENCHMARK.md](design/BENCHMARK.md), [ADR 0007](adr/0007-teste-de-desempenho-completo.md)).
+- [ ] Rodar o teste no celular de 120 Hz e escolher o que otimizar a partir dos números.
 - [ ] Geração e malha de chunks em Web Worker.
 - [ ] PWA instalável com funcionamento offline.
 - [ ] Teste em aparelhos reais e ajuste do orçamento de desempenho.
