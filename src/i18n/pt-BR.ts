@@ -117,8 +117,7 @@ export const ptBR = {
   'loot.recovered': 'Todos os itens recuperados!',
 
   'pause.bench': 'Teste de desempenho',
-  'pause.benchHint': 'Mede a fluidez do jogo neste aparelho, sem mudar seu progresso. Rápido (cerca de 2 min) ou completo (cerca de 15 min).',
-  'pause.benchOpen': 'Abrir teste',
+  'pause.benchHint': 'Mede a fluidez do jogo neste aparelho, sem mudar seu progresso. Rápido (cerca de 2 min) ou completo (cerca de 16 min).',
   'bench.title': 'Teste de desempenho',
   'bench.choose.title': 'Teste de desempenho',
   'bench.choose.intro': 'O teste anda, quebra blocos e solta meteoros sozinho, só observando e medindo. Seu progresso e suas preferências não mudam: o jogo recarrega no fim. Deixe o aparelho carregado, a tela ligada e o jogo à frente.',

@@ -66,7 +66,7 @@ export class World {
   /** raio de chunks carregados ao redor do jogador */
   radius = 3;
   /**
-   * Medição de desempenho (benchmark, docs/design/DESEMPENHO.md): quanto custa gerar um chunk, malhar um chunk novo e
+   * Medição de desempenho (teste de desempenho, docs/design/BENCHMARK.md): quanto custa gerar um chunk, malhar um chunk novo e
    * refazer a malha depois de editar blocos. Desligada (null) fora do teste: o custo é uma checagem por chunk.
    */
   perf: { onGenerate(ms: number): void; onMesh(ms: number, edit: boolean): void } | null = null;

@@ -231,7 +231,7 @@ export class Interaction {
 
   /**
    * Quebra o bloco (x, y, z) com os mesmos efeitos de quando o jogador o mina (destroços, poeira, item, evento), sem
-   * esperar a broca. Para o teste de desempenho (app/Benchmark.ts). Devolve false se o bloco não pode ser quebrado.
+   * esperar a broca. Para o teste de desempenho (bench/actions.ts). Devolve false se o bloco não pode ser quebrado.
    */
   breakBlockAt(x: number, y: number, z: number): boolean {
     const id = this.d.world.getBlock(x, y, z);

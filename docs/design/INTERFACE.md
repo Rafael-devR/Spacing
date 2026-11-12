@@ -56,7 +56,7 @@ pouco vai para os cantos de cima.**
 - **Em pé (retrato):** a barra de itens fica na borda de baixo e os polegares logo acima dela.
 - Nome do lugar e coordenadas saíram do HUD e foram para o cabeçalho do menu de pausa.
 - O HUD fica escondido no menu inicial e na pausa. Na tela de morte só ficam os medidores.
-- **Menu de pausa, Teste de desempenho:** o bloco logo abaixo de **Continuar** tem o botão **Abrir teste**. Ele abre a
+- **Menu de pausa, Teste de desempenho:** logo abaixo de **Continuar** está o botão **Teste de desempenho**. Ele abre a
   escolha entre **Rápido** e **Completo** e os **Resultados guardados** ([design/BENCHMARK.md](BENCHMARK.md)). Durante o
   teste um cartão no alto mostra o cenário, a etapa, o tempo que falta, o FPS e o botão **Cancelar**; o HUD do jogo fica
   escondido. O resultado ocupa a tela, rola, e tem **Exportar JSON**, **Copiar resumo** e **Voltar ao jogo**.

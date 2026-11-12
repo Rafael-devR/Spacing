@@ -53,7 +53,7 @@ const history = async () => JSON.parse((await store(HISTORY_KEY)) || '{"entries"
 await load(SCALE_QUICK);
 await startAndPause();
 await page.screenshot({ path: `${out}/bench-0-menu.png` });
-check('o botão do teste está no menu de pausa', await page.isVisible('#pause-bench'), await page.textContent('#pause-bench'));
+check('o botão "Teste de desempenho" está no menu de pausa', (await page.isVisible('#pause-bench')) && (await page.textContent('#pause-bench')) === 'Teste de desempenho', await page.textContent('#pause-bench'));
 check('a chave antiga do teste não existe mais', (await store('spacing.bench.v1')) === null);
 
 // o jogador tem um item e uma posição, para o salvamento ter o que perder

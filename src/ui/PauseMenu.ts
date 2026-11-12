@@ -33,9 +33,8 @@ export class PauseMenu {
     el('#pause-version').textContent = t('pause.version', { version });
     el('#pause-resume').addEventListener('click', () => h.onResume());
     el('#pause-controls').addEventListener('click', () => h.onControls());
-    el('#pause-bench-title').textContent = t('pause.bench');
     el('#pause-bench-hint').textContent = t('pause.benchHint');
-    el('#pause-bench').textContent = t('pause.benchOpen');
+    el('#pause-bench').textContent = t('pause.bench');
     el('#pause-bench').addEventListener('click', () => h.onBenchmark());
     this.root.addEventListener('pointerdown', (e) => {
       if (e.target === this.root) h.onResume();

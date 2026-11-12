@@ -12,7 +12,7 @@ as duas leituras. A decisão de projeto está no [ADR 0007](../adr/0007-teste-de
 
 ## Como usar
 
-1. Pause o jogo (Esc ou o botão de pausa) e toque em **Abrir teste**, no bloco **Teste de desempenho**.
+1. Pause o jogo (Esc ou o botão de pausa) e toque no botão **Teste de desempenho**, logo abaixo de **Continuar**.
 2. Escolha o modo:
    - **Rápido** (cerca de 2 minutos): os 15 cenários. Serve para comparar a cada otimização.
    - **Completo** (cerca de 16 minutos): os 15 cenários, mais o custo de cada efeito, a curva de resolução e **10
