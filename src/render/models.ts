@@ -327,8 +327,52 @@ export interface Lander {
   update(t: number): void;
 }
 
-export function createLander(): Lander {
+/**
+ * O módulo de pouso. `body` é o modelo do Blender (render/gltfModels.ts) com os pontos "lamp_0..2" e "beam"; sem ele, o
+ * corpo é montado aqui em código, como antes. As luzes de status e o feixe do reparo são sempre do código (mudam no jogo).
+ */
+export function createLander(body: THREE.Object3D | null = null): Lander {
   const g = new THREE.Group();
+  if (body) g.add(body);
+  else buildLanderBody(g);
+  // luzes de status (vermelho = avariado, verde = reparado)
+  const lampMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 0.25, 0.15) });
+  const lamps: THREE.Mesh[] = [];
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2;
+    const l = new THREE.Mesh(new THREE.OctahedronGeometry(0.09), lampMat);
+    const at = body?.getObjectByName(`lamp_${i}`)?.position;
+    if (at) l.position.copy(at);
+    else l.position.set(Math.cos(a) * 0.8, 2.98, Math.sin(a) * 0.8);
+    g.add(l);
+    lamps.push(l);
+  }
+  const beamMat = new THREE.MeshBasicMaterial({
+    color: new THREE.Color(0.4, 2.0, 0.9), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
+  });
+  // feixe de 40 de altura, começando na ponta da antena
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.4, 40, 10, 1, true), beamMat);
+  const tip = body?.getObjectByName('beam')?.position;
+  if (tip) beam.position.set(tip.x, tip.y + 20, tip.z);
+  else beam.position.set(0.3, 24, 0);
+  g.add(beam);
+  let repaired = false;
+  return {
+    group: g,
+    setRepaired(on) {
+      repaired = on;
+      lampMat.color.setRGB(on ? 0.4 : 2.2, on ? 2.4 : 0.25, on ? 0.8 : 0.15);
+    },
+    update(t) {
+      const blink = repaired ? 0.6 + 0.4 * Math.sin(t * 3) : Math.sin(t * 5) > 0.3 ? 1 : 0.15;
+      lamps.forEach((l, i) => (l.visible = repaired || blink > 0.5 || i === Math.floor(t * 2) % 3));
+      beamMat.opacity = repaired ? 0.12 + 0.06 * Math.sin(t * 2) : 0;
+    },
+  };
+}
+
+/** o corpo do módulo feito em código (quando o modelo do Blender não carregou) */
+function buildLanderBody(g: THREE.Group): void {
   const foil = lam('#e8ac3c');
   const white = lam('#e4e6ec');
   const grey = lam('#8c90a0');
@@ -358,33 +402,4 @@ export function createLander(): Lander {
   add(new THREE.CylinderGeometry(0.03, 0.03, 1.8, 5), white, 2.4, 0.9, 1.2);
   const flag = add(new THREE.BoxGeometry(0.7, 0.42, 0.03), lam('#ff7a2f'), 2.76, 1.55, 1.2);
   flag.castShadow = true;
-  // luzes de status (vermelho = avariado, verde = reparado)
-  const lampMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 0.25, 0.15) });
-  const lamps: THREE.Mesh[] = [];
-  for (let i = 0; i < 3; i++) {
-    const a = (i / 3) * Math.PI * 2;
-    const l = new THREE.Mesh(new THREE.OctahedronGeometry(0.09), lampMat);
-    l.position.set(Math.cos(a) * 0.8, 2.98, Math.sin(a) * 0.8);
-    g.add(l);
-    lamps.push(l);
-  }
-  const beamMat = new THREE.MeshBasicMaterial({
-    color: new THREE.Color(0.4, 2.0, 0.9), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
-  });
-  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.4, 40, 10, 1, true), beamMat);
-  beam.position.set(0.3, 24, 0);
-  g.add(beam);
-  let repaired = false;
-  return {
-    group: g,
-    setRepaired(on) {
-      repaired = on;
-      lampMat.color.setRGB(on ? 0.4 : 2.2, on ? 2.4 : 0.25, on ? 0.8 : 0.15);
-    },
-    update(t) {
-      const blink = repaired ? 0.6 + 0.4 * Math.sin(t * 3) : Math.sin(t * 5) > 0.3 ? 1 : 0.15;
-      lamps.forEach((l, i) => (l.visible = repaired || blink > 0.5 || i === Math.floor(t * 2) % 3));
-      beamMat.opacity = repaired ? 0.12 + 0.06 * Math.sin(t * 2) : 0;
-    },
-  };
 }

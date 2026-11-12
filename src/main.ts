@@ -1,6 +1,7 @@
 // Ponto de entrada: cria o renderizador e o jogo. Toda a lógica fica em app/Game.ts.
 import * as THREE from 'three';
 import { Game } from './app/Game';
+import { loadModels } from './render/gltfModels';
 import { t } from './i18n';
 import { el } from './ui/dom';
 import { setupPlanetPicker } from './ui/PlanetPicker';
@@ -17,6 +18,8 @@ try {
 }
 
 setupPlanetPicker();
+// os modelos do Blender carregam antes do jogo montar a cena; se algum falhar, o jogo usa o modelo em código
+await loadModels();
 const game = new Game(el('#game'), renderer);
 loading.textContent = t('boot.generating');
 // deixa o texto aparecer antes de gerar o mundo (trava a tela por um instante)

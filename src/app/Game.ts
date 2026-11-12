@@ -32,6 +32,7 @@ import { U, createMaterials } from '../render/materials';
 import { setCut, skip as cutSkip } from '../render/cutaway';
 import { ResolutionScaler } from '../render/scaler';
 import { createChunkWorkers } from '../world/workerPool';
+import { model } from '../render/gltfModels';
 import { PropFactory, createLander, createWaypoint, setDrillLook, type Lander, type Waypoint } from '../render/models';
 import { Particles, createMotes, type Motes } from '../render/particles';
 import { Post, QUALITY, type QualityName, type QualityPreset } from '../render/post';
@@ -310,7 +311,7 @@ export class Game {
     scene.add(this.waypoint.group);
     this.lootMarker = createWaypoint([2.2, 0.85, 0.3]);
     scene.add(this.lootMarker.group);
-    this.lander = createLander();
+    this.lander = createLander(model('lander'));
     scene.add(this.lander.group);
     U.uMistY.value = Math.floor(this.baseY) - 6;
     this.missions = new Missions(
