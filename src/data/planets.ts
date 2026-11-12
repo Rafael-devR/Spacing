@@ -4,7 +4,7 @@ export type PlanetId = 'lua' | 'marte';
 export interface PlanetDef {
   id: PlanetId;
   name: string;
-  /** semente do mundo (mudar invalida o salvamento do planeta) */
+  /** semente dos salvamentos antigos (de antes de a semente ser sorteada a cada jogo novo, docs/design/MUNDO.md) */
   seed: number;
   /** chave do salvamento no localStorage: cada planeta tem o seu */
   saveKey: string;

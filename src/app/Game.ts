@@ -7,7 +7,8 @@ import { Haptics } from '../core/haptics';
 import { Input } from '../core/Input';
 import { SHAKE_SCALE, loadPrefs, savePrefs, type Prefs } from '../core/prefs';
 import { PLANET } from '../core/planet';
-import { clearSave, defaultStore, loadSave, writeSave, type SaveData } from '../core/save';
+import { clearSave, defaultStore, loadSave, renewWorld, writeSave, type SaveData } from '../core/save';
+import { randomSeed, seedFromSearch } from '../core/seed';
 import { BASALT, DARK_SAND, ICE, MARS_DUST, REGOLITH } from '../data/blocks';
 
 /** chão macio que guarda pegadas (Lua e Marte) */
@@ -28,6 +29,7 @@ import { IsoRig } from '../render/IsoRig';
 import { ItemModels } from '../render/itemModels';
 import { Lights } from '../render/lights';
 import { U, createMaterials } from '../render/materials';
+import { setCut, skip as cutSkip } from '../render/cutaway';
 import { PropFactory, createLander, createWaypoint, setDrillLook, type Lander, type Waypoint } from '../render/models';
 import { Particles, createMotes, type Motes } from '../render/particles';
 import { Post, QUALITY, type QualityName, type QualityPreset } from '../render/post';
@@ -43,12 +45,11 @@ import { Hud } from '../ui/Hud';
 import { FpsMeter } from '../ui/FpsMeter';
 import { GraphicsMenu } from '../ui/GraphicsMenu';
 import { PauseMenu } from '../ui/PauseMenu';
-import { LANDER, SPAWN } from '../world/terrain';
+import { CH, LANDER, SPAWN, WORLD_GEN } from '../world/terrain';
 import { World } from '../world/World';
 import { AUTOSAVE_MS, FIXED_STEP, MAX_STEPS_PER_FRAME, MINE_SHAKE, TOUCH_AIM_OFFSET, VERSION } from './config';
 
 /** semente e salvamento são do planeta desta sessão (data/planets.ts) */
-const SEED = PLANET.seed;
 import { createBus, type GameBus, type GameState, type Vec3Like } from './events';
 import { FixedStep } from './FixedStep';
 import { MarsDirector } from './MarsDirector';
@@ -180,6 +181,17 @@ export class Game {
   /** coletas em sequência sobem de tom */
   private popCombo = { t: 0, n: 0 };
   private readonly baseY: number;
+  /** semente do mundo desta sessão */
+  readonly seed: number;
+  /** o salvamento vinha de um gerador antigo: o mundo foi refeito (aviso ao começar) */
+  private worldRenewed = false;
+  /** campo de visão ao ar livre (depende da tela); dentro de caverna abre mais */
+  private baseFov = 30;
+  private readonly underside: THREE.Mesh;
+  private readonly terrainMaterial: THREE.Material;
+  private readonly cutMaterial: THREE.Material;
+  private coverT = 0;
+  private dark = 0;
 
   constructor(
     private readonly container: HTMLElement,
@@ -195,17 +207,34 @@ export class Game {
     const scene = this.scene;
     scene.fog = this.fog;
     scene.add(createBackdrop());
+    // fundo do mundo: um plano escuro logo acima da rocha-mãe. Do alto nunca aparece (o terreno cobre); com o corte da
+    // caverna aberto, é o que se vê atrás do miolo da rocha, no lugar do céu
+    this.underside = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.016, 0.014, 0.026), fog: false }));
+    this.underside.rotation.x = -Math.PI / 2;
+    this.underside.position.y = 0.5;
+    scene.add(this.underside);
     this.lights = new Lights(scene);
     const materials = createMaterials();
-    this.glowMaterials = [materials.terrain, materials.props];
+    this.glowMaterials = [materials.terrain, materials.terrainCut, materials.props];
+    this.terrainMaterial = materials.terrain;
+    this.cutMaterial = materials.terrainCut;
     const propFactory = new PropFactory(materials.props);
 
-    this.save = loadSave(this.store, SEED, PLANET.saveKey);
+    // semente: a do salvamento; num jogo novo, a do endereço (`?semente=`) ou uma sorteada (docs/design/MUNDO.md)
+    const fresh = (): number => seedFromSearch(location.search) ?? randomSeed();
+    let save = loadSave(this.store, PLANET.seed, PLANET.saveKey);
+    // o gerador mudou desde que o mundo foi salvo: o progresso fica, o mundo é refeito
+    if (save && save.worldGen !== WORLD_GEN[PLANET.id]) {
+      save = renewWorld(save, fresh(), WORLD_GEN[PLANET.id]);
+      this.worldRenewed = true;
+    }
+    this.save = save;
+    this.seed = save?.seed ?? fresh();
     this.prefs = loadPrefs(this.store);
     const events = this.events;
     events.debug = new URLSearchParams(location.search).has('eventos');
 
-    this.world = new World(scene, SEED, materials.terrain, propFactory, events);
+    this.world = new World(scene, this.seed, materials.terrain, propFactory, events);
     this.world.load(this.save?.world);
     this.baseY = this.world.terrain.spawnH;
     // base: a estrutura entra no mundo antes de gerar os chunks (as pedras soltas respeitam a área)
@@ -270,6 +299,7 @@ export class Game {
       particles: this.particles, debris: this.debris, drops: this.drops, inventory: this.inventory, events,
       drillRate: () => this.survival.drillRate() * this.equipment.drill.speed,
       drillTier: () => this.equipment.drill.tier,
+      aimSkip: cutSkip,
     });
     this.meteors = new Meteors({ scene, world: this.world, debris: this.debris, particles: this.particles, player: this.player, events });
     this.waypoint = createWaypoint();
@@ -459,6 +489,14 @@ export class Game {
     const { world, player, lander } = this;
     world.radius = 3;
     world.update(0, 0, 999, 0);
+    // o material do corte da caverna é compilado já (um triângulo fora da vista), para não engasgar ao entrar na primeira
+    const warm = new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3)), this.cutMaterial);
+    warm.receiveShadow = true;
+    warm.frustumCulled = false;
+    this.scene.add(warm);
+    this.renderer.compile(this.scene, this.camera);
+    this.scene.remove(warm);
+    warm.geometry.dispose();
     lander.group.position.set(LANDER.x + 0.5, world.topY(LANDER.x, LANDER.z) + 1, LANDER.z + 0.5);
     // zumbido do módulo: começa quando o áudio liberar (primeiro toque) e ajuda a achar o caminho de volta
     const lp = lander.group.position;
@@ -467,7 +505,7 @@ export class Game {
     if (saved) {
       player.pos.set(saved.x, saved.y + 0.05, saved.z);
       // garante que não nasce dentro de um bloco
-      while (player.collides(player.pos.x, player.pos.y, player.pos.z) && player.pos.y < 60) player.pos.y += 1;
+      while (player.collides(player.pos.x, player.pos.y, player.pos.z) && player.pos.y < CH) player.pos.y += 1;
       player.prevPos.copy(player.pos);
     } else player.spawn(SPAWN.x, SPAWN.z);
     // salvo dentro da base: volta dentro, sem transição; salvo onde a base agora está: sai para fora
@@ -534,7 +572,10 @@ export class Game {
     navigator.wakeLock?.request?.('screen').catch(() => {});
     this.hud.peekMission();
     const hint = this.missions.current.hint;
-    this.hud.toast(hint ?? t(this.input.touch ? 'hint.mineTouch' : 'hint.mineMouse'));
+    if (this.worldRenewed) {
+      this.worldRenewed = false;
+      this.hud.toast(t('world.renewed'));
+    } else this.hud.toast(hint ?? t(this.input.touch ? 'hint.mineTouch' : 'hint.mineMouse'));
     this.perf.frames = this.perf.time = 0;
     this.perf.checked = false;
   }
@@ -1049,13 +1090,36 @@ export class Game {
     const aspect = w / h;
     const camera = this.camera;
     camera.aspect = aspect;
-    camera.fov = aspect >= 1
+    this.baseFov = aspect >= 1
       ? 30
       : Math.min(50, THREE.MathUtils.radToDeg(2 * Math.atan((Math.tan(THREE.MathUtils.degToRad(15)) / aspect) * 0.72)));
+    camera.fov = this.baseFov;
     camera.updateProjectionMatrix();
     this.post.resize(w, h);
     this.map.resize(w, h);
     if (this.state === 'paused') this.post.render(this.time);
+  }
+
+  /** Quanto teto há sobre o astronauta (0 a 1) e quão escuro está: comanda a câmera de caverna, a lanterna e a neblina. */
+  private updateCover(dt: number): void {
+    const { world, player, rig } = this;
+    const p = player.pos;
+    this.coverT -= dt;
+    if (this.coverT <= 0) {
+      this.coverT = 0.1;
+      let n = 0;
+      if (!this.indoors.on) {
+        const y = p.y + 1.9;
+        for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (world.roofed(p.x + dx * 4, y, p.z + dz * 4)) n++;
+      }
+      rig.caveTarget = THREE.MathUtils.smoothstep(n / 9, 0.3, 0.7);
+    }
+    const sky = this.indoors.on ? 1 : world.skyAt(p.x, p.y + 1.2, p.z);
+    const dark = 1 - THREE.MathUtils.smoothstep(sky, 0.2, 0.85);
+    this.dark += (dark - this.dark) * (1 - Math.exp(-2.5 * dt));
+    U.uDark.value = this.dark;
+    // lanterna do capacete: acende sozinha no escuro
+    U.uLamp.value.set(p.x, p.y + 1.5, p.z, this.dark * 1.15);
   }
 
   // ---------- salvar ----------
@@ -1064,7 +1128,8 @@ export class Game {
     if (this.resetting || this.persistLocked || this.state === 'loading' || this.state === 'menu') return;
     const p = this.player.pos;
     writeSave(this.store, {
-      seed: SEED,
+      seed: this.seed,
+      worldGen: WORLD_GEN[PLANET.id],
       world: this.world.serialize(),
       inventory: this.inventory.serialize(),
       player: { x: p.x, y: p.y, z: p.z },
@@ -1224,7 +1289,12 @@ export class Game {
 
     const rp = player.model.root.position;
     this.focus.set(rp.x, rp.y + 0.8, rp.z);
+    this.updateCover(dt);
     rig.update(dt, this.focus);
+    // corte da caverna: abre junto com a câmera de caverna; o material com corte só entra nos chunks enquanto é preciso
+    setCut(this.camera, player.model.root.position, rig.cave);
+    this.underside.position.set(rig.target.x, 0.5, rig.target.z);
+    world.setMaterial(rig.cave > 0.01 ? this.cutMaterial : this.terrainMaterial);
     p?.begin(SUB.map);
     this.map.update(realDt);
     p?.end(SUB.map);
@@ -1266,13 +1336,15 @@ export class Game {
     if (this.mars && !this.bench) this.mars.update(realDt, rig.target);
     p?.end(SUB.entities);
 
-    const extent = Math.max(14, rig.dist * 0.8);
+    const extent = Math.max(14, rig.eye * 0.8);
     if (this.gfxQ.shadow > 0 && Math.abs(this.lights.extent - extent) > 2) this.lights.setShadowSize(this.gfxQ.shadow, extent);
     this.lights.follow(rig.target);
     // dentro da base não há neblina (desligar recompilaria os shaders: só fica longe)
     const [fogNear, fogFar] = this.mars?.fog(1.15, 2.1) ?? [1.15, 2.1];
-    this.fog.near = this.indoors.on ? 1e4 : rig.dist * fogNear;
-    this.fog.far = this.indoors.on ? 2e4 : rig.dist * fogFar;
+    // em caverna a câmera fica perto: a neblina não acompanha (senão taparia o túnel a poucos blocos)
+    const fogDist = Math.max(rig.eye, 16);
+    this.fog.near = this.indoors.on ? 1e4 : fogDist * fogNear;
+    this.fog.far = this.indoors.on ? 2e4 : fogDist * fogFar;
 
     // marcadores: objetivo da missão e itens caídos
     p?.begin(SUB.hud);

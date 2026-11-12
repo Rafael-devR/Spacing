@@ -1,12 +1,12 @@
 // Itens do inventário. Cada item diz para que serve (`about`) e do que é feito por dentro (`traits`):
 // calor, peso e raridade decidem quanto tempo ele leva numa estação (docs/design/CRAFTING.md).
 import {
-  BASALT, DARK_SAND, GYPSUM, HEMATITE, ICE, IRON, MARS_DUST, MARS_ROCK, OLIVINE, REGOLITH, ROCK, SEDIMENT, VOLCANIC, type BlockId,
+  ANORTHOSITE, BASALT, DARK_SAND, GYPSUM, HEMATITE, ICE, IRON, MARS_DUST, MARS_ROCK, OLIVINE, REGOLITH, ROCK, SEDIMENT, VOLCANIC, type BlockId,
 } from './blocks';
 import type { PropType } from './props';
 
 export type ItemId =
-  | 'regolith' | 'rock' | 'basalt' | 'ice' | 'iron' | 'ilmenite' | 'gold' | 'crystal'
+  | 'regolith' | 'rock' | 'basalt' | 'ice' | 'iron' | 'ilmenite' | 'gold' | 'crystal' | 'anorthosite'
   // Marte
   | 'marsdust' | 'marsrock' | 'darksand' | 'sediment' | 'volcanic' | 'hematite' | 'olivine' | 'gypsum'
   // fabricados (docs/design/CRAFTING.md)
@@ -85,6 +85,10 @@ export const ITEMS: Record<ItemId, ItemData> = {
   gold: {
     name: 'Ouro', icon: { prop: 'gold' }, traits: tr(1, 2, 3), tint: '#ffb43a',
     about: 'Não oxida: contatos elétricos das placas de circuito.',
+  },
+  anorthosite: {
+    name: 'Anortosito', block: ANORTHOSITE, traits: tr(1, 1, 1), tint: '#e9e6df',
+    about: 'Rocha clara das montanhas, rica em alumínio e cálcio. Funde num vidro mais limpo que o do regolito.',
   },
   crystal: {
     name: 'Cristal lunar', icon: { prop: 'crystal' }, traits: tr(1, 1, 3), tint: '#8ff1ff',
@@ -170,7 +174,7 @@ export const ITEMS: Record<ItemId, ItemData> = {
 
 /** ordem de referência dos itens (ícones, conversão de salvamentos antigos) */
 export const ITEM_ORDER: ItemId[] = [
-  'regolith', 'rock', 'basalt', 'ice', 'iron', 'ilmenite', 'gold', 'crystal',
+  'regolith', 'rock', 'basalt', 'ice', 'iron', 'ilmenite', 'gold', 'crystal', 'anorthosite',
   'marsdust', 'marsrock', 'darksand', 'sediment', 'volcanic', 'hematite', 'olivine', 'gypsum',
   'iron_bar', 'brick', 'glass', 'basalt_fiber', 'h2', 'o2', 'tio2', 'titanium', 'silicon', 'circuit',
   'solar_panel',

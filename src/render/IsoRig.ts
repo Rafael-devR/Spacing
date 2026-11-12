@@ -1,12 +1,22 @@
 // Câmera isométrica em perspectiva estreita: segue o jogador, gira de 90° em 90° e tem zoom.
+// Dentro de uma caverna (docs/design/MUNDO.md) ela chega mais perto do astronauta, numa transição suave.
 import * as THREE from 'three';
 
 export class IsoRig {
   yaw = Math.PI / 4;
   yawTarget = this.yaw;
   readonly pitch = 0.76;
+  /** 0 = ao ar livre, 1 = dentro de caverna; `caveTarget` é para onde vai (quanto teto há sobre o astronauta) */
+  cave = 0;
+  caveTarget = 0;
+  /** distância real da câmera ao astronauta neste quadro (menor que `dist` dentro de caverna) */
+  eye = 30;
   dist = 30;
   distTarget = 30;
+  /** dentro de caverna: fração do zoom do jogador e limites da distância */
+  static readonly CAVE_ZOOM = 0.5;
+  static readonly CAVE_MIN = 12;
+  static readonly CAVE_MAX = 20;
   readonly min = 16;
   readonly max = 46;
   readonly target = new THREE.Vector3();
@@ -37,11 +47,15 @@ export class IsoRig {
     this.target.lerp(focus, k);
     this.yaw += (this.yawTarget - this.yaw) * (instant ? 1 : 1 - Math.exp(-9 * dt));
     this.dist += (this.distTarget - this.dist) * (instant ? 1 : 1 - Math.exp(-8 * dt));
+    this.cave += (this.caveTarget - this.cave) * (instant ? 1 : 1 - Math.exp(-3.2 * dt));
+    // em caverna a câmera chega perto (o zoom do jogador ainda vale, em escala); a rocha na frente é cortada (cutaway.ts)
+    const near = THREE.MathUtils.clamp(this.distTarget * IsoRig.CAVE_ZOOM, IsoRig.CAVE_MIN, IsoRig.CAVE_MAX);
+    this.eye = this.dist + (Math.min(this.dist, near) - this.dist) * this.cave;
     const c = Math.cos(this.pitch);
     this.camera.position.set(
-      this.target.x + Math.sin(this.yaw) * c * this.dist,
-      this.target.y + Math.sin(this.pitch) * this.dist,
-      this.target.z + Math.cos(this.yaw) * c * this.dist,
+      this.target.x + Math.sin(this.yaw) * c * this.eye,
+      this.target.y + Math.sin(this.pitch) * this.eye,
+      this.target.z + Math.cos(this.yaw) * c * this.eye,
     );
     this.camera.lookAt(this.target);
     // tremor (trauma ao quadrado, ruído suave)

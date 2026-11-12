@@ -195,6 +195,18 @@ export const RECIPES: Recipe[] = [
     },
   },
   {
+    id: 'glass_anorthosite',
+    station: 'furnace',
+    inputs: { anorthosite: 2 },
+    outputs: [item('glass')],
+    process: {
+      reaction: 'CaAl₂Si₂O₈ → vidro',
+      steps: ['Aquecer', 'Fundir a 1550 °C', 'Laminar', 'Resfriar rápido'],
+      note: 'O anortosito das terras altas é quase só plagioclásio: funde num vidro claro, com pouco ferro. É o material estudado para fibra e janelas na Lua.',
+      temp: 1550,
+    },
+  },
+  {
     id: 'basalt_fiber',
     station: 'furnace',
     inputs: { basalt: 2 },

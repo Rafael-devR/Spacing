@@ -11,6 +11,7 @@ export const ptBR = {
   'menu.confirmReset': 'Toque de novo para apagar',
 
   'hint.mineTouch': 'Segure num bloco para minerar',
+  'world.renewed': 'O mundo foi gerado de novo (agora com cavernas). Seus itens e equipamentos continuam com você.',
   'hint.mineMouse': 'Segure o clique num bloco para minerar',
 
   'hud.resource': 'recurso',

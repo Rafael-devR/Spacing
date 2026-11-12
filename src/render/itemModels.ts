@@ -27,6 +27,7 @@ export class ItemModels {
       g.setAttribute('normal', new THREE.BufferAttribute(m.normal, 3));
       g.setAttribute('color', new THREE.BufferAttribute(m.color, 3));
       g.setAttribute('aEdge', new THREE.BufferAttribute(m.edge, 2));
+      g.setAttribute('aSky', new THREE.BufferAttribute(m.sky, 1));
       g.translate(-0.5, -0.5, -0.5);
       this.blockGeos.set(id, g);
     }

@@ -13,6 +13,12 @@ import { CH, CS, Terrain, idx, type PropSpawn, type TerrainGen } from './terrain
 
 const PW = CS + 2;
 const PL = PW * PW;
+/** luz do céu: nível de quem vê o céu direto; cada bloco de distância por dentro da rocha tira 1 (docs/design/MUNDO.md) */
+export const SKY_MAX = 12;
+/** margem em volta do chunk onde a luz é calculada (a luz de um vizinho alcança até SKY_MAX blocos) */
+const LM = SKY_MAX;
+const LW = CS + 2 * LM;
+const LL = LW * LW;
 
 export type V3 = [number, number, number];
 
@@ -36,6 +42,8 @@ export interface Chunk {
   data: Uint8Array;
   props: PropInstance[];
   maxY: number;
+  /** luz do céu de cada bloco (0..SKY_MAX), da última vez que a malha foi feita; null antes disso */
+  light: Uint8Array | null;
   mesh: THREE.Mesh | null;
   propMeshes: PropMesh[];
   dirty: boolean;
@@ -63,6 +71,12 @@ export class World {
   /** todas as malhas de objetos carregadas (para o raio de mira) */
   readonly propMeshes: PropMesh[] = [];
   private readonly pad = new Uint8Array(PL * CH);
+  private readonly padLight = new Uint8Array(PL * CH);
+  // região do chunk com a margem da luz: blocos, luz, topo de cada coluna e fila da propagação
+  private readonly reg = new Uint8Array(LL * CH);
+  private readonly regLight = new Uint8Array(LL * CH);
+  private readonly regTop = new Int16Array(LL);
+  private readonly queue: number[] = [];
   /** estruturas construídas (a base); mandam nas células que ocupam */
   readonly structures: Structure[] = [];
   /** raio de chunks carregados ao redor do jogador */
@@ -76,7 +90,7 @@ export class World {
   constructor(
     private readonly scene: THREE.Scene,
     seed: number,
-    private readonly material: THREE.Material,
+    private material: THREE.Material,
     readonly props: PropFactory,
     private readonly events?: GameBus,
   ) {
@@ -94,7 +108,7 @@ export class World {
       const t0 = this.perf ? performance.now() : 0;
       const g = this.terrain.generate(cx, cz);
       this.perf?.onGenerate(performance.now() - t0);
-      c = { cx, cz, key: k, data: g.data, props: g.props, maxY: g.maxY, mesh: null, propMeshes: [], dirty: true };
+      c = { cx, cz, key: k, data: g.data, props: g.props, maxY: g.maxY, light: null, mesh: null, propMeshes: [], dirty: true };
       for (const e of this.extraProps) {
         if (Math.floor(e.wx / CS) === cx && Math.floor(e.wz / CS) === cz) c.props.push({ ...e, y: 0 });
       }
@@ -158,6 +172,23 @@ export class World {
     return 0;
   }
 
+  /** Troca o material de todos os chunks (o normal ou o do corte da caverna). */
+  setMaterial(m: THREE.Material): void {
+    if (m === this.material) return;
+    this.material = m;
+    for (const c of this.chunks.values()) if (c.mesh) c.mesh.material = m;
+  }
+
+  /** há rocha acima deste ponto, na mesma coluna? (teto de caverna, beiral, construção) */
+  roofed(x: number, y: number, z: number): boolean {
+    const bx = Math.floor(x), bz = Math.floor(z);
+    const c = this.chunks.get(this.key(Math.floor(bx / CS), Math.floor(bz / CS)));
+    if (!c) return false;
+    const i = idx(bx - c.cx * CS, 0, bz - c.cz * CS);
+    for (let yy = Math.max(1, Math.floor(y) + 1); yy <= c.maxY; yy++) if (c.data[i + yy * CS * CS]) return true;
+    return false;
+  }
+
   setBlock(x: number, y: number, z: number, id: BlockId): boolean {
     return this.setBlocks([[x, y, z, id]]) > 0;
   }
@@ -174,17 +205,21 @@ export class World {
       const c = this.chunk(cx, cz);
       const lx = x - cx * CS, lz = z - cz * CS;
       const i = idx(lx, y, lz);
+      // a luz muda mais longe que a borda quando a edição abre ou fecha um caminho para o céu
+      const reach = Math.max(1, this.lightReach(x, y, z, id));
       c.data[i] = id;
       if (id && y > c.maxY) c.maxY = y;
       let ed = this.edits.get(c.key);
       if (!ed) this.edits.set(c.key, (ed = new Map()));
       ed.set(i, id);
       dirty.add(c.key);
-      const ex = lx === 0 ? -1 : lx === CS - 1 ? 1 : 0;
-      const ez = lz === 0 ? -1 : lz === CS - 1 ? 1 : 0;
-      if (ex) dirty.add(this.key(cx + ex, cz));
-      if (ez) dirty.add(this.key(cx, cz + ez));
-      if (ex && ez) dirty.add(this.key(cx + ex, cz + ez));
+      for (let dz = -1; dz <= 1; dz++) {
+        if ((dz < 0 && lz >= reach) || (dz > 0 && lz < CS - reach)) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          if ((dx < 0 && lx >= reach) || (dx > 0 && lx < CS - reach)) continue;
+          if (dx || dz) dirty.add(this.key(cx + dx, cz + dz));
+        }
+      }
       applied.push(e);
     }
     for (const k of dirty) {
@@ -201,31 +236,49 @@ export class World {
   /** `edit`: a malha é refeita por uma edição de blocos (e não por um chunk novo); só serve para a medição */
   rebuild(c: Chunk, edit = false): void {
     const ox = c.cx * CS, oz = c.cz * CS;
-    const pad = this.pad;
-    const h = Math.min(CH, c.maxY + 2);
+    const pad = this.pad, padLight = this.padLight;
     // vizinhos (garante que existam)
-    const nb: Record<string, Uint8Array> = {};
+    const nb: Chunk[] = [];
+    let top = 0;
     for (let dz = -1; dz <= 1; dz++) {
-      for (let dx = -1; dx <= 1; dx++) nb[dx + ',' + dz] = this.chunk(c.cx + dx, c.cz + dz).data;
+      for (let dx = -1; dx <= 1; dx++) {
+        const n = this.chunk(c.cx + dx, c.cz + dz);
+        nb.push(n);
+        if (n.maxY > top) top = n.maxY;
+      }
     }
     const t0 = this.perf ? performance.now() : 0;
+    // a luz precisa da altura dos vizinhos (um morro ao lado faz sombra de céu); a malha, só da do chunk
+    const hh = Math.min(CH, top + 2);
+    const h = Math.min(CH, c.maxY + 2);
+    this.skyLight(nb, hh);
+    const light = c.light ?? (c.light = new Uint8Array(CS * CS * CH));
+    const { reg, regLight } = this;
     for (let y = 0; y < h; y++) {
       for (let z = -1; z <= CS; z++) {
-        const dz = z < 0 ? -1 : z >= CS ? 1 : 0;
-        const lz = z - dz * CS;
+        const r = LM + z, o = (z + 1) * PW + y * PL + 1;
         for (let x = -1; x <= CS; x++) {
-          const dx = x < 0 ? -1 : x >= CS ? 1 : 0;
-          pad[x + 1 + (z + 1) * PW + y * PL] = nb[dx + ',' + dz][idx(x - dx * CS, y, lz)];
+          const i = LM + x + r * LW + y * LL;
+          pad[o + x] = reg[i];
+          padLight[o + x] = regLight[i];
         }
       }
     }
+    for (let y = 0; y < hh; y++)
+      for (let z = 0; z < CS; z++) {
+        const i = LM + (LM + z) * LW + y * LL;
+        light.set(regLight.subarray(i, i + CS), idx(0, y, z));
+      }
+    light.fill(SKY_MAX, hh * CS * CS);
     pad.fill(0, h * PL);
-    const m = meshPadded(pad, CS, CS, CH, c.maxY, ox, oz);
+    padLight.fill(SKY_MAX, h * PL);
+    const m = meshPadded(pad, CS, CS, CH, c.maxY, ox, oz, true, padLight);
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(m.position, 3));
     geo.setAttribute('normal', new THREE.BufferAttribute(m.normal, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(m.color, 3));
     geo.setAttribute('aEdge', new THREE.BufferAttribute(m.edge, 2));
+    geo.setAttribute('aSky', new THREE.BufferAttribute(m.sky, 1));
     geo.computeBoundingSphere();
     if (c.mesh) {
       c.mesh.geometry.dispose();
@@ -240,6 +293,96 @@ export class World {
     }
     c.dirty = false;
     this.perf?.onMesh(performance.now() - t0, edit);
+  }
+
+  /**
+   * Luz do céu na região do chunk do meio de `nb` (os 9 chunks, em ordem de z e x) com a margem: quem está acima do
+   * topo da coluna vê o céu (SKY_MAX); dali a luz entra pelas aberturas perdendo 1 por bloco. Preenche `reg` e `regLight`.
+   */
+  private skyLight(nb: Chunk[], hh: number): void {
+    const { reg, regLight, regTop, queue } = this;
+    for (let z = 0; z < LW; z++) {
+      const wz = z - LM, dz = wz < 0 ? 0 : wz >= CS ? 2 : 1, lz = wz - (dz - 1) * CS;
+      for (let x = 0; x < LW; x++) {
+        const wx = x - LM, dx = wx < 0 ? 0 : wx >= CS ? 2 : 1, lx = wx - (dx - 1) * CS;
+        const n = nb[dx + dz * 3];
+        const data = n.data, col = lx + lz * CS, o = x + z * LW;
+        let t = Math.min(n.maxY, hh - 1);
+        while (t > 0 && !data[col + t * CS * CS]) t--;
+        regTop[o] = t;
+        for (let y = 0; y < hh; y++) {
+          reg[o + y * LL] = data[col + y * CS * CS];
+          regLight[o + y * LL] = y > t ? SKY_MAX : 0;
+        }
+      }
+    }
+    // sementes: blocos de céu ao lado de uma coluna mais alta (podem iluminar uma abertura nela)
+    queue.length = 0;
+    for (let z = 0; z < LW; z++)
+      for (let x = 0; x < LW; x++) {
+        const o = x + z * LW, t = regTop[o];
+        let m = t;
+        if (x > 0 && regTop[o - 1] > m) m = regTop[o - 1];
+        if (x < LW - 1 && regTop[o + 1] > m) m = regTop[o + 1];
+        if (z > 0 && regTop[o - LW] > m) m = regTop[o - LW];
+        if (z < LW - 1 && regTop[o + LW] > m) m = regTop[o + LW];
+        for (let y = t + 1; y <= m; y++) queue.push(o + y * LL);
+      }
+    for (let q = 0; q < queue.length; q++) {
+      const i = queue[q];
+      const v = regLight[i] - 1;
+      if (v <= 0) continue;
+      const y = Math.floor(i / LL), r = i - y * LL, z = Math.floor(r / LW), x = r - z * LW;
+      if (x > 0) this.spread(i - 1, v);
+      if (x < LW - 1) this.spread(i + 1, v);
+      if (z > 0) this.spread(i - LW, v);
+      if (z < LW - 1) this.spread(i + LW, v);
+      if (y > 0) this.spread(i - LL, v);
+      if (y < hh - 1) this.spread(i + LL, v);
+    }
+  }
+
+  private spread(i: number, v: number): void {
+    if (this.reg[i] || this.regLight[i] >= v) return;
+    this.regLight[i] = v;
+    this.queue.push(i);
+  }
+
+  /** luz do céu guardada de um bloco (0..SKY_MAX); -1 se o chunk ainda não foi malhado */
+  private lightAt(x: number, y: number, z: number): number {
+    if (y >= CH) return SKY_MAX;
+    if (y < 0) return 0;
+    const cx = Math.floor(x / CS), cz = Math.floor(z / CS);
+    const l = this.chunks.get(this.key(cx, cz))?.light;
+    return l ? l[idx(x - cx * CS, y, z - cz * CS)] : -1;
+  }
+
+  /** 0 (escuro total) a 1 (céu aberto) no bloco; 1 se ainda não se sabe */
+  skyAt(x: number, y: number, z: number): number {
+    const v = this.lightAt(Math.floor(x), Math.floor(y), Math.floor(z));
+    return v < 0 ? 1 : v / SKY_MAX;
+  }
+
+  /**
+   * Até que distância (em blocos) trocar este bloco pode mudar a luz do céu. 0 = não muda nada além dele. Minerar no
+   * chão aberto ou no escuro dá 0; furar o teto de uma caverna ou tampar uma abertura alcança longe.
+   */
+  private lightReach(x: number, y: number, z: number, id: BlockId): number {
+    const here = this.lightAt(x, y, z);
+    if (here < 0) return SKY_MAX;
+    const around: [number, number, number][] = [[x + 1, y, z], [x - 1, y, z], [x, y + 1, z], [x, y - 1, z], [x, y, z + 1], [x, y, z - 1]];
+    const open = (p: [number, number, number]): boolean => p[1] >= CH || (p[1] > 0 && this.peekBlock(p[0], p[1], p[2]) === AIR);
+    if (id === AIR) {
+      let v = 0;
+      if (open(around[2]) && this.lightAt(x, y + 1, z) === SKY_MAX) v = SKY_MAX;
+      else for (const p of around) if (open(p)) v = Math.max(v, this.lightAt(p[0], p[1], p[2]) - 1);
+      for (const p of around) if (open(p) && this.lightAt(p[0], p[1], p[2]) < v - 1) return v;
+      return 0;
+    }
+    if (here <= 1) return 0;
+    if (here === SKY_MAX && open(around[3])) return SKY_MAX;
+    for (const p of around) if (open(p) && this.lightAt(p[0], p[1], p[2]) === here - 1) return here;
+    return 0;
   }
 
   private propKey(p: PropSpawn): string {

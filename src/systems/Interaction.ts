@@ -76,6 +76,8 @@ export interface InteractionDeps {
   drops: ItemDrops;
   inventory: Inventory;
   events: GameBus;
+  /** quanto o raio da mira avança antes de valer (rocha cortada da vista dentro de caverna); ausente = 0 */
+  aimSkip?: (origin: THREE.Vector3, dir: THREE.Vector3) => number;
   /** velocidade da broca (1 = broca inicial; cai sem bateria) */
   drillRate?: () => number;
   /** nível da broca em uso (data/drills.ts); ausente = 0 */
@@ -137,6 +139,9 @@ export class Interaction {
     this.ndc.set(((px - r.left) / r.width) * 2 - 1, -((py - r.top) / r.height) * 2 + 1);
     this.raycaster.setFromCamera(this.ndc, camera);
     const ray = this.raycaster.ray;
+    // dentro de caverna, a rocha cortada da vista (render/cutaway.ts) não conta: a mira começa depois dela
+    const lead = this.d.aimSkip?.(ray.origin, ray.direction) ?? 0;
+    if (lead > 0) ray.origin.addScaledVector(ray.direction, lead);
     const hit = world.raycast(ray.origin, ray.direction, 220);
     const ph = this.raycaster.intersectObjects(world.propMeshes, false)[0];
     if (ph && (!hit || ph.distance < hit.t)) {

@@ -7,8 +7,7 @@ import * as THREE from 'three';
 import { litOnlyShadows } from './materials';
 import {
   BASALT, BEDROCK, CRYSTAL, DARK_SAND, GYPSUM, HEMATITE, HULL, ICE, IRON, LAVA, MARS_DUST, MARS_ROCK, OLIVINE, REGOLITH, ROCK, SEDIMENT,
-  VOLCANIC, type BlockId,
-} from '../data/blocks';
+  VOLCANIC, type BlockId, ANORTHOSITE, BRECCIA, NORITE, GLASSY_BASALT, ILMENITE_ORE, GOLD_ORE } from '../data/blocks';
 
 /** blocos por lado de um chunk do mapa */
 const CS = 16;
@@ -34,6 +33,12 @@ const PALETTE: Record<number, [string, string]> = {
   [ICE]: ['#cdeef7', '#9fd2e3'],
   [BEDROCK]: ['#4a4354', '#3a3443'],
   [HULL]: ['#f2f3f7', '#cfd3de'],
+  [ANORTHOSITE]: ['#ece9e2', '#c9c5bd'],
+  [BRECCIA]: ['#9c918c', '#82776f'],
+  [NORITE]: ['#716d78', '#57535d'],
+  [ILMENITE_ORE]: ['#716d78', '#57535d'],
+  [GOLD_ORE]: ['#716d78', '#57535d'],
+  [GLASSY_BASALT]: ['#4d475b', '#383344'],
   // Marte: minérios aparecem como a rocha em volta; a lava aparece forte para o mapa avisar
   [MARS_DUST]: ['#c4795a', '#9a5a42'],
   [MARS_ROCK]: ['#9a5e4a', '#7c4a3a'],

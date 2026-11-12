@@ -24,6 +24,17 @@ export const OLIVINE: BlockId = 15;
 export const GYPSUM: BlockId = 16;
 /** lava: brilha, não se minera e queima o traje (ficção pedida pelo dono, ver MARTE.md) */
 export const LAVA: BlockId = 17;
+// Lua em profundidade e nas montanhas (docs/design/MUNDO.md)
+/** rocha clara das terras altas: forma os picos */
+export const ANORTHOSITE: BlockId = 18;
+/** brecha de impacto: pedaços de rocha soldados, logo abaixo do regolito */
+export const BRECCIA: BlockId = 19;
+/** norito: a rocha dura do fundo da crosta */
+export const NORITE: BlockId = 20;
+/** basalto vítreo: a parede lisa dos tubos de lava */
+export const GLASSY_BASALT: BlockId = 21;
+export const ILMENITE_ORE: BlockId = 22;
+export const GOLD_ORE: BlockId = 23;
 
 export interface BlockData {
   name: string;
@@ -70,6 +81,12 @@ export const BLOCK_DATA: Record<BlockId, BlockData> = {
   [HEMATITE]: { name: 'Hematita', top: '#8a4c39', color: '#7a4332', ore: '#5d6f8a', oreMul: 1.15, hardness: 1.3, drop: 'hematite' },
   [OLIVINE]: { name: 'Olivina', top: '#5e4a46', color: '#4c3c39', ore: '#8fc34a', oreMul: 1.35, hardness: 1.4, tier: 1, drop: 'olivine' },
   [GYPSUM]: { name: 'Gipsita', top: '#b98a64', color: '#a87b58', ore: '#f4efe6', oreMul: 1.1, hardness: 0.9, drop: 'gypsum' },
+  [ANORTHOSITE]: { name: 'Anortosito', top: '#e9e6df', color: '#cfcbc3', bottom: '#b4b0a8', hardness: 0.9, drop: 'anorthosite' },
+  [BRECCIA]: { name: 'Brecha', top: '#9a8f8a', color: '#82776f', hardness: 0.6, drop: 'rock' },
+  [NORITE]: { name: 'Norito', top: '#6e6a74', color: '#57535d', hardness: 1.3, tier: 1, drop: 'rock' },
+  [GLASSY_BASALT]: { name: 'Basalto vítreo', top: '#4a4458', color: '#383344', hardness: 1.2, tier: 1, drop: 'basalt' },
+  [ILMENITE_ORE]: { name: 'Ilmenita', top: '#6e6a74', color: '#57535d', ore: '#2a2634', oreMul: 0.9, hardness: 1.5, tier: 1, drop: 'ilmenite' },
+  [GOLD_ORE]: { name: 'Ouro', top: '#6e6a74', color: '#57535d', ore: '#ffb43a', oreMul: 1.35, hardness: 1.7, tier: 2, drop: 'gold' },
   [LAVA]: { name: 'Lava', top: '#ff5a14', color: '#d8401a', bottom: '#8a2a14', glow: 1.7, hardness: Infinity, drop: null },
 };
 

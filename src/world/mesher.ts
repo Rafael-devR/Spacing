@@ -22,6 +22,8 @@ export interface MeshArrays {
   color: Float32Array;
   /** coordenada da face (0..1) para o brilho de borda; 0.5 = sem borda */
   edge: Float32Array;
+  /** luz do céu (0 = escuro, 1 = céu aberto), suavizada por vértice */
+  sky: Float32Array;
 }
 
 // Cantos de cada face: 0,1 embaixo; 2,3 em cima (mesma ordem em todas as faces).
@@ -39,6 +41,10 @@ const FACES: Face[] = FACE_DEFS.map((f) => {
 });
 
 const AO = [0.48, 0.66, 0.83, 1];
+/** níveis da luz do céu (igual a SKY_MAX em World.ts) */
+export const SKY_LEVELS = 12;
+/** nível (em quartos) → fator de luz: cai devagar perto da abertura e depressa no fundo */
+const SKY_CURVE = Float32Array.from({ length: SKY_LEVELS * 4 + 1 }, (_, i) => Math.pow(i / (SKY_LEVELS * 4), 1.5));
 
 /**
  * pad: blocos com 1 de margem em x e z: índice (x+1) + (z+1)*(w+2) + y*(w+2)*(d+2)
@@ -53,6 +59,8 @@ export function meshPadded(
   ox: number,
   oz: number,
   belowSolid = true,
+  /** luz do céu por bloco (0..SKY_LEVELS), no mesmo formato de `pad`; sem ela, tudo é céu aberto */
+  light: Uint8Array | null = null,
 ): MeshArrays {
   const PW = w + 2, PL = (w + 2) * (d + 2);
   const at = (x: number, y: number, z: number): number => {
@@ -60,7 +68,9 @@ export function meshPadded(
     if (y >= h) return 0;
     return pad[x + 1 + (z + 1) * PW + y * PL];
   };
-  const pos: number[] = [], nor: number[] = [], col: number[] = [], edg: number[] = [];
+  const lightAt = (x: number, y: number, z: number): number => (!light || y >= h ? SKY_LEVELS : y < 0 ? 0 : light[x + 1 + (z + 1) * PW + y * PL]);
+  const pos: number[] = [], nor: number[] = [], col: number[] = [], edg: number[] = [], sky: number[] = [];
+  const sk = [1, 1, 1, 1];
   const p: V3 = [0, 0, 0], q: V3 = [0, 0, 0];
   const top = Math.min(maxY, h - 1);
 
@@ -84,13 +94,19 @@ export function meshPadded(
             const du = c[f.u] ? 1 : -1, dv = c[f.v] ? 1 : -1;
             p[0] = x + nx; p[1] = y + ny; p[2] = z + nz;
             q[0] = p[0]; q[1] = p[1]; q[2] = p[2];
+            // luz do céu do vértice: média dos blocos vazios que o tocam (os mesmos da oclusão)
+            let ls = lightAt(p[0], p[1], p[2]), ln = 1;
             q[f.u] += du;
             const s1 = at(q[0], q[1], q[2]) ? 1 : 0;
+            if (!s1) { ls += lightAt(q[0], q[1], q[2]); ln++; }
             q[f.u] -= du; q[f.v] += dv;
             const s2 = at(q[0], q[1], q[2]) ? 1 : 0;
+            if (!s2) { ls += lightAt(q[0], q[1], q[2]); ln++; }
             q[f.u] += du;
             const cr = at(q[0], q[1], q[2]) ? 1 : 0;
+            if (!cr && !(s1 && s2)) { ls += lightAt(q[0], q[1], q[2]); ln++; }
             ao[k] = s1 && s2 ? 0 : 3 - (s1 + s2 + cr);
+            sk[k] = SKY_CURVE[Math.round((ls / ln) * 4)];
           }
           const order = ao[1] + ao[2] < ao[0] + ao[3] ? [0, 1, 3, 0, 3, 2] : [0, 1, 2, 2, 1, 3];
           const fv = vary * (0.97 + 0.06 * hash3(wx, y, wz, 20 + fi));
@@ -101,8 +117,14 @@ export function meshPadded(
             const b = AO[ao[k]] * fv;
             col.push(base[0] * b, base[1] * b, base[2] * b);
             edg.push(c[f.u], c[f.v]);
+            sky.push(sk[k]);
           }
-          if (def.oreL && ny !== -1) addNuggets(pos, nor, col, edg, def.oreL, f, x, y, z, wx, wz, fi);
+          if (def.oreL && ny !== -1) {
+            const n0 = pos.length;
+            addNuggets(pos, nor, col, edg, def.oreL, f, x, y, z, wx, wz, fi);
+            const s = (sk[0] + sk[1] + sk[2] + sk[3]) / 4;
+            for (let i = n0; i < pos.length; i += 3) sky.push(s);
+          }
         }
       }
     }
@@ -112,6 +134,7 @@ export function meshPadded(
     normal: new Float32Array(nor),
     color: new Float32Array(col),
     edge: new Float32Array(edg),
+    sky: new Float32Array(sky),
   };
 }
 

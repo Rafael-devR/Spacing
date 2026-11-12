@@ -17,7 +17,7 @@ export const SAVE_KEY = 'spacing.save';
 /** chave usada pela v0.1, sem campo de versão */
 export const LEGACY_SAVE_KEY = 'spacing.save.v1';
 export const PREFS_KEY = 'spacing.prefs.v1';
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 
 export interface ExtraPropSave {
   wx: number;
@@ -39,6 +39,8 @@ export interface WorldSave {
 export interface SaveData {
   version: typeof SAVE_VERSION;
   seed: number;
+  /** versão do gerador que fez este mundo (v10); se o gerador mudou, o mundo é refeito (`renewWorld`) */
+  worldGen: number;
   savedAt: number;
   world: WorldSave;
   /** espaços do inventário (v4); versões antigas guardavam só quantidades */
@@ -258,6 +260,7 @@ export function withStarterCircuit(inv: InventorySave, equipment: EquipmentSave)
  * v7: `crafting` (estações e trabalhos longos). Quem vem de antes e não tem o Mapa ganha a placa de circuito inicial.
  * v8: trabalhos com vaga e lote; `power` (bateria da base).
  * v9: trabalhos com preparo e tempo por unidade (`prep`, `unit`), o que já foi pego (`taken`), pausa e sobras de cancelamento.
+ * v10: `worldGen` (versão do gerador do mundo). Antes disso, gerador 1.
  */
 export function migrate(raw: unknown, seed: number): SaveData | null {
   if (!isObj(raw)) return null;
@@ -270,6 +273,7 @@ export function migrate(raw: unknown, seed: number): SaveData | null {
   return {
     version: SAVE_VERSION,
     seed: version === 1 ? seed : num(raw.seed, seed),
+    worldGen: version >= 10 ? Math.max(1, Math.floor(num(raw.worldGen, 1))) : 1,
     savedAt: num(raw.savedAt, 0),
     world: cleanWorld(raw.world),
     inventory: version >= 7 ? inventory : withStarterCircuit(inventory, equipment),
@@ -282,6 +286,27 @@ export function migrate(raw: unknown, seed: number): SaveData | null {
     explored: version >= 6 ? cleanExplored(raw.explored) : {},
     crafting: version >= 7 ? cleanCrafting(raw.crafting, version) : { built: [], jobs: [] },
     power: version >= 8 && isObj(raw.power) && Number.isFinite(raw.power.battery) ? { battery: Math.max(0, num(raw.power.battery, 0)) } : null,
+  };
+}
+
+/**
+ * O gerador do mundo mudou (docs/design/MUNDO.md): o progresso fica (itens, equipamentos, estações, missões, traje,
+ * bateria), mas o mundo é outro, com semente nova. Somem as edições de blocos, o mapa descoberto, a posição e os itens
+ * caídos; os painéis solares colocados voltam para o inventário.
+ */
+export function renewWorld(save: SaveData, seed: number, worldGen: number): SaveData {
+  const inv = new Inventory(undefined, save.inventory);
+  const gone = new Set(save.world.removedProps);
+  for (const e of save.world.extraProps) if (e.type === 'solarPanel' && !gone.has(e.key)) inv.add('solar_panel', 1, false);
+  return {
+    ...save,
+    seed,
+    worldGen,
+    world: { edits: {}, removedProps: [], extraProps: [] },
+    inventory: inv.serialize(),
+    player: null,
+    loot: [],
+    explored: {},
   };
 }
 
