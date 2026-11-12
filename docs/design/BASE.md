@@ -7,7 +7,13 @@ a base crescer depois.
 ## Onde fica
 
 No platô a nordeste do módulo de pouso, a uns 14 blocos dele, com a porta virada para o pouso. É um habitat
-de 9×7 blocos por fora (7×5 por dentro, 3 de altura), apoiado no ponto mais alto do terreno.
+de 11×9 blocos por fora (9×7 por dentro, 3 de altura), apoiado no ponto mais alto do terreno. Cresceu de 9×7 em
+2026-11-12 (pedido do dono: interior um pouco maior e com mais detalhe); a porta ficou no mesmo lugar do mundo. Painel
+solar que ficou embaixo da base nova volta para o inventário ao carregar.
+
+Dentro: bancada, estante e armário na parede norte, horta hidropônica no canto; beliche na oeste; console, forno solar,
+eletrolisador e tanque de água na leste; mesa e caixas na sul. Estante, horta, mesa, tanque e caixas são enfeite (ocupam
+lugar, sem botão de usar).
 
 ## Entrada: câmara de pressurização
 
@@ -93,7 +99,7 @@ Para ligar: definir comidas e receitas, `enabled: true`, um medidor no HUD e os 
 | -------------------------------- | --------------------------------------------------- | --------------------------------------------- |
 | Módulos (tamanho, porta, móveis) | `src/data/base.ts`                                  | Novos `ModuleDef` em `BASE_MODULES`           |
 | Colisão e pontos de uso          | `src/world/baseLayout.ts`, `src/world/Structure.ts` | Corredores entre módulos (porta interna)      |
-| Modelo e corte                   | `src/render/baseModel.ts` (casco: `tools/models/habitat.py`) | Novos tipos de móvel em `buildFurniture`      |
+| Modelo e corte                   | `src/render/baseModel.ts`; modelos em `tools/models/` (`habitat`, `habitat_interior`, `furniture`) | Móvel novo: tipo em `data/base.ts` + peça em `furniture.py` |
 | Receitas                         | `src/data/recipes.ts`                               | Novas entradas; outras estações (`Station`)   |
 | Equipamentos                     | `src/data/equipment.ts`, `src/systems/Equipment.ts` | Novos encaixes (capacete, tanque, ferramenta) |
 | Experiência                      | `src/app/BaseDirector.ts`                           | Novas ações no botão do lugar                 |

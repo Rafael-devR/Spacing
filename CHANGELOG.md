@@ -14,6 +14,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
   **Casco novo da base** por fora (colunas, janelas acesas, radiadores, câmara de entrada com marquise, abóbada, painéis
   solares, antena); o interior continua o mesmo, numa camada só de dentro. **Luzes de sinalização com halo** (módulo, porta,
   antena e balizas da base): parecem acesas sem usar luz de verdade.
+  **Interior novo da base, maior** (9×7 por dentro, era 7×5): piso, paredes, porta e janelas do Blender; beliche, armário,
+  console e móveis novos de enfeite (estante, horta hidropônica, mesa, tanque de água, caixas). **Bancada, forno solar e
+  eletrolisador refeitos no Blender, com animação feita lá** (carro do laser, ventiladores, fole, bomba, ponteiros,
+  bolhas). Painel solar que ficou embaixo da base maior volta para o inventário.
 
 - **Desempenho no celular: chunks em worker e resolução dinâmica** ([ADR 0012](docs/adr/0012-chunks-em-worker-e-resolucao-dinamica.md)).
   O teste do dono mostrou quadros de 50 a 100 ms ao andar (gerar e malhar chunks na thread principal) e o limite de pixels

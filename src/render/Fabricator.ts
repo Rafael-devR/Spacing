@@ -2,7 +2,10 @@
 // A peça é "impressa" de baixo para cima: um plano de corte sobe, a parte de baixo já aparece sólida,
 // o holograma em linhas mostra o que falta, e dois lasers num pórtico varrem a camada atual soltando faíscas.
 // Quem decide quando começa e termina é o BaseDirector (a partir do sistema Crafting).
+// O corpo da bancada e o vaivém do carro vêm do Blender (tools/models/workbench.py, animação em laço tocada enquanto
+// imprime); os lasers saem dos pontos emitter_0/1 presos ao carro. Sem o .glb, a bancada é montada aqui em código.
 import * as THREE from 'three';
+import { model, modelClip } from './gltfModels';
 
 const lam = (hex: THREE.ColorRepresentation, extra: THREE.MeshLambertMaterialParameters = {}): THREE.MeshLambertMaterial =>
   new THREE.MeshLambertMaterial({ color: hex, flatShading: true, ...extra });
@@ -26,8 +29,10 @@ export class Fabricator {
   progress = 0;
   private phase: Phase = 'idle';
   private t = 0;
-  private readonly carriage: THREE.Group;
-  private readonly beams: { core: THREE.Mesh; glow: THREE.Mesh; tip: THREE.Vector3 }[] = [];
+  private readonly carriage: THREE.Object3D;
+  /** `from`: ponto do modelo do Blender de onde o laser sai (anda com o carro); sem ele, `tip` relativo ao carro */
+  private readonly beams: { core: THREE.Mesh; glow: THREE.Mesh; tip: THREE.Vector3; from: THREE.Object3D | null }[] = [];
+  private readonly mixer: THREE.AnimationMixer | null = null;
   private readonly bedMat: THREE.MeshBasicMaterial;
   private readonly lampMat: THREE.MeshBasicMaterial;
   private readonly scanMat: THREE.MeshBasicMaterial;
@@ -60,36 +65,57 @@ export class Fabricator {
       parent.add(m);
       return m;
     };
-    const hull = lam('#c3c7d2'), dark = lam('#4b4f60'), metal = lam('#8c90a0'), orange = lam('#ff7a2f');
-    // mesa
-    add(new THREE.BoxGeometry(w * 0.94, 0.82, d * 0.78), hull, 0, 0.41, -d * 0.06);
-    add(new THREE.BoxGeometry(w * 0.96, 0.07, d * 0.86), dark, 0, 0.855, -d * 0.04);
-    add(new THREE.BoxGeometry(w * 0.94, 0.08, 0.04), orange, 0, 0.62, d * 0.34);
     this.bedMat = new THREE.MeshBasicMaterial({ map: gridTexture(), color: new THREE.Color(0.35, 0.9, 1.1), toneMapped: false, transparent: true });
     const bed = add(new THREE.PlaneGeometry(w * 0.58, d * 0.56), this.bedMat, 0, BED_Y + 0.003, 0);
     bed.rotation.x = -Math.PI / 2;
     bed.castShadow = false;
-    // pórtico
-    for (const sx of [-1, 1]) {
-      add(new THREE.BoxGeometry(0.1, HEAD_Y + 0.24 - BED_Y, 0.12), metal, sx * w * 0.44, (BED_Y + HEAD_Y + 0.24) / 2, -d * 0.3);
-      add(new THREE.BoxGeometry(0.08, 0.08, d * 0.36), metal, sx * w * 0.44, HEAD_Y + 0.2, -d * 0.13);
-    }
-    add(new THREE.BoxGeometry(w * 0.92, 0.09, 0.1), dark, 0, HEAD_Y + 0.2, 0);
-    // carro com dois emissores
-    this.carriage = new THREE.Group();
-    this.carriage.position.set(0, HEAD_Y + 0.2, 0);
-    g.add(this.carriage);
-    add(new THREE.BoxGeometry(0.3, 0.16, 0.24), hull, 0, -0.02, 0, this.carriage);
     this.lampMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.5, 1.9, 2.3), toneMapped: false });
-    add(new THREE.BoxGeometry(0.2, 0.03, 0.03), this.lampMat, 0, 0.07, 0.125, this.carriage);
-    for (const sz of [-1, 1]) {
-      const head = add(new THREE.ConeGeometry(0.05, 0.14, 6), dark, 0, -0.16, sz * 0.08, this.carriage);
-      head.rotation.x = Math.PI;
+    const beam = (): { core: THREE.Mesh; glow: THREE.Mesh } => {
       const core = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 1, 6, 1, true), additive(3.4, 3.4, 3.6));
       const glowM = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 1, 8, 1, true), additive(0.5, 1.8, 2.8, 0.5));
       core.visible = glowM.visible = false;
       g.add(core, glowM);
-      this.beams.push({ core, glow: glowM, tip: new THREE.Vector3(0, -0.23, sz * 0.08) });
+      return { core, glow: glowM };
+    };
+    const body = model('workbench');
+    if (body) {
+      g.add(body);
+      this.carriage = body.getObjectByName('carriage') ?? new THREE.Group();
+      for (let i = 0; i < 2; i++) {
+        const from = body.getObjectByName(`emitter_${i}`) ?? null;
+        this.beams.push({ ...beam(), tip: new THREE.Vector3(), from });
+      }
+      const at = body.getObjectByName('lamp')?.position;
+      if (at) add(new THREE.BoxGeometry(0.2, 0.04, 0.03), this.lampMat, at.x, at.y, at.z + 0.015, body).castShadow = false;
+      const clip = modelClip('workbench');
+      if (clip) {
+        this.mixer = new THREE.AnimationMixer(body);
+        this.mixer.clipAction(clip).play();
+      }
+    } else {
+      const hull = lam('#c3c7d2'), dark = lam('#4b4f60'), metal = lam('#8c90a0'), orange = lam('#ff7a2f');
+      // mesa
+      add(new THREE.BoxGeometry(w * 0.94, 0.82, d * 0.78), hull, 0, 0.41, -d * 0.06);
+      add(new THREE.BoxGeometry(w * 0.96, 0.07, d * 0.86), dark, 0, 0.855, -d * 0.04);
+      add(new THREE.BoxGeometry(w * 0.94, 0.08, 0.04), orange, 0, 0.62, d * 0.34);
+      // pórtico
+      for (const sx of [-1, 1]) {
+        add(new THREE.BoxGeometry(0.1, HEAD_Y + 0.24 - BED_Y, 0.12), metal, sx * w * 0.44, (BED_Y + HEAD_Y + 0.24) / 2, -d * 0.3);
+        add(new THREE.BoxGeometry(0.08, 0.08, d * 0.36), metal, sx * w * 0.44, HEAD_Y + 0.2, -d * 0.13);
+      }
+      add(new THREE.BoxGeometry(w * 0.92, 0.09, 0.1), dark, 0, HEAD_Y + 0.2, 0);
+      // carro com dois emissores
+      const carriage = new THREE.Group();
+      this.carriage = carriage;
+      carriage.position.set(0, HEAD_Y + 0.2, 0);
+      g.add(carriage);
+      add(new THREE.BoxGeometry(0.3, 0.16, 0.24), hull, 0, -0.02, 0, this.carriage);
+      add(new THREE.BoxGeometry(0.2, 0.03, 0.03), this.lampMat, 0, 0.07, 0.125, this.carriage);
+      for (const sz of [-1, 1]) {
+        const head = add(new THREE.ConeGeometry(0.05, 0.14, 6), dark, 0, -0.16, sz * 0.08, this.carriage);
+        head.rotation.x = Math.PI;
+        this.beams.push({ ...beam(), tip: new THREE.Vector3(0, -0.23, sz * 0.08), from: null });
+      }
     }
     // camada atual (plano de varredura)
     this.scanMat = additive(0.4, 1.6, 2.2, 0);
@@ -224,9 +250,9 @@ export class Fabricator {
     this.bedMat.color.setRGB(0.35 * bedK + this.flash, 0.9 * bedK + this.flash, 1.1 * bedK + this.flash);
     this.lampMat.color.setRGB(printing ? 2.4 : 0.5, printing ? 0.9 : 1.9, printing ? 0.3 : 2.3);
 
-    // carro varre de um lado para o outro
-    const sweep = printing ? Math.sin(time * 5.2) * this.pieceR * 0.9 : this.carriage.position.x * Math.exp(-4 * dt);
-    this.carriage.position.x = sweep;
+    // carro varre de um lado para o outro (no modelo do Blender, pela animação feita lá)
+    if (this.mixer) this.mixer.update(dt * warm);
+    else this.carriage.position.x = printing ? Math.sin(time * 5.2) * this.pieceR * 0.9 : this.carriage.position.x * Math.exp(-4 * dt);
 
     const layer = BED_Y + 0.02 + this.pieceH * Math.min(1, this.progress);
     if (this.piece && printing) {
@@ -258,7 +284,7 @@ export class Fabricator {
       const on = printing && this.t > 0.15 && Math.sin(time * 60 + i * 2) > -0.85;
       b.core.visible = b.glow.visible = on;
       if (!on) continue;
-      const from = this.tmp.copy(b.tip).add(this.carriage.position);
+      const from = b.from ? this.g.worldToLocal(b.from.getWorldPosition(this.tmp)) : this.tmp.copy(b.tip).add(this.carriage.position);
       const a = time * (7 + i * 2.3) + i * 1.7;
       const r = this.pieceR * (0.4 + 0.5 * Math.abs(Math.sin(time * 3.1 + i)));
       const to = this.tmp2.set(Math.cos(a) * r, layer, Math.sin(a * 1.3) * r * 0.8);

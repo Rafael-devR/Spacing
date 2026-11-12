@@ -33,3 +33,9 @@ precisam de GPU. Outro lugar para o Blender: `BLENDER=/caminho/blender tools/mod
    variação por face); chanfre com `lib.bevel`; junte com `lib.join`; asse a oclusão com `lib.bake_ao`; exporte.
 2. Pontos que o código usa: `lib.empty('nome', posição)`. Peças que brilham: nome começando por `glow`.
 3. Ponha o orçamento e os pontos em `tests/models.test.ts` e o carregamento em `src/render/gltfModels.ts`.
+4. Modelos que encaixam num lugar do jogo (base, móveis, estações) usam as coordenadas do jogo: `lib.G`, `lib.gbox`,
+   `lib.gcyl`, `lib.grod`, `lib.gempty` (x, y para cima, z para o sul). Medidas da base em `lib.HAB`.
+5. Animação: objetos separados com quadros-chave lineares (`lib.timeline(quadros)`, `lib.keys(obj, 'location' |
+   'rotation_euler', [(quadro, valor), ...])`, o primeiro igual ao último para fechar o laço) e `lib.export(out, anim=True)`.
+   O jogo toca o laço enquanto a máquina trabalha. Pivô de uma peça que gira: `lib.set_origin`; peça presa a outra que
+   se mexe: `lib.parent`.

@@ -180,12 +180,97 @@ def stats(objs):
     return tris
 
 
-def export(path):
+def export(path, anim=False):
+    """`anim`: exporta a linha do tempo da cena como uma animação só (o jogo toca em laço)"""
     bpy.ops.object.select_all(action='DESELECT')
+    extra = {'export_animation_mode': 'SCENE', 'export_force_sampling': True} if anim else {}
     bpy.ops.export_scene.gltf(
         filepath=path, export_format='GLB', export_materials='NONE', export_vertex_color='ACTIVE',
         export_normals=True, export_texcoords=False, export_apply=True, export_yup=True,
+        export_animations=anim, **extra,
     )
+
+
+# ---------- coordenadas do jogo ----------
+# Modelos que encaixam em lugares do jogo (base, móveis, estações) pensam como o jogo: x, y para cima, z para o sul.
+# Jogo (x, y, z) = Blender (x, -z, y).
+
+# medidas do módulo da base (data/base.ts HAB_MODULE; render/baseModel.ts HABITAT_SHELL confere)
+HAB = {'SX': 11, 'SZ': 9, 'H': 3, 'DOOR_AT': 5}
+
+
+def G(x, y, z):
+    return (x, -z, y)
+
+
+def gbox(name, x0, y0, z0, x1, y1, z1, color, vary=0.08, bev=0.0, seed=1, fn=None):
+    """caixa entre dois cantos, em coordenadas do jogo"""
+    o = cube(name, x1 - x0, z1 - z0, y1 - y0, x=(x0 + x1) / 2, y=-(z0 + z1) / 2, z=y0)
+    if bev:
+        bevel(o, bev)
+    return paint(o, color, vary=vary, seed=seed, fn=fn)
+
+
+def gcyl(name, verts, r1, r2, h, x, y, z, color, vary=0.08, seed=1, cap=True, bev=0.0):
+    """cilindro de pé com a base em (x, y, z) do jogo"""
+    o = cyl(name, verts, r1, r2, h, y, x=x, y=-z, cap=cap)
+    if bev:
+        bevel(o, bev)
+    else:
+        apply_all(o)
+    return paint(o, color, vary=vary, seed=seed)
+
+
+def grod(name, a, b, r, color, verts=6, vary=0.06):
+    return paint(rod(name, G(*a), G(*b), r, verts), color, vary=vary)
+
+
+def gempty(name, x, y, z):
+    return empty(name, G(x, y, z))
+
+
+def set_origin(o, x, y, z):
+    """muda a origem (pivô) do objeto para o ponto do jogo, sem mexer na malha"""
+    sc = bpy.context.scene
+    sc.cursor.location = G(x, y, z)
+    active(o)
+    bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
+    sc.cursor.location = (0, 0, 0)
+    return o
+
+
+def parent(child, par):
+    """pendura `child` em `par` sem mudar onde ele está"""
+    child.parent = par
+    child.matrix_parent_inverse = par.matrix_world.inverted()
+    return child
+
+
+# ---------- animação (laços que o jogo toca enquanto a máquina trabalha) ----------
+FPS = 24
+
+
+def timeline(frames):
+    sc = bpy.context.scene
+    sc.render.fps = FPS
+    sc.frame_start = 0
+    sc.frame_end = frames
+
+
+def keys(o, path, frames_values):
+    """quadros-chave lineares: [(quadro, valor), ...] em `path` ('location', 'rotation_euler', 'scale')"""
+    for f, v in frames_values:
+        setattr(o, path, v)
+        o.keyframe_insert(data_path=path, frame=f)
+    if o.animation_data and o.animation_data.action:
+        act = o.animation_data.action
+        curves = getattr(act, 'fcurves', None)
+        if curves is None:  # Blender 4.4+: camadas e faixas
+            curves = [c for layer in act.layers for strip in layer.strips for bag in strip.channelbags for c in bag.fcurves]
+        for c in curves:
+            for k in c.keyframe_points:
+                k.interpolation = 'LINEAR'
+    return o
 
 
 def preview(path, target=(0, 0, 1.8), dist=9.0, size=640, yaw=45.0, pitch=28.0):

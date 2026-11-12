@@ -246,6 +246,10 @@ export class Game {
     const baseLayout = layoutModule(HAB_MODULE, this.world.terrain);
     this.world.addStructure(baseLayout.structure);
     this.inventory = new Inventory(events, this.save?.inventory);
+    // painel solar que ficou embaixo da base (ela cresceu) volta para o inventário
+    const bb = baseLayout.structure.box;
+    const under = this.world.evictPlaced('solarPanel', (x, z) => x >= bb.x0 - 1 && x <= bb.x1 + 1 && z >= bb.z0 - 1 && z <= bb.z1 + 2);
+    if (under > 0) this.inventory.add('solar_panel', under, false);
     this.bag = new Bag(this.inventory);
     this.equipment = new Equipment(events, this.save?.equipment);
     this.exploration = new Exploration(events, this.save?.explored);
@@ -338,7 +342,7 @@ export class Game {
 
     // modelo e experiência da base
     const terrain = this.world.terrain;
-    this.baseModel = new BaseModel(baseLayout, (x, z) => terrain.column(Math.floor(x), Math.floor(z)).h + 1, model('habitat'));
+    this.baseModel = new BaseModel(baseLayout, (x, z) => terrain.column(Math.floor(x), Math.floor(z)).h + 1, model('habitat'), model('habitat_interior'));
     scene.add(this.baseModel.group);
     this.base = new BaseDirector(
       {

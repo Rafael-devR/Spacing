@@ -5,7 +5,10 @@
 import type { StationId } from './stations';
 
 /** `furnace` e `electrolyzer` são estações (data/stations.ts): o lugar existe desde o início, a máquina é fabricada */
-export type FurnitureKind = 'workbench' | 'furnace' | 'electrolyzer' | 'bed' | 'locker' | 'console';
+export type FurnitureKind =
+  | 'workbench' | 'furnace' | 'electrolyzer' | 'bed' | 'locker' | 'console'
+  // só de enfeite (sem botão de usar), mas ocupam lugar como os outros
+  | 'shelf' | 'plants' | 'table' | 'tank' | 'crates';
 
 /** móveis que são estações de fabricação */
 export const STATION_FURNITURE: Partial<Record<FurnitureKind, StationId>> = {
@@ -44,24 +47,35 @@ export interface ModuleDef {
 }
 
 /**
- * Módulo inicial: um habitat de 7×5 blocos por dentro, no platô a nordeste do módulo de pouso, com a porta
- * virada para ele. Bancada de fabricação, beliche, armário, console e, na parede leste, os lugares do forno solar e do
- * eletrolisador (as máquinas são fabricadas na bancada; docs/design/CRAFTING.md).
+ * Módulo inicial: um habitat de 9×7 blocos por dentro (11×9 com as paredes), no platô a nordeste do módulo de pouso, com a
+ * porta virada para ele. Bancada de fabricação, beliche, armário, console e, na parede leste, os lugares do forno solar e do
+ * eletrolisador (as máquinas são fabricadas na bancada; docs/design/CRAFTING.md). Estante, horta, mesa, tanque e caixas são
+ * enfeite. O casco e o interior do Blender (tools/models/habitat*.py) são feitos para estas medidas (lib.HAB).
+ * Cresceu de 9×7 em 2026-11-12; a porta ficou no mesmo lugar do mundo.
  */
 export const HAB_MODULE: ModuleDef = {
   id: 'hab-01',
   name: 'Habitat 01',
-  origin: { x: 7, z: -12 },
-  size: { x: 9, z: 7 },
+  origin: { x: 6, z: -14 },
+  size: { x: 11, z: 9 },
   interiorHeight: 3,
-  door: { side: 'south', at: 4 },
+  door: { side: 'south', at: 5 },
   furniture: [
-    { id: 'workbench', kind: 'workbench', x: 3, z: 1, w: 2, d: 1, against: 'north' },
-    { id: 'bunk', kind: 'bed', x: 1, z: 2, w: 1, d: 2, against: 'west' },
+    // parede norte (z = 1)
     { id: 'locker', kind: 'locker', x: 1, z: 1, w: 1, d: 1, against: 'north' },
-    { id: 'console', kind: 'console', x: 7, z: 1, w: 1, d: 1, against: 'east' },
-    { id: 'furnace', kind: 'furnace', x: 7, z: 3, w: 1, d: 1, against: 'east' },
-    { id: 'electrolyzer', kind: 'electrolyzer', x: 7, z: 4, w: 1, d: 1, against: 'east' },
+    { id: 'shelf', kind: 'shelf', x: 2, z: 1, w: 1, d: 1, against: 'north' },
+    { id: 'workbench', kind: 'workbench', x: 4, z: 1, w: 2, d: 1, against: 'north' },
+    { id: 'plants', kind: 'plants', x: 7, z: 1, w: 2, d: 1, against: 'north' },
+    // parede oeste
+    { id: 'bunk', kind: 'bed', x: 1, z: 3, w: 1, d: 2, against: 'west' },
+    // parede leste (x = 9)
+    { id: 'console', kind: 'console', x: 9, z: 2, w: 1, d: 1, against: 'east' },
+    { id: 'furnace', kind: 'furnace', x: 9, z: 4, w: 1, d: 1, against: 'east' },
+    { id: 'electrolyzer', kind: 'electrolyzer', x: 9, z: 5, w: 1, d: 1, against: 'east' },
+    { id: 'tank', kind: 'tank', x: 9, z: 7, w: 1, d: 1, against: 'east' },
+    // parede sul (z = 7), longe da porta (x = 5)
+    { id: 'table', kind: 'table', x: 1, z: 7, w: 2, d: 1, against: 'south' },
+    { id: 'crates', kind: 'crates', x: 8, z: 7, w: 1, d: 1, against: 'south' },
   ],
 };
 
@@ -74,5 +88,5 @@ export const BASE = {
   /** distância (blocos) para aparecer o botão de usar um móvel ou a porta */
   useRadius: 1.25,
   /** zoom da câmera por dentro */
-  insideZoom: 17,
+  insideZoom: 19,
 };

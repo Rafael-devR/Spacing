@@ -1,8 +1,12 @@
 // Modelos das estações fabricáveis da base (docs/design/CRAFTING.md): forno solar e eletrolisador. Antes de
 // construída, a estação é só um holograma do que vai ser; construída, a máquina mostra que está trabalhando
 // (brilho, calor, bolhas) e acende a luz verde quando há algo para pegar. Quem decide o estado é o BaseDirector.
+// Modelo e animação vêm do Blender (tools/models/furnace.py, electrolyzer.py): o laço feito lá toca enquanto a máquina
+// trabalha (mais devagar quando ela esquenta ou para). O brilho (calor, água, faísca) continua no código, nas peças fx_*.
+// Sem o .glb, a máquina é montada aqui em código como antes.
 import * as THREE from 'three';
 import type { StationId } from '../data/stations';
+import { model, modelClip, type ModelId } from './gltfModels';
 
 const lam = (hex: THREE.ColorRepresentation, extra: THREE.MeshLambertMaterialParameters = {}): THREE.MeshLambertMaterial =>
   new THREE.MeshLambertMaterial({ color: hex, flatShading: true, ...extra });
@@ -28,6 +32,8 @@ export abstract class StationModel {
   private pop = 1;
   private flash = 0;
   protected readonly tmp = new THREE.Vector3();
+  /** animação do Blender (null = máquina em código) */
+  private mixer: THREE.AnimationMixer | null = null;
 
   constructor(
     protected readonly g: THREE.Group,
@@ -42,6 +48,38 @@ export abstract class StationModel {
     this.holoMat = new THREE.LineBasicMaterial({
       color: accent.clone().multiplyScalar(1.6), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
     });
+  }
+
+  /**
+   * Põe o modelo do Blender em `machine`, liga a animação e a luz de estado no ponto "lamp". Peças com "tall" no nome vão
+   * até o teto (saem do ícone). Devolve o modelo, ou null se ele não carregou (a subclasse monta em código).
+   */
+  protected fromModel(id: ModelId): THREE.Object3D | null {
+    const m = model(id);
+    if (!m) return null;
+    this.machine.add(m);
+    const clip = modelClip(id);
+    if (clip) {
+      this.mixer = new THREE.AnimationMixer(m);
+      this.mixer.clipAction(clip).play();
+    }
+    m.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh && /tall/i.test(o.name)) this.tall.push(o);
+    });
+    const at = m.getObjectByName('lamp')?.position;
+    if (at) {
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, 0.03), this.lamp);
+      lamp.position.set(at.x, at.y, at.z + 0.015);
+      m.add(lamp);
+    }
+    return m;
+  }
+
+  /** troca o material de uma peça do modelo (as fx_* que o código acende) */
+  protected static setMat(root: THREE.Object3D, name: string, mat: THREE.Material): THREE.Object3D | null {
+    const o = root.getObjectByName(name) as THREE.Mesh | undefined;
+    if (o?.isMesh) o.material = mat;
+    return o ?? null;
   }
 
   /** As subclasses chamam no fim do construtor, depois de montar a máquina em `machine`: sombras e holograma. */
@@ -131,6 +169,8 @@ export abstract class StationModel {
     else if (this.working) this.lamp.color.setRGB(2.4, 1.1, 0.25);
     else this.lamp.color.setRGB(0.25, 0.6, 0.9);
     this.animate(dt, time, this.work);
+    // o laço do Blender anda na velocidade do trabalho: para devagar quando a máquina desliga
+    this.mixer?.update(dt * this.work);
     if (this.flash > 0) this.lamp.color.addScalar(this.flash * 3);
   }
 }
@@ -141,10 +181,19 @@ export class FurnaceModel extends StationModel {
   private readonly core: THREE.MeshBasicMaterial = glow(2.4, 1.6, 0.6, 0.85);
   private readonly ring: THREE.MeshBasicMaterial = glow(2.2, 0.9, 0.2);
   private puffT = 0;
+  /** de onde saem as brasas (local) */
+  private readonly vent = new THREE.Vector3(0, 0.68, 0.4);
 
   constructor(g: THREE.Group) {
     super(g, new THREE.Color('#ff8a3d'));
-    this.buildMachine(this.machine, this.lamp);
+    const m = this.fromModel('furnace');
+    if (m) {
+      StationModel.setMat(m, 'fx_window', this.window);
+      StationModel.setMat(m, 'fx_core_tall', this.core);
+      StationModel.setMat(m, 'fx_ring', this.ring);
+      const at = m.getObjectByName('vent')?.position;
+      if (at) this.vent.copy(at);
+    } else this.buildMachine(this.machine, this.lamp);
     this.finishSetup();
   }
 
@@ -187,7 +236,7 @@ export class FurnaceModel extends StationModel {
       this.puffT -= dt;
       if (this.puffT <= 0) {
         this.puffT = 0.12;
-        const p = this.g.localToWorld(this.tmp.set((Math.random() - 0.5) * 0.3, 0.68, 0.4));
+        const p = this.g.localToWorld(this.tmp.set(this.vent.x + (Math.random() - 0.5) * 0.3, this.vent.y, this.vent.z));
         this.onParticle(p.x, p.y, p.z, (Math.random() - 0.5) * 0.4, 0.6 + Math.random() * 0.8, (Math.random() - 0.5) * 0.4, [2.6, 0.9, 0.2], 0.5);
       }
     }
@@ -200,10 +249,23 @@ export class ElectrolyzerModel extends StationModel {
   private readonly bubbleMat = glow(1.6, 2.2, 2.6, 0.8);
   private readonly liquid = glow(0.15, 0.55, 0.9, 0.75);
   private readonly arc = glow(0.6, 1.8, 2.6);
+  /** as bolhas do Blender sobem pela animação; o código só as mostra enquanto trabalha */
+  private animated = false;
 
   constructor(g: THREE.Group) {
     super(g, new THREE.Color('#5fd0ff'));
-    this.buildMachine(this.machine, this.lamp);
+    const m = this.fromModel('electrolyzer');
+    if (m) {
+      this.animated = true;
+      StationModel.setMat(m, 'fx_liquid', this.liquid);
+      StationModel.setMat(m, 'fx_arc', this.arc);
+      m.traverse((o) => {
+        if ((o as THREE.Mesh).isMesh && /bubble/i.test(o.name)) {
+          (o as THREE.Mesh).material = this.bubbleMat;
+          this.bubbles.push(o as THREE.Mesh);
+        }
+      });
+    } else this.buildMachine(this.machine, this.lamp);
     this.finishSetup();
   }
 
@@ -248,6 +310,10 @@ export class ElectrolyzerModel extends StationModel {
     this.bubbleMat.opacity = 0.85 * w;
     for (let i = 0; i < this.bubbles.length; i++) {
       const b = this.bubbles[i];
+      if (this.animated) {
+        b.visible = w > 0.05;
+        continue;
+      }
       // metade sobe do eletrodo de H₂ (esquerda, mais bolhas) e metade do de O₂
       const side = i < 7 ? -1 : 1;
       const f = (time * (0.7 + (i % 4) * 0.12) + (b.userData.seed as number)) % 1;

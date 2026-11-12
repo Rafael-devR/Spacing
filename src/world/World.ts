@@ -367,6 +367,16 @@ export class World {
     return c.mesh ? this.spawnProp(c, p) : null;
   }
 
+  /**
+   * Tira do mundo os objetos de um tipo, colocados durante o jogo, que caem dentro de `inside` (ex.: painéis embaixo da
+   * base depois que ela cresceu). Precisa ser chamado antes de gerar os chunks. Devolve quantos saíram.
+   */
+  evictPlaced(type: PropType, inside: (x: number, z: number) => boolean): number {
+    const gone = this.extraProps.filter((e) => e.type === type && !this.removedProps.has(e.key) && inside(e.wx, e.wz));
+    this.extraProps = this.extraProps.filter((e) => !gone.includes(e));
+    return gone.length;
+  }
+
   /** objetos de um tipo colocados durante o jogo e ainda no mundo (estejam ou não carregados) */
   placedProps(type: PropType): { key: string; x: number; z: number }[] {
     return this.extraProps.filter((e) => e.type === type && !this.removedProps.has(e.key)).map((e) => ({ key: e.key, x: e.wx, z: e.wz }));

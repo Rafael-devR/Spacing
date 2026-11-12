@@ -57,8 +57,10 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). **Sessão nova?
   Todo item novo precisa de `about` e de uso; o teste `tests/crafting.test.ts` confere. Estações têm vagas e lotes.
 - Modelos 3D (ADR 0013, [design/MODELOS.md](docs/design/MODELOS.md)): scripts do Blender em `tools/models/` (`build.sh`, `lib.py`,
   um `.py` por modelo) geram `src/assets/models/*.glb`; `src/render/gltfModels.ts` carrega e troca os materiais pelos do jogo. O
-  Blender roda sem janela em `/tmp/blender` (ver `tools/models/README.md`). Teto de triângulos em `tests/models.test.ts`. Luzes que piscam são `SignalLamp` (`src/render/lamps.ts`, núcleo + halo, sem `PointLight`). O casco da base fica só na camada
-  de fora e as paredes em código só na de dentro (`interiorOnly`, `src/render/indoors.ts`).
+  Blender roda sem janela em `/tmp/blender` (ver `tools/models/README.md`). Teto de triângulos em `tests/models.test.ts`. Luzes que piscam são `SignalLamp` (`src/render/lamps.ts`, núcleo + halo, sem `PointLight`). Base: casco (`habitat.py`) só na camada
+  de fora, interior (`habitat_interior.py`) só na de dentro (`interiorOnly`, `src/render/indoors.ts`); medidas em `lib.HAB`. Móveis:
+  `furniture.py` (um nó por tipo). Estações: `workbench/furnace/electrolyzer.py`, com animação em laço feita no Blender
+  (`lib.keys`, `export(anim=True)`), tocada por `AnimationMixer`.
 - Chunks em worker e resolução dinâmica (ADR 0012): `src/world/chunkJobs.ts` + `chunk.worker.ts` + `workerPool.ts`, malha e luz em
   `chunkMesher.ts`, modo assíncrono em `World.enableWorkers`; `src/render/scaler.ts` + `Post.setScale`; testes `tests/chunkjobs.test.ts`,
   `tests/scaler.test.ts`, `tools/visual-check/worker.mjs`. `?semWorker` desliga o worker. Mexeu em quem lê blocos de chunks que podem não ter chegado? `getBlock` gera na hora; não presuma carregado.

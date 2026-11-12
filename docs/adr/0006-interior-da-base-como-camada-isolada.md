@@ -54,3 +54,9 @@ O lado de fora da base passou a ser um modelo do Blender (ADR 0013), só na cama
 ficaram só na camada do interior (`interiorOnly` em `indoors.ts`). Com isso a base já tem os "dois modelos" que a opção 1
 pedia. O dono sugeriu levar o interior para uma área separada, com tela de carregamento, quando o interior detalhado for
 feito; a separação em camadas deixa esse passo mais fácil, mas ele ainda não foi decidido.
+
+## Adendo (2026-11-12): interior do Blender
+
+O interior também passou a ser modelo do Blender (paredes em peças de baixo e de cima por lado, para o corte continuar
+funcionando), e a base cresceu para 11×9. A sugestão do dono de levar o interior para uma cena à parte, com carregamento,
+continua em aberto: por enquanto o interior segue no mesmo lugar, na camada de dentro.

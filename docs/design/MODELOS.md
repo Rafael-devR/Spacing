@@ -1,6 +1,7 @@
 # Modelos 3D feitos no Blender
 
-- **Status:** pedido pelo dono em 2026-11-12; prontos o módulo de pouso (piloto) e o casco de fora da base. Decisão técnica em
+- **Status:** pedido pelo dono em 2026-11-12; prontos o módulo de pouso (piloto), a base por fora e por dentro, os móveis e
+  as três estações (bancada, forno solar e eletrolisador) com animação feita no Blender. Decisão técnica em
   [ADR 0013](../adr/0013-modelos-do-blender-por-script.md).
 
 ## O pedido
@@ -44,7 +45,12 @@ teto, conferido por `tests/models.test.ts`:
 | Modelo | Teto | Hoje | Peças no jogo |
 | --- | --- | --- | --- |
 | Módulo de pouso | 3.000 | 2.060 | corpo (1 malha) + janelas (1) + 3 luzes + feixe |
-| Casco da base (Habitat 01) | 4.000 | 2.550 | corpo (1) + janelas acesas (1) + 2 folhas da porta + pernas + 6 luzes + placa |
+| Casco da base (Habitat 01) | 4.000 | 2.640 | corpo (1) + janelas acesas (1) + 2 folhas da porta + pernas + 6 luzes + placa |
+| Interior da base | 4.500 | 2.760 | piso + 8 peças de parede (e acesas/vidros) + 2 folhas |
+| Móveis (8 tipos) | 4.000 | 2.390 | corpo + peça acesa por tipo |
+| Bancada | 1.500 | 560 | corpo + carro + ventilador |
+| Forno solar | 1.500 | 1.000 | corpo + gaiola + tubo de luz + janela + anel + ventilador + fole |
+| Eletrolisador | 1.200 | 690 | corpo + vidro + água + faísca + bomba + 2 ponteiros + 9 bolhas |
 
 Juntar tudo numa malha só importa tanto quanto os triângulos: o módulo antigo era ~25 peças (≈50 chamadas de desenho com a
 sombra); o novo é 2.
@@ -67,9 +73,9 @@ iluminar de verdade, que seja uma só, fixa, medida no celular.
 
 ## Casco da base (Habitat 01)
 
-Só o lado de fora (`tools/models/habitat.py`). O interior continua em código e será um modelo à parte depois, com mais
-detalhe (equipamentos). Feito para as medidas do `HAB_MODULE` (9×7, 3 de altura, porta no meio da parede sul);
-`shellFits()` confere, e um módulo de outras medidas é montado em código como antes.
+Lado de fora (`tools/models/habitat.py`). Feito para as medidas do `HAB_MODULE` (11×9, 3 de altura, porta no meio da
+parede sul), que ficam em `lib.HAB` para todos os scripts da base; `shellFits()` confere, e um módulo de outras medidas é
+montado em código como antes.
 
 - Colunas facetadas nos cantos, nervuras e faixa laranja; três janelas com moldura em cada lado (leste e oeste), acesas em
   azul-gelo como a luz de dentro; dois radiadores de aletas na parede norte.
@@ -83,10 +89,46 @@ detalhe (equipamentos). Feito para as medidas do `HAB_MODULE` (9×7, 3 de altura
   porta e a base montadas em código ficam só na do interior (`interiorOnly`), como forro de dentro. De fora não se
   desenha mais o que é de dentro (nem a sombra dele), e de dentro o casco não aparece.
 
+## Interior da base
+
+`tools/models/habitat_interior.py`: piso de placas com passarela e faixa de atenção na porta; forro das paredes com
+painéis, nervuras, rodapé aceso, linha laranja e luminária no alto; janelas leste e oeste (vidro escuro, lá fora é o
+espaço), canos e moldura da janela da Terra na parede norte, grade de ventilação e quadro elétrico; batentes e folhas da
+porta por dentro.
+
+- Cada parede sai em duas peças, porque o corte (a câmera de dentro) abaixa só a parte de cima das paredes viradas para
+  ela: `wall_<l>_lo` (fica de pé) e `wall_<l>_hi` (pivô em y = 2; o código achata em y). Peças acesas e vidros da
+  mesma parede seguem o nome (`lit_wall_<l>_hi`, `glow_wall_<l>_hi`). O topo das paredes é escuro: aparece quando
+  abaixam.
+- O piso vai para as duas camadas (de fora, com a porta aberta, vê-se lá dentro); o resto só para a de dentro.
+- Pontos: `earth` (a imagem da Terra, em código), `door_in_l/r` (folhas), `door_in_lamp` (luz com halo).
+
+## Móveis
+
+`tools/models/furniture.py`: um nó por tipo (`bed`, `locker`, `console`, `shelf`, `plants`, `table`, `tank`, `crates`), no
+próprio espaço (chão em y = 0, centro do lugar que ocupa, costas na parede, frente para +z). O código clona o nó do tipo
+(`modelPart`) e põe onde `data/base.ts` manda. Móvel novo = tipo nos dados + peça no script (o teste confere que todo
+móvel dos dados tem o seu nó). O console tem o ponto `console_screen`, onde o código põe a tela desenhada.
+
+## Estações com animação feita no Blender
+
+`workbench.py`, `furnace.py`, `electrolyzer.py`. Cada uma tem **uma animação em laço** feita no Blender (quadros-chave em
+objetos separados, exportada como uma animação só: `lib.export(out, anim=True)`). O jogo toca com um `AnimationMixer`
+na velocidade do trabalho: rodando quando a máquina trabalha, parando devagar quando ela desliga.
+
+| Estação | O que anima no Blender | O que continua no código |
+| --- | --- | --- |
+| Bancada | carro do pórtico indo e voltando, ventilador | lasers (saem de `emitter_0/1`, presos ao carro), grade do tampo, peça impressa, faíscas |
+| Forno solar | ventilador, fole | calor da janela (`fx_window`), luz do tubo (`fx_core_tall`), anel, brasas (`vent`) |
+| Eletrolisador | bolhas subindo (o dobro do lado do H₂), bomba, ponteiros | brilho da água (`fx_liquid`), faísca (`fx_arc`), mostrar as bolhas só trabalhando |
+
+O que depende do jogo (a peça que está sendo impressa, para onde os lasers apontam, o calor) fica no código; o movimento
+mecânico, que é sempre o mesmo, fica no Blender. Peças `fx*` recebem material do código; `glass*` são vidro transparente;
+peças com `tall` no nome vão até o teto e saem do ícone. O holograma de "ainda não construída" sai das arestas do modelo.
+
 ## Próximos candidatos
 
-Interior da base, astronauta (peças separadas, que o código continua animando), forno solar e eletrolisador, bancada,
-painel solar, pedras e minérios soltos (variações por semente), meteorito. Cada um com o seu teto no teste.
+Astronauta (peças separadas, que o código continua animando), painel solar, pedras e minérios soltos (variações por semente), meteorito. Cada um com o seu teto no teste.
 
 ## Montar o Blender no Codespace
 

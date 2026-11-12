@@ -2,24 +2,37 @@ import { describe, expect, it } from 'vitest';
 import { Group, Object3D, Mesh, BufferGeometry, MeshBasicMaterial } from 'three';
 import { createLander } from '../src/render/models';
 import { shellFits } from '../src/render/baseModel';
-import { HAB_MODULE } from '../src/data/base';
+import { HAB_MODULE, STATION_FURNITURE } from '../src/data/base';
 
 /** os .glb do jogo, como data URL (sem depender das APIs do Node) */
 const GLBS = import.meta.glob('../src/assets/models/*.glb', { query: '?inline', import: 'default', eager: true }) as Record<string, string>;
 
 /** orçamento de triângulos por modelo (docs/design/MODELOS.md): o celular já desenha o terreno e a sombra */
-const BUDGET: Record<string, number> = { lander: 3000, habitat: 4000 };
+const BUDGET: Record<string, number> = {
+  lander: 3000, habitat: 4000, habitat_interior: 4500, furniture: 4000, workbench: 1500, furnace: 1500, electrolyzer: 1200,
+};
 /** pontos que o código procura em cada modelo */
 const MARKERS: Record<string, string[]> = {
   lander: ['lamp_0', 'lamp_1', 'lamp_2', 'beam'],
   habitat: ['leg_0', 'leg_5', 'door_lamp', 'antenna_lamp', 'beacon_0', 'beacon_3', 'sign', 'door_l', 'door_r', 'lit_windows'],
+  habitat_interior: [
+    'floor', 'earth', 'door_in_l', 'door_in_r', 'door_in_lamp',
+    ...['n', 's', 'w', 'e'].flatMap((l) => [`wall_${l}_lo`, `wall_${l}_hi`]),
+  ],
+  furniture: ['bed', 'locker', 'console', 'console_screen', 'shelf', 'plants', 'table', 'tank', 'crates'],
+  workbench: ['carriage', 'emitter_0', 'emitter_1', 'lamp', 'fan'],
+  furnace: ['lamp', 'vent', 'fx_window', 'fx_core_tall', 'fx_ring', 'tall_cage', 'fan', 'piston'],
+  electrolyzer: ['lamp', 'fx_liquid', 'fx_arc', 'glass_tub', 'lit_bubble_0', 'piston', 'needle_h'],
 };
+/** máquinas com animação feita no Blender */
+const ANIMATED = ['workbench', 'furnace', 'electrolyzer'];
 
 interface Gltf {
   nodes: { name?: string; mesh?: number; translation?: number[] }[];
   meshes: { name?: string; primitives: { attributes: Record<string, number>; indices?: number }[] }[];
   accessors: { count: number }[];
   materials?: unknown[];
+  animations?: { name?: string; channels: unknown[] }[];
 }
 
 /** só o JSON do .glb (o primeiro bloco depois do cabeçalho) */
@@ -57,13 +70,22 @@ describe('modelos do Blender', () => {
     expect(g.materials ?? []).toHaveLength(0);
     const names = g.nodes.map((n) => n.name);
     for (const k of MARKERS[id]) expect(names, `${id}: falta o ponto ${k}`).toContain(k);
+    if (ANIMATED.includes(id)) expect(g.animations?.[0]?.channels.length ?? 0, `${id}: sem animação`).toBeGreaterThan(0);
+  });
+
+  it('todo móvel da base que não é estação tem o seu modelo em furniture.glb', () => {
+    const names = readGlb(fileOf('furniture.glb')).nodes.map((n) => n.name);
+    for (const f of HAB_MODULE.furniture) {
+      if (STATION_FURNITURE[f.kind]) continue;
+      expect(names, f.kind).toContain(f.kind);
+    }
   });
 });
 
 describe('casco da base', () => {
   it('serve para o habitat inicial e não para módulos de outras medidas', () => {
     expect(shellFits(HAB_MODULE)).toBe(true);
-    expect(shellFits({ ...HAB_MODULE, size: { x: 11, z: 7 } })).toBe(false);
+    expect(shellFits({ ...HAB_MODULE, size: { x: 9, z: 7 } })).toBe(false);
     expect(shellFits({ ...HAB_MODULE, door: { side: 'east', at: 3 } })).toBe(false);
   });
 });

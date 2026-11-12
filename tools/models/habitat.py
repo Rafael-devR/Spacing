@@ -1,6 +1,6 @@
 # Casco de fora do Habitat 01 (docs/design/MODELOS.md). Só o lado de fora: por dentro a base continua montada em código
-# (render/baseModel.ts), numa camada que só a câmera de dentro vê. Medidas do módulo em data/base.ts: 9×7 blocos por
-# fora, 3 de altura livre, porta no meio da parede sul (x 4..5). O modelo antigo serviu de referência, não de molde:
+# (habitat_interior.py), numa camada que só a câmera de dentro vê. Medidas do módulo em lib.HAB (= data/base.ts): 11×9
+# blocos por fora, 3 de altura livre, porta no meio da parede sul. O modelo antigo serviu de referência, não de molde:
 # cantos em coluna, abóbada no telhado, janelas de verdade com moldura, radiadores, câmara de entrada com marquise,
 # painéis solares num mastro. As pernas (vão até o chão, que muda), as luzes e a placa ficam no código, nos pontos marcados.
 # Coordenadas: o script pensa no jogo (x, y para cima, z para o sul) e converte: jogo (x, y, z) = Blender (x, -z, y).
@@ -17,7 +17,7 @@ import lib  # noqa: E402
 out, prev = lib.args()
 lib.reset()
 
-SX, SZ, H = 9, 7, 3
+SX, SZ, H = lib.HAB['SX'], lib.HAB['SZ'], lib.HAB['H']
 TOP = H + 1  # alto das paredes (o telhado é a célula de cima)
 HULL = '#e4e6ec'
 SEAM = '#c3c7d2'
@@ -26,10 +26,11 @@ DARK = '#4b4f60'
 ORANGE = '#ff7a2f'
 ICE = '#9fe8ff'
 CELL = ('#24305e', '#2c3a72')
+WIN_Z = (2.5, 4.5, 6.5)  # centro das janelas leste e oeste (as mesmas por dentro)
 
 parts = []   # corpo (uma malha só)
 lit = []     # janelas acesas (material que brilha)
-DOOR = (4, 5)  # x da porta na parede sul
+DOOR = (lib.HAB['DOOR_AT'], lib.HAB['DOOR_AT'] + 1)  # x da porta na parede sul
 
 
 def G(x, y, z):
@@ -109,16 +110,20 @@ BAND = (1.58, 1.78)
 for (x0, z0, x1, z1) in ((C, -0.05, SX - C, 0.0), (C, SZ, DOOR[0] - 0.45, SZ + 0.05), (DOOR[1] + 0.45, SZ, SX - C, SZ + 0.05),
                          (-0.05, C, 0.0, SZ - C), (SX, C, SX + 0.05, SZ - C)):
     box('band', x0, BAND[0], z0, x1, BAND[1], z1, ORANGE, vary=0.05)
-for x in (1.9, 3.4, 5.6, 7.1):
-    box('rib', x - 0.05, 1.14, -0.04, x + 0.05, TOP, 0.0, SEAM, vary=0.04)
-for x in (1.9, 7.1):
-    box('rib', x - 0.05, 1.14, SZ, x + 0.05, TOP, SZ + 0.04, SEAM, vary=0.04)
-for z in (1.3, 5.7):
+RADIATORS = ((1.3, 3.1), (SX - 3.1, SX - 1.3))
+x = 1.5
+while x < SX - 1.2:
+    if not any(a - 0.2 < x < b + 0.2 for a, b in RADIATORS):
+        box('rib', x - 0.05, 1.14, -0.04, x + 0.05, TOP, 0.0, SEAM, vary=0.04)
+    if x < DOOR[0] - 0.8 or DOOR[1] + 2.5 < x:  # longe da porta e da placa
+        box('rib', x - 0.05, 1.14, SZ, x + 0.05, TOP, SZ + 0.04, SEAM, vary=0.04)
+    x += 1.5
+for z in (1.5, 3.5, 5.5, 7.5):
     box('rib', -0.04, 1.14, z - 0.05, 0.0, TOP, z + 0.05, SEAM, vary=0.04)
     box('rib', SX, 1.14, z - 0.05, SX + 0.04, TOP, z + 0.05, SEAM, vary=0.04)
 
 # ---- janelas leste e oeste: moldura escura e vidro aceso (a luz azul-gelo de dentro) ----
-for z in (2.3, 3.5, 4.7):
+for z in WIN_Z:
     for (xo, s) in ((0.0, -1), (SX, 1)):
         a, b = sorted((xo, xo + s * 0.07))
         box('frame_win', a, 2.38, z - 0.48, b, 3.12, z + 0.48, DARK, vary=0.04)
@@ -126,7 +131,7 @@ for z in (2.3, 3.5, 4.7):
         box('glow_win', a, 2.48, z - 0.38, b, 3.02, z + 0.38, ICE, vary=0.05, into=lit)
 
 # ---- parede norte: dois radiadores de aletas ----
-for (x0, x1) in ((1.2, 3.0), (6.0, 7.8)):
+for (x0, x1) in RADIATORS:
     box('radiator', x0, 1.35, -0.12, x1, 3.75, 0.0, DARK, vary=0.04)
     for i in range(8):
         y = 1.5 + i * 0.28
@@ -150,10 +155,14 @@ box('step_edge', DOOR[0] - 0.25, 0.55, SZ + 0.92, DOOR[1] + 0.25, 0.58, SZ + 1.0
 box('roof', -0.06, TOP, -0.06, SX + 0.06, TOP + 0.36, SZ + 0.06, HULL, bev=0.05, seed=11)
 box('eave', -0.1, TOP - 0.04, -0.1, SX + 0.1, TOP + 0.06, SZ + 0.1, DARK, vary=0.04)
 VY = TOP + 0.36
-arc_mesh('vault', 0.7, SX - 0.7, SZ / 2, VY, 2.75, 0.48, 12, HULL, seed=12)
-for x in (0.62, 2.2, 3.7, 5.3, 6.8, SX - 0.74):  # as das pontas abraçam a tampa da abóbada
-    arc_mesh('vault_rib', x, x + 0.12, SZ / 2, VY, 2.8, 0.5, 12, SEAM, caps=True)
-VTOP = VY + 2.75 * 0.48
+VR = SZ / 2 - 0.75
+VS = 1.35 / VR  # achatamento: a abóbada sobe 1,35
+arc_mesh('vault', 0.7, SX - 0.7, SZ / 2, VY, VR, VS, 12, HULL, seed=12)
+n = 6
+for i in range(n + 1):  # as das pontas abraçam a tampa da abóbada
+    x = 0.62 + (SX - 0.74 - 0.62) * i / n
+    arc_mesh('vault_rib', x, x + 0.12, SZ / 2, VY, VR + 0.05, (1.35 + 0.05) / (VR + 0.05), 12, SEAM, caps=True)
+VTOP = VY + 1.35
 
 # ---- painéis solares num mastro no meio da abóbada ----
 lib_m = lib.rod('mast', G(SX / 2, VTOP - 0.1, SZ / 2), G(SX / 2, VTOP + 1.1, SZ / 2), 0.07, 8)
@@ -219,6 +228,6 @@ glow = lib.join('lit_windows', lit)
 lib.bake_ao(body, strength=0.55, distance=1.2)
 print('TRIANGULOS', lib.stats([body, glow] + leaves), 'corpo', lib.stats([body]))
 if prev:
-    lib.preview(prev, target=(4.5, -3.5, 2.6), dist=22, yaw=20, pitch=32)
-    lib.preview(prev.replace('.png', '-porta.png'), target=(4.5, -7, 2.0), dist=8, yaw=10, pitch=15, size=480)
+    lib.preview(prev, target=(SX / 2, -SZ / 2, 2.6), dist=26, yaw=20, pitch=32)
+    lib.preview(prev.replace('.png', '-porta.png'), target=(SX / 2, -SZ, 2.0), dist=8, yaw=10, pitch=15, size=480)
 lib.export(out)

@@ -2,7 +2,9 @@
 // Low poly como o módulo de pouso: casco branco, faixa laranja, luzes azul-gelo.
 // Casco do Blender (tools/models/habitat.py, docs/design/MODELOS.md): quando o módulo tem as medidas do modelo, o lado de
 // fora é o .glb (só na camada do mundo) e as paredes montadas aqui viram o forro de dentro (só na camada do interior).
-// Sem o .glb, ou com outras medidas, tudo é montado em código como antes.
+// O interior também vem do Blender (tools/models/habitat_interior.py): piso, forro das paredes (cada lado em duas peças, a
+// de cima abaixa no corte) e porta de dentro; móveis de furniture.py, máquinas de workbench/furnace/electrolyzer.py.
+// Sem os .glb, ou com outras medidas, tudo é montado em código como antes.
 // Corte (cutaway): com o astronauta dentro, o telhado some e as paredes viradas para a câmera abaixam,
 // mostrando o interior. Dentro, a câmera só vê a camada do interior (render/indoors.ts): as partes de fora
 // (pernas, degrau, círculo da porta, telhado) ficam só na camada do mundo.
@@ -14,6 +16,7 @@ import { createStationModel, type StationModel } from './stationModels';
 import type { StationId } from '../data/stations';
 import { exteriorOnly, interiorOnly, showIndoors } from './indoors';
 import { SignalLamp } from './lamps';
+import { modelPart } from './gltfModels';
 
 const lam = (hex: THREE.ColorRepresentation, extra: THREE.MeshLambertMaterialParameters = {}): THREE.MeshLambertMaterial =>
   new THREE.MeshLambertMaterial({ color: hex, flatShading: true, ...extra });
@@ -21,7 +24,7 @@ const glow = (r: number, g: number, b: number): THREE.MeshBasicMaterial =>
   new THREE.MeshBasicMaterial({ color: new THREE.Color(r, g, b), toneMapped: false });
 
 /** medidas para as quais o casco do Blender foi feito (data/base.ts, HAB_MODULE) */
-export const HABITAT_SHELL = { x: 9, z: 7, interiorHeight: 3, door: { side: 'south' as Side, at: 4 } };
+export const HABITAT_SHELL = { x: 11, z: 9, interiorHeight: 3, door: { side: 'south' as Side, at: 5 } };
 
 /** o casco do Blender serve para este módulo? */
 export function shellFits(def: ModuleLayout['def']): boolean {
@@ -55,17 +58,20 @@ export class BaseModel {
   private readonly roof = new THREE.Group();
   private readonly roofMats: THREE.Material[] = [];
   private readonly walls: WallPart[] = [];
-  private readonly doorL: THREE.Mesh;
-  private readonly doorR: THREE.Mesh;
+  /** folhas de porta (de dentro e do casco): posição fechada e para que lado correm */
+  private readonly leaves: { mesh: THREE.Object3D; x: number; dir: number }[] = [];
   private readonly doorAxis: 'x' | 'z';
-  private readonly doorFrame: THREE.Group;
+  /** a porta de dentro encolhe junto com a parede quando ela abaixa no corte */
+  private doorFrame: THREE.Object3D;
   private readonly doorLamps: THREE.MeshBasicMaterial;
   private readonly padMat: THREE.MeshBasicMaterial;
   private readonly antennaLamp: SignalLamp;
   /** casco do Blender (null = lado de fora montado em código) */
   readonly shell: THREE.Object3D | null;
-  private readonly shellDoors: { mesh: THREE.Object3D; x: number; dir: number }[] = [];
-  private readonly shellDoorLamp: SignalLamp | null = null;
+  /** luzes da porta com halo (casco e interior do Blender): vermelho = fechada, verde = liberada */
+  private readonly doorSignals: SignalLamp[] = [];
+  /** interior do Blender (null = montado em código) */
+  readonly interiorModel: THREE.Object3D | null;
   private readonly beacons: SignalLamp[] = [];
   private readonly light: THREE.PointLight;
   private readonly stripMat: THREE.MeshBasicMaterial;
@@ -86,8 +92,10 @@ export class BaseModel {
     readonly layout: ModuleLayout,
     groundAt: (x: number, z: number) => number,
     shell: THREE.Object3D | null = null,
+    interiorModel: THREE.Object3D | null = null,
   ) {
     this.shell = shell && shellFits(layout.def) ? shell : null;
+    this.interiorModel = interiorModel && shellFits(layout.def) ? interiorModel : null;
     const { def, floorY } = layout;
     const box = layout.structure.box;
     const g = this.group;
@@ -218,9 +226,10 @@ export class BaseModel {
     boxAt(frame, dark, 0.48, 0, -0.56, 0.62, 2.12, 0.56);
     boxAt(frame, dark, -0.62, 1.98, -0.56, 0.62, 2.14, 0.56);
     const leaf = new THREE.BoxGeometry(0.5, 1.98, 0.22);
-    this.doorL = add(frame, leaf, hullDark, -0.25, 1, 0);
-    this.doorR = add(frame, leaf, hullDark, 0.25, 1, 0);
-    for (const l of [this.doorL, this.doorR]) add(l, new THREE.BoxGeometry(0.06, 1.2, 0.24), orange, l === this.doorL ? 0.2 : -0.2, 0, 0, false);
+    const doorL = add(frame, leaf, hullDark, -0.25, 1, 0);
+    const doorR = add(frame, leaf, hullDark, 0.25, 1, 0);
+    for (const l of [doorL, doorR]) add(l, new THREE.BoxGeometry(0.06, 1.2, 0.24), orange, l === doorL ? 0.2 : -0.2, 0, 0, false);
+    this.leaves.push({ mesh: doorL, x: -0.25, dir: -1 }, { mesh: doorR, x: 0.25, dir: 1 });
     this.doorLamps = glow(2.2, 0.25, 0.15);
     const lampGeo = new THREE.BoxGeometry(0.5, 0.08, 0.06);
     add(frame, lampGeo, this.doorLamps, 0, 2.24, 0.5, false);
@@ -291,13 +300,14 @@ export class BaseModel {
       }
       for (const [name, dir] of [['door_l', -1], ['door_r', 1]] as const) {
         const m = sh.getObjectByName(name);
-        if (m) this.shellDoors.push({ mesh: m, x: m.position.x, dir });
+        if (m) this.leaves.push({ mesh: m, x: m.position.x, dir });
       }
       const doorLampAt = sh.getObjectByName('door_lamp')?.position;
       if (doorLampAt) {
-        this.shellDoorLamp = new SignalLamp({ size: 0.08, halo: 1.4 });
-        this.shellDoorLamp.group.position.copy(doorLampAt);
-        sh.add(this.shellDoorLamp.group);
+        const l = new SignalLamp({ size: 0.08, halo: 1.4 });
+        l.group.position.copy(doorLampAt);
+        sh.add(l.group);
+        this.doorSignals.push(l);
       }
       const antennaAt = sh.getObjectByName('antenna_lamp')?.position;
       if (antennaAt) {
@@ -316,13 +326,15 @@ export class BaseModel {
 
     // ---- interior ----
     g.add(this.interior);
+    const codeLining = new THREE.Group(); // piso e rodapé em código (saem se o interior do Blender carregou)
+    this.interior.add(codeLining);
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(SX - 2, SZ - 2), new THREE.MeshLambertMaterial({ map: floorTexture(SX - 2, SZ - 2, dl.x - 1, door.side) }));
     floor.rotation.x = -Math.PI / 2;
     floor.position.set(SX / 2, 1.005, SZ / 2);
     floor.receiveShadow = true;
-    this.interior.add(floor);
+    codeLining.add(floor);
     // rodapé de luz nas paredes internas
-    const skirt = (x0: number, z0: number, x1: number, z1: number): void => void boxAt(this.interior, this.stripMat, x0, 1.0, z0, x1, 1.06, z1, false);
+    const skirt = (x0: number, z0: number, x1: number, z1: number): void => void boxAt(codeLining, this.stripMat, x0, 1.0, z0, x1, 1.06, z1, false);
     skirt(1, 1, SX - 1, 1.04);
     skirt(1, 1, 1.04, SZ - 1);
     skirt(SX - 1.04, 1, SX - 1, SZ - 1);
@@ -344,6 +356,8 @@ export class BaseModel {
     // fora do grupo do interior: esconder a luz mudaria o número de luzes e recompilaria os shaders
     g.add(this.light);
 
+    if (this.interiorModel) this.useInteriorModel(this.interiorModel, hullG, codeLining);
+
     for (const f of layout.furniture) {
       const fg = new THREE.Group();
       fg.position.set(f.def.x + f.def.w / 2, 1, f.def.z + f.def.d / 2);
@@ -356,12 +370,81 @@ export class BaseModel {
       } else if (f.def.kind === 'furnace' || f.def.kind === 'electrolyzer') {
         const st = createStationModel(f.def.kind, fg);
         if (st) this.stations.set(f.def.kind, st);
-      } else buildFurniture(f.def.kind, fg, w, d, { hull, hullDark, metal, dark, orange, strip: this.stripMat });
+      } else {
+        const part = modelPart('furniture', f.def.kind);
+        if (part) {
+          fg.add(part);
+          const at = part.getObjectByName('console_screen')?.position;
+          if (at) {
+            const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.74, 0.46), new THREE.MeshBasicMaterial({ map: consoleTexture(), toneMapped: false }));
+            screen.position.set(at.x, at.y, at.z + 0.006);
+            part.add(screen);
+          }
+        } else buildFurniture(f.def.kind, fg, w, d, { hull, hullDark, metal, dark, orange, strip: this.stripMat });
+      }
       this.furniture.push({ id: f.def.id, kind: f.def.kind, group: fg });
     }
 
     // dentro da base a câmera só vê esta camada (as partes de fora foram marcadas acima)
     showIndoors(g);
+  }
+
+  /**
+   * Troca as paredes, a porta e o piso montados em código pelo interior do Blender. As paredes de cima de cada lado
+   * (wall_<l>_hi, lit_wall_<l>_hi, glow_wall_<l>_hi) vão para um grupo com pivô em y = 2, que o corte achata.
+   */
+  private useInteriorModel(inner: THREE.Object3D, codeHull: THREE.Object3D, codeLining: THREE.Object3D): void {
+    codeHull.removeFromParent();
+    codeLining.removeFromParent();
+    this.walls.length = 0;
+    this.leaves.splice(0, 2); // as duas folhas da porta em código (as do casco continuam)
+    this.group.add(interiorOnly(inner));
+    const pieces: THREE.Object3D[] = [];
+    inner.traverse((o) => void (o !== inner && pieces.push(o)));
+    // o piso fica nas duas camadas: de fora, com a porta aberta, aparece lá dentro
+    const floor = inner.getObjectByName('floor');
+    if (floor) this.interior.add(floor);
+    const short: Record<Side, string> = { north: 'n', south: 's', west: 'w', east: 'e' };
+    for (const side of ['north', 'south', 'west', 'east'] as Side[]) {
+      const upper = new THREE.Group();
+      upper.position.y = 2;
+      inner.add(upper);
+      const re = new RegExp(`(^|_)wall_${short[side]}_hi$`);
+      for (const o of pieces) {
+        if (!re.test(o.name)) continue;
+        o.position.y -= 2;
+        upper.add(o);
+      }
+      this.walls.push({ side, upper, lowered: 0 });
+    }
+    // janela da Terra: a imagem vai na moldura da parede norte
+    const earthAt = inner.getObjectByName('earth')?.position;
+    const north = this.walls.find((w) => w.side === 'north');
+    if (earthAt && north) {
+      const earth = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.95), new THREE.MeshBasicMaterial({ map: earthTexture(), toneMapped: false }));
+      earth.position.set(earthAt.x, earthAt.y - 2, earthAt.z);
+      north.upper.add(earth);
+    }
+    // porta de dentro: folhas num grupo com pivô no piso (encolhe com a parede); luz em cima
+    const doorG = new THREE.Group();
+    doorG.position.y = 1;
+    inner.add(doorG);
+    for (const [name, dir] of [['door_in_l', -1], ['door_in_r', 1]] as const) {
+      const m = inner.getObjectByName(name);
+      if (!m) continue;
+      m.position.y -= 1;
+      doorG.add(m);
+      this.leaves.push({ mesh: m, x: m.position.x, dir });
+    }
+    this.doorFrame = doorG;
+    const lampAt = inner.getObjectByName('door_in_lamp')?.position;
+    const doorWall = this.walls.find((w) => w.side === this.layout.door.side);
+    if (lampAt && doorWall) {
+      const l = new SignalLamp({ size: 0.07, halo: 1.1 });
+      l.group.position.set(lampAt.x, lampAt.y - 2, lampAt.z);
+      doorWall.upper.add(l.group);
+      this.doorSignals.push(l);
+    }
   }
 
   /** A cada quadro. `camera` = posição da câmera (para saber quais paredes estão na frente). */
@@ -373,19 +456,16 @@ export class BaseModel {
 
     // porta corre para dentro da parede
     const o = this.door * 0.5;
-    this.doorL.position.x = -0.25 - o;
-    this.doorR.position.x = 0.25 + o;
-    this.doorL.visible = this.doorR.visible = this.door < 0.97;
+    for (const l of this.leaves) {
+      l.mesh.position.x = l.x + l.dir * o;
+      l.mesh.visible = this.door < 0.97;
+    }
     const red = !this.doorGreen;
     const blink = red && this.door > 0.05 ? (Math.sin(t * 14) > 0 ? 1 : 0.2) : 1;
     this.doorLamps.color.setRGB(red ? 2.2 * blink : 0.4, red ? 0.25 * blink : 2.4, red ? 0.15 : 0.8);
-    if (this.shellDoorLamp) {
-      this.shellDoorLamp.setColor(red ? DOOR_RED : DOOR_GREEN);
-      this.shellDoorLamp.set(blink);
-    }
-    for (const d of this.shellDoors) {
-      d.mesh.position.x = d.x + d.dir * o;
-      d.mesh.visible = this.door < 0.97;
+    for (const l of this.doorSignals) {
+      l.setColor(red ? DOOR_RED : DOOR_GREEN);
+      l.set(blink);
     }
     this.beacons.forEach((b, i) => b.set(0.75 + 0.25 * Math.sin(t * 1.6 + i * 1.7)));
     this.padMat.opacity = 0.35 + 0.25 * Math.sin(t * 3) * 0.5 + this.padHighlight * 0.5;
@@ -461,6 +541,9 @@ function buildFurniture(kind: FurnitureKind, g: THREE.Group, w: number, d: numbe
     const screen = add(new THREE.PlaneGeometry(w * 0.74, 0.5), new THREE.MeshBasicMaterial({ map: consoleTexture(), toneMapped: false }), 0, 1.22, -d * 0.3);
     screen.castShadow = false;
     add(new THREE.BoxGeometry(w * 0.8, 0.58, 0.04), m.dark, 0, 1.22, -d * 0.33);
+  } else {
+    // enfeites (estante, horta, mesa, tanque, caixas) sem o modelo do Blender: um volume simples
+    add(new THREE.BoxGeometry(w * 0.86, kind === 'table' ? 0.8 : 1.6, d * 0.8), m.hullDark, 0, kind === 'table' ? 0.4 : 0.8, -d * 0.05);
   }
 }
 
