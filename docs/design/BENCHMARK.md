@@ -91,6 +91,8 @@ save).
 - **Salvamento e preferências.** O jogo grava o progresso **uma vez**, no começo, e trava o salvamento durante o teste (o
   teste altera o mundo na memória); ao fechar o resultado o jogo recarrega e volta ao progresso de antes. As preferências
   nunca são tocadas. O vibrador é desligado durante o teste.
+- **O astronauta não morre.** Durante o teste, oxigênio, bateria e integridade ficam sempre em 100% (só na memória; o save
+  está travado) e o dano é ignorado. Se mesmo assim uma morte chegar, o teste a desfaz e continua de onde parou.
 - **Three.js e shaders.** A versão do Three.js continua `0.160.0` e nenhum arquivo de shader é alterado.
 
 ## O que é medido
@@ -103,6 +105,15 @@ quadro (8,3 ms em 120 Hz). Também: navegador, núcleos de CPU, memória do apar
 fabricante da GPU, versão do WebGL, extensões úteis (inclusive `EXT_disjoint_timer_query`), textura máxima, densidade de
 pixels, tamanho da tela e da área do jogo, orientação e bateria (nível e se está carregando). **O que o navegador não
 informa aparece como "não disponível"** (e `null` no JSON); nada é inventado.
+
+### Taxa da tela durante o teste (telas adaptativas)
+
+Telas adaptativas ficam em 60 Hz sem toque e sobem para 120 Hz com o dedo em movimento. Por isso a taxa é medida **o teste
+inteiro**, a cada 1 s, pelos quadros mais rápidos da janela, e o resultado mostra **quanto tempo a tela ficou em cada
+taxa**. A análise usa a maior taxa vista. Se a tela não ficou em 90 Hz ou mais em pelo menos 90% do tempo, o resultado avisa
+e o veredito de 120 Hz é marcado como **não confiável**. A página não distingue uma tela em 60 Hz de um jogo que não passa
+de 60 FPS. Durante o teste o jogo envia movimento de dedo simulado, mas o sistema pode ignorar eventos criados por
+JavaScript: **mantenha um dedo se movendo na tela** (o cartão pede isso). Os toques não afetam o jogo.
 
 ### Fluidez (a parte mais importante)
 

@@ -7,7 +7,7 @@ import type { LongSummary } from './observers';
 import type { Recorder } from './probe';
 import { SUB, SUBSYSTEMS, type SubsystemId } from './probe';
 import {
-  bucketSeries, compare, frameStats, fpsPresented, histogram, highestSustained, mean, pacing, percentile, round1, round2, slope,
+  type RefreshObserved, bucketSeries, compare, frameStats, fpsPresented, histogram, highestSustained, mean, pacing, percentile, round1, round2, slope,
   sorted, targetFluidity, type Comparison, type FrameStats, type Pacing, type RefreshDetection, type TargetFluidity,
 } from './stats';
 
@@ -166,7 +166,12 @@ export interface BenchReport {
   scale: number;
   seconds: number;
   env: EnvInfo;
+  /** taxa da tela usada na análise: a maior vista durante o teste (a dos 2 s do começo pode ser menor) */
   refresh: RefreshDetection;
+  /** o que a tela mediu nos 2 s antes do teste */
+  refreshStart: RefreshDetection;
+  /** quanto tempo a tela ficou em cada taxa durante o teste inteiro */
+  refreshObserved: RefreshObserved;
   graphics: {
     quality: string;
     auto: boolean;
@@ -315,7 +320,7 @@ export function thermalResult(minutes: ThermalMinute[], series: SeriesData): The
  * Conclusões do teste. As fixas vêm da leitura do código (laço principal, passo fixo, limite de dt); as outras, das
  * medidas: só aparecem quando os números pedem. O texto de cada uma fica em src/i18n/pt-BR.ts (`bench.find.<id>`).
  */
-export function findings(r: Pick<BenchReport, 'refresh' | 'overall' | 'scenarios' | 'thermal' | 'env'>): Finding[] {
+export function findings(r: Pick<BenchReport, 'refresh' | 'overall' | 'scenarios' | 'thermal' | 'env' | 'refreshObserved'>): Finding[] {
   const out: Finding[] = [
     // investigação do limite de 60 FPS (README do BENCHMARK.md): nada no laço trava em 60, mas há trechos a 60 Hz
     { id: 'loopRaf', level: 'ok' },
@@ -323,6 +328,11 @@ export function findings(r: Pick<BenchReport, 'refresh' | 'overall' | 'scenarios
     { id: 'dtClamp', level: 'info' },
   ];
   const hz = r.refresh.hz;
+  const ro = r.refreshObserved;
+  if (ro.totalSeconds > 0 && !ro.reliable120) {
+    if (ro.peakHz <= 60) out.unshift({ id: 'refresh60', level: 'warn', params: { hz: ro.peakHz } });
+    else out.unshift({ id: 'refreshDrops', level: 'warn', params: { hz: ro.peakHz, pct: ro.belowPeakPct } });
+  }
   const idle = r.scenarios.find((s) => s.id === 'idle');
   const probe = idle?.summary ?? r.overall;
   // a tela é de 120 Hz mas os quadros saem em múltiplos de 2 vsyncs com ritmo certinho: alguém limita a 60

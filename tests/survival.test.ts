@@ -36,6 +36,19 @@ function setup(opts: { inside?: boolean; moving?: boolean; mining?: boolean } = 
   return { s, events, log, state, run };
 }
 
+describe('Survival no teste de desempenho', () => {
+  it('imortal: nenhum dano mata, nem a asfixia', () => {
+    const { s, log, run } = setup();
+    s.immortal = true;
+    s.damage(500, 'meteor');
+    s.o2 = 0;
+    run(60);
+    expect(s.dead).toBe(false);
+    expect(s.integrity).toBe(100);
+    expect(log.some((l) => l.startsWith('died'))).toBe(false);
+  });
+});
+
 describe('Survival', () => {
   it('o tanque do traje básico dura 8 minutos andando', () => {
     const { s, run } = setup();

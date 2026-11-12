@@ -50,6 +50,9 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Alterado
 
+- Teste de desempenho: o astronauta não morre durante o teste (medidores sempre cheios, dano ignorado, morte desfeita sem
+  reiniciar); a taxa da tela é medida o teste inteiro, com o tempo em cada taxa, aviso de veredito de 120 Hz não confiável e
+  movimento de dedo simulado para manter a tela adaptativa em 120 Hz.
 - O teste de desempenho antigo (51 s, resultado em `spacing.bench.v1`) foi substituído pelo novo; o resultado antigo não é
   mais lido.
 - **Tremor da câmera ao minerar** mais leve e sem acumular: com a broca rápida, ele crescia sem parar. A pausa de

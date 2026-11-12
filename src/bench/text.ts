@@ -34,10 +34,12 @@ function fluidityLine(s: Summary, i: number, tr: Tr): string {
 export function reportText(r: BenchReport, tr: Tr): string {
   const o = r.overall;
   const g = r.graphics;
+  const ro = r.refreshObserved;
   const L: string[] = [];
   L.push(tr('bench.txt.head', { mode: tr(`bench.mode.${r.mode}` as MessageKey), version: r.gameVersion, bench: r.version, date: new Date(r.date).toLocaleString('pt-BR'), min: num(r.seconds / 60, 1) }));
   if (r.scale !== 1) L.push(tr('bench.txt.shortened', { scale: r.scale }));
   L.push(tr('bench.txt.screen', { hz: r.refresh.hz, raw: num(r.refresh.rawHz, 1), budget: num(r.refresh.budgetMs, 2), w: r.env.viewport.width, h: r.env.viewport.height, dpr: num(r.env.devicePixelRatio, 2) }));
+  L.push(tr('bench.txt.refreshObserved', { list: ro.seconds.map((x) => `${x.hz} Hz ${num(x.pct, 0)}%`).join(' · ') || tr('bench.na'), flag: ro.reliable120 || !ro.totalSeconds ? '' : tr('bench.txt.refreshUnreliable') }));
   L.push(
     tr('bench.txt.device', {
       gpu: orNA(r.env.gl.renderer, tr),

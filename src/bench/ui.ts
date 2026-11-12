@@ -46,6 +46,7 @@ export class BenchUi {
   private index = 0;
   private after = false;
   private text = '';
+  private keeper = 0;
 
   constructor() {
     this.live.innerHTML = `
@@ -89,10 +90,41 @@ export class BenchUi {
 
   // ---------- enquanto roda ----------
 
+  /**
+   * Movimento de dedo simulado: telas adaptativas só sobem para 120 Hz quando há toque. Eventos criados pelo JavaScript
+   * talvez não contem para o sistema (depende do aparelho), por isso o cartão também pede um dedo em movimento de verdade.
+   * Os eventos vão só para o cartão do teste, sem borbulhar: não chegam ao jogo.
+   */
+  private startKeeper(): void {
+    if (this.keeper) return;
+    let n = 0;
+    this.keeper = window.setInterval(() => {
+      n++;
+      const x = 40 + (n % 20) * 3;
+      for (const type of ['pointermove', 'touchmove'] as const) {
+        try {
+          const ev = type === 'pointermove'
+            ? new PointerEvent(type, { bubbles: false, pointerType: 'touch', clientX: x, clientY: 80 })
+            : new Event(type, { bubbles: false });
+          this.live.dispatchEvent(ev);
+        } catch {
+          // sem PointerEvent: nada a simular
+        }
+      }
+    }, 16);
+  }
+
+  private stopKeeper(): void {
+    window.clearInterval(this.keeper);
+    this.keeper = 0;
+  }
+
   showDetecting(): void {
     this.hideChooser();
+    this.startKeeper();
     this.live.hidden = false;
     el('#bench-phase').textContent = t('bench.detecting');
+    el('#bench-meta').textContent = t('bench.touchKeep');
     el('#bench-fill').style.width = '0%';
     el('#bench-meta').textContent = '';
   }
@@ -110,6 +142,7 @@ export class BenchUi {
   }
 
   hideRunning(): void {
+    this.stopKeeper();
     this.live.hidden = true;
   }
 
@@ -117,6 +150,7 @@ export class BenchUi {
 
   /** Mostra o resultado de número `index` do histórico (0 = o mais novo) e compara com o anterior a ele. */
   showResult(history: BenchReport[], index = 0, after = false): void {
+    this.stopKeeper();
     this.history = history;
     this.index = Math.min(index, history.length - 1);
     this.after = after;
@@ -260,6 +294,8 @@ export class BenchUi {
 
   // ---------- montagem do resultado ----------
 
+  private reliable120 = true;
+
   private verdict(s: Summary, i: number, prev: Summary | null): string {
     const hz = BENCH_TARGETS[i];
     const f = s.targets[i];
@@ -268,6 +304,7 @@ export class BenchUi {
       before === undefined ? '' : ` ${chip(compareValue(now, before, hi), d)}`;
     return `<div class="bench-verdict ${f.sustains ? 'ok' : 'bad'}">
       <div class="bv-head"><span>${hz} Hz</span><strong>${t(f.sustains ? 'bench.sustains' : 'bench.notSustains')}</strong></div>
+      ${hz >= 90 && !this.reliable120 ? `<p class="bench-warn">${t('bench.verdictUnreliable')}</p>` : ''}
       <dl class="br-list">
         ${row(t('bench.l.fps'), `${num(s.stats.fpsEffective, 1)}${cmp(s.stats.fpsEffective, prev?.stats.fpsEffective, true)}`)}
         ${row(t('bench.l.presented'), `${num(s.fpsPresented, 1)}${cmp(s.fpsPresented, prev?.fpsPresented, true)}`)}
@@ -282,8 +319,12 @@ export class BenchUi {
     const o = r.overall;
     const g = r.graphics;
     const e = r.env;
+    this.reliable120 = r.refreshObserved.reliable120 || r.refreshObserved.totalSeconds === 0;
     const warns: string[] = [];
     if (navigator.webdriver) warns.push(t('bench.warn.automated'));
+    if (!r.refreshObserved.reliable120 && r.refreshObserved.totalSeconds > 0) {
+      warns.push(t(r.refreshObserved.peakHz <= 60 ? 'bench.warn.refresh60' : 'bench.warn.refreshDrops', { hz: r.refreshObserved.peakHz, pct: num(r.refreshObserved.belowPeakPct, 0) }));
+    }
     if (r.scale !== 1) warns.push(t('bench.warn.shortened', { scale: r.scale }));
     if (prev) {
       const diff = setupDiff(r, prev);
@@ -313,6 +354,16 @@ export class BenchUi {
       ${row(t('bench.l.buffer'), `${g.buffer[0]} × ${g.buffer[1]} px · ${t('bench.l.css')} ${Math.round(g.css[0])} × ${Math.round(g.css[1])}`)}
     </dl>`;
 
+    const ro = r.refreshObserved;
+    const refreshHtml = section(
+      t('bench.refreshTitle'),
+      `<p class="bench-note">${t('bench.refreshNote')}</p>` +
+        table(
+          [t('bench.col.rate'), t('bench.col.seconds'), t('bench.col.share')],
+          ro.seconds.map((x) => [`${x.hz} Hz`, num(x.seconds, 1), `${num(x.pct, 1)}%`]),
+        ) +
+        `<p class="bench-note">${t('bench.refreshStart', { hz: r.refreshStart.hz })}</p>`,
+    );
     const histo = this.histogramHtml(o);
     const stats = `<dl class="br-list">
       ${row(t('bench.l.mean'), `${num(o.stats.meanMs, 2)} ms`)}${row(t('bench.l.median'), `${num(o.stats.medianMs, 2)} ms`)}
@@ -399,6 +450,7 @@ export class BenchUi {
       ${warns.map((w) => `<p class="bench-warn">${esc(w)}</p>`).join('')}${note}
       <div class="bench-verdicts">${BENCH_TARGETS.map((_, i) => this.verdict(o, i, prev?.overall ?? null)).join('')}</div>
       ${section(t('bench.chart'), `<canvas id="br-chart" class="bench-chart" aria-label="${t('bench.chart')}"></canvas><p class="bench-note">${t('bench.chartNote')}</p>`)}
+      ${refreshHtml}
       ${section(t('bench.fluidity'), stats)}
       ${section(t('bench.histogram'), histo)}
       ${section(t('bench.scenarios'), scenTable)}

@@ -84,6 +84,11 @@ const mid = await g(() => ({
 }));
 check('mostra cenário, etapa e FPS enquanto roda', mid.phase.length > 5 && /Etapa \d+ de \d+/.test(mid.meta), `${mid.phase} | ${mid.meta}`);
 check('a sonda de CPU só existe durante o teste e o astronauta vai para a região fixa', mid.probe && mid.moved);
+// durante o teste o astronauta não morre: dano enorme não faz nada e os medidores ficam cheios
+const surv = await g(() => { const sv = window.spacing.survival; sv.damage(9999, 'meteor'); sv.o2 = 5; return null; });
+await page.waitForTimeout(600);
+const after1 = await g(() => ({ st: window.spacing.state, dead: window.spacing.survival.dead, o2: window.spacing.survival.o2, hp: window.spacing.survival.integrity, bat: window.spacing.survival.battery }));
+check('durante o teste o astronauta não morre e os medidores ficam cheios', surv === null && after1.st === 'benchmark' && !after1.dead && after1.o2 === 100 && after1.hp === 100 && after1.bat === 100, JSON.stringify(after1));
 await page.waitForFunction(() => window.spacing.bench?.finished, null, { timeout: 300000, polling: 500 });
 await page.waitForSelector('#bench-result:not([hidden])', { timeout: 10000 });
 await page.waitForTimeout(500);
@@ -97,6 +102,7 @@ check('a taxa da tela foi detectada e arredondada para 60/90/120/144', r1 && [60
 check('mediu os 15 cenários, todos com quadros', r1?.scenarios.length === 15 && r1.scenarios.every((s) => s.summary.frames > 0), r1?.scenarios.map((s) => `${s.id}:${s.summary.frames}`).join(' '));
 const o = r1?.overall;
 check('fluidez: média, mediana, p95, p99, p99.9, desvio e jitter', o && ['meanMs', 'medianMs', 'p95Ms', 'p99Ms', 'p999Ms', 'stdMs', 'jitterMs'].every((k) => typeof o.stats[k] === 'number' && o.stats[k] >= 0), o && `média ${o.stats.meanMs.toFixed(1)} ms, p99 ${o.stats.p99Ms.toFixed(1)} ms`);
+check('mediu a taxa da tela durante o teste inteiro (tempo em cada taxa)', r1 && r1.refreshObserved.totalSeconds > 0 && r1.refreshObserved.seconds.length > 0 && typeof r1.refreshObserved.reliable120 === 'boolean', r1 && JSON.stringify(r1.refreshObserved.seconds));
 check('mede contra 120 e 60 Hz, ritmo e FPS apresentado', o?.targets.length === 2 && typeof o.pacing.alignedPct === 'number' && o.fpsPresented > 0 && o.histogram.length === 10);
 check('mediu o tempo de cada subsistema e os passos fixos', o && o.subsystems.length === 13 && o.subsystems.find((s) => s.id === 'render').meanMs > 0 && o.subsystems.find((s) => s.id === 'sim').meanMs >= 0 && o.steps.mean > 0,
   o && o.subsystems.filter((s) => s.meanMs > 0).map((s) => `${s.id}:${s.meanMs.toFixed(2)}`).join(' '));
@@ -125,6 +131,7 @@ const panel = await g(() => {
 });
 check('o painel mostra os veredictos de 120 e de 60 Hz', panel.verdicts === 2 && /120 Hz/.test(panel.text) && /60 Hz/.test(panel.text));
 check('o gráfico do tempo dos quadros foi desenhado no canvas', panel.inked > 500, `${panel.inked} pixels`);
+check('o painel mostra o tempo em cada taxa da tela e avisa que a tela não ficou em 120 Hz', /Taxa da tela durante o teste/i.test(panel.text) && /NÃO é confiável|não é confiável/.test(panel.text));
 check('mostra "não disponível" para o que o aparelho não informa', /não disponível/.test(panel.text));
 check('avisa que o navegador automatizado não vale para o celular', /NÃO valem para o celular/.test(panel.text));
 check('mostra a tabela por cenário e as conclusões', panel.rows >= 15 && /Conclusões/i.test(panel.text));

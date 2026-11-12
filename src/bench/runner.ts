@@ -30,7 +30,7 @@ import {
   type BenchReport, type EffectResult, type ResolutionPoint, type SceneKey, type SceneStats, type ScenarioResult,
   type SeriesData, type StepStat, type ThermalMinute,
 } from './report';
-import { bucketSeries, round2, type RefreshDetection } from './stats';
+import { RefreshTracker, bucketSeries, round2, type RefreshDetection } from './stats';
 
 export interface RunnerDeps {
   renderer: THREE.WebGLRenderer;
@@ -200,6 +200,9 @@ export class BenchRunner {
   private recent: number[] = [];
   private heapStart: number | null = null;
   private abort = { aborted: false };
+  private readonly tracker = new RefreshTracker();
+  /** resumos que dependem da taxa final da tela: feitos no fim, quando já se sabe a maior taxa vista */
+  private readonly later: ((hz: number) => void)[] = [];
 
   // resultados parciais
   private readonly scenarios: ScenarioResult[] = [];
@@ -357,31 +360,8 @@ export class BenchRunner {
     const s = c.step;
     if (c.rec.frames === 0) return;
     if (s.section === 'scenarios') {
-      const chunks = { gen: c.gen.value, mesh: c.mesh.value, remesh: c.remesh.value };
-      const inWindow = (list: { at: number; ms: number; source: string }[]): typeof list => list.filter((e) => e.at >= c.from && e.at <= c.to);
-      this.scenarios.push({
-        id: s.id,
-        summary: summarize(c.rec, hz, chunks),
-        scene: sceneStats(c.gauges),
-        creations: c.creations.rates(c.elapsed - s.warmup),
-        longTasks: summarizeLong(inWindow(this.observers.longTasks)),
-        longFrames: summarizeLong(inWindow(this.observers.longFrames)),
-        series: seriesOf(c.rec, 250),
-      });
-      // o conjunto de todos os cenários: os mesmos quadros, somados
-      const o = this.overall;
-      for (let i = 0; i < c.rec.frames; i++) {
-        o.interval.push(c.rec.interval.values[i]);
-        o.cpu.push(c.rec.cpu.values[i]);
-        o.steps.push(c.rec.steps.values[i]);
-        c.rec.subs.forEach((ser, k) => o.subs[k].push(ser.values[i]));
-        o.gen.push(c.rec.gen.values[i]);
-        o.mesh.push(c.rec.mesh.values[i]);
-        o.remesh.push(c.rec.remesh.values[i]);
-      }
-      for (let i = 0; i < c.rec.gpu.n; i++) o.gpu.push(c.rec.gpu.values[i]);
-      o.cappedFrames += c.rec.cappedFrames;
-      for (const [k, t] of [['gen', c.gen], ['mesh', c.mesh], ['remesh', c.remesh]] as const) this.overallChunks[k].merge(t);
+      this.later.push((fhz) => this.addScenario(c, fhz));
+      this.mergeOverall(c);
     } else if (s.section === 'effects') {
       const key = s.effect === 'baseline' || !s.effect ? 'baseline' : `${s.effect.id}:${s.effect.on ? 'on' : 'off'}`;
       this.effectStats.set(key, stepStat(c.rec));
@@ -401,6 +381,41 @@ export class BenchRunner {
       this.thermalSeries.avg.push(...b.avg.map(round2));
       this.thermalSeries.max.push(...b.max.map(round2));
     }
+  }
+
+
+  /** resume um cenário com a taxa final da tela (o ritmo se mede contra o vsync dela) */
+  private addScenario(c: Current, hz: number): void {
+    const s = c.step;
+    const chunks = { gen: c.gen.value, mesh: c.mesh.value, remesh: c.remesh.value };
+    const inWindow = (list: { at: number; ms: number; source: string }[]): typeof list => list.filter((e) => e.at >= c.from && e.at <= c.to);
+    this.scenarios.push({
+    id: s.id,
+    summary: summarize(c.rec, hz, chunks),
+    scene: sceneStats(c.gauges),
+    creations: c.creations.rates(c.elapsed - s.warmup),
+    longTasks: summarizeLong(inWindow(this.observers.longTasks)),
+    longFrames: summarizeLong(inWindow(this.observers.longFrames)),
+    series: seriesOf(c.rec, 250),
+    });
+  }
+
+  /** soma os quadros de um cenário ao conjunto de todos */
+  private mergeOverall(c: Current): void {
+    // o conjunto de todos os cenários: os mesmos quadros, somados
+    const o = this.overall;
+    for (let i = 0; i < c.rec.frames; i++) {
+      o.interval.push(c.rec.interval.values[i]);
+      o.cpu.push(c.rec.cpu.values[i]);
+      o.steps.push(c.rec.steps.values[i]);
+      c.rec.subs.forEach((ser, k) => o.subs[k].push(ser.values[i]));
+      o.gen.push(c.rec.gen.values[i]);
+      o.mesh.push(c.rec.mesh.values[i]);
+      o.remesh.push(c.rec.remesh.values[i]);
+    }
+    for (let i = 0; i < c.rec.gpu.n; i++) o.gpu.push(c.rec.gpu.values[i]);
+    o.cappedFrames += c.rec.cappedFrames;
+    for (const [k, t] of [['gen', c.gen], ['mesh', c.mesh], ['remesh', c.remesh]] as const) this.overallChunks[k].merge(t);
   }
 
   // ---------- a cada quadro ----------
@@ -455,6 +470,7 @@ export class BenchRunner {
     if (this.state !== 'running' || !c) return;
     const ms = this.rawMs;
     c.frames++;
+    if (c.frames > 2) this.tracker.push(ms);
     if (c.measuring && c.frames > 1) {
       c.rec.push(ms, cpuMs, this.probe);
       this.sampleScene(c, ms);
@@ -550,7 +566,12 @@ export class BenchRunner {
 
   private build(): BenchReport {
     const { d } = this;
-    const hz = (this.refresh as RefreshDetection).hz;
+    // a taxa da tela pode mudar durante o teste (telas adaptativas): vale a maior vista, não só a dos 2 s do começo
+    const observed = this.tracker.result();
+    const detected = this.refresh as RefreshDetection;
+    const hz = Math.max(detected.hz, observed.peakHz);
+    for (const f of this.later) f(hz);
+    const refresh: RefreshDetection = hz === detected.hz ? detected : { ...detected, hz, budgetMs: 1000 / hz };
     const q = d.quality();
     const size = d.renderer.getDrawingBufferSize(new THREE.Vector2());
     const css = d.renderer.getSize(new THREE.Vector2());
@@ -576,8 +597,7 @@ export class BenchRunner {
       ? thermalResult(this.thermalMinutes, { bucketMs: 1000, avg: this.thermalSeries.avg, max: this.thermalSeries.max } as SeriesData)
       : null;
     const env = this.env as EnvInfo;
-    const refresh = this.refresh as RefreshDetection;
-    const partial = { refresh, overall, scenarios: this.scenarios, thermal, env };
+    const partial = { refresh, overall, scenarios: this.scenarios, thermal, env, refreshObserved: observed };
     const ob = this.observers;
     const report: BenchReport = {
       version: BENCH_VERSION,
@@ -588,6 +608,8 @@ export class BenchRunner {
       seconds,
       env,
       refresh,
+      refreshStart: detected,
+      refreshObserved: observed,
       graphics: {
         quality: q.name, auto: q.auto, pixelRatio: d.renderer.getPixelRatio(), shadow: q.preset.shadow, samples: q.preset.samples,
         bloom: q.preset.bloom, css: [css.x, css.y], buffer: [size.x, size.y],

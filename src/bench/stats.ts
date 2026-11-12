@@ -345,3 +345,66 @@ export function highestSustained(xs: readonly number[], ok: readonly boolean[]):
   }
   return best;
 }
+
+/** Quanto tempo a tela ficou em cada taxa durante o teste (telas adaptativas mudam entre 60 e 120 Hz). */
+export interface RefreshObserved {
+  /** segundos observados em cada taxa reconhecida (só as que apareceram) */
+  seconds: { hz: number; seconds: number; pct: number }[];
+  totalSeconds: number;
+  /** a maior taxa vista (com pelo menos 2 s) */
+  peakHz: number;
+  /** % do tempo abaixo da maior taxa vista */
+  belowPeakPct: number;
+  /** a taxa de cada janela de 1 s, em ordem (para ver quando a tela caiu) */
+  timeline: number[];
+  /** o veredito de 120 Hz é confiável: a tela ficou em 90 Hz ou mais em pelo menos 90% do tempo */
+  reliable120: boolean;
+}
+
+/**
+ * Acompanha a taxa da tela durante o teste inteiro. A cada janela de `windowMs`, a taxa vem dos quadros MAIS RÁPIDOS da
+ * janela (percentil 10 dos intervalos): se a tela está em 120 Hz, aparecem quadros de 8,3 ms mesmo que alguns se atrasem;
+ * se só há quadros de 16,7 ms, a tela está em 60 Hz (ou o jogo não passa de 60, o que a página não distingue).
+ */
+export class RefreshTracker {
+  private buf: number[] = [];
+  private acc = 0;
+  private readonly secs = new Map<number, number>();
+  private readonly line: number[] = [];
+
+  constructor(private readonly windowMs = 1000) {}
+
+  push(intervalMs: number): void {
+    if (!(intervalMs > 0)) return;
+    this.buf.push(intervalMs);
+    this.acc += intervalMs;
+    if (this.acc >= this.windowMs) this.flush();
+  }
+
+  private flush(): void {
+    if (this.buf.length >= 3) {
+      const p10 = percentile(sorted(this.buf), 0.1);
+      const hz = detectRefreshRate([p10]).hz;
+      this.secs.set(hz, (this.secs.get(hz) ?? 0) + this.acc / 1000);
+      this.line.push(hz);
+    }
+    this.buf = [];
+    this.acc = 0;
+  }
+
+  result(): RefreshObserved {
+    const total = [...this.secs.values()].reduce((a, b) => a + b, 0);
+    const seconds = [...this.secs.entries()].sort((a, b) => b[0] - a[0]).map(([hz, s]) => ({ hz, seconds: round1(s), pct: total ? round1((100 * s) / total) : 0 }));
+    const peak = seconds.find((x) => x.seconds >= 2)?.hz ?? seconds[0]?.hz ?? 0;
+    const above = seconds.filter((x) => x.hz >= 90).reduce((a, x) => a + x.seconds, 0);
+    const below = total ? (100 * seconds.filter((x) => x.hz < peak).reduce((a, x) => a + x.seconds, 0)) / total : 0;
+    return {
+      seconds,
+      totalSeconds: round1(total),
+      peakHz: peak,
+      belowPeakPct: round1(below),
+      timeline: [...this.line],
+      reliable120: total > 0 && above / total >= 0.9,
+    };
+  }
+}

@@ -49,7 +49,8 @@ export function report(over: Partial<BenchReport> = {}, intervals = rep(1000 / 1
   const refresh = detectRefreshRate(rep(1000 / hz, 100));
   const sc = scenario('idle', intervals, hz);
   return {
-    version: 2, gameVersion: '0.3.0', date: '2026-11-12T10:00:00.000Z', mode: 'quick', scale: 1, seconds: 100, env: ENV, refresh,
+    version: 2, gameVersion: '0.3.0', date: '2026-11-12T10:00:00.000Z', mode: 'quick', scale: 1, seconds: 100, env: ENV, refresh, refreshStart: refresh,
+    refreshObserved: { seconds: [{ hz, seconds: 100, pct: 100 }], totalSeconds: 100, peakHz: hz, belowPeakPct: 0, timeline: [], reliable120: hz >= 90 },
     graphics: { quality: 'alto', auto: false, pixelRatio: 2, shadow: 2048, samples: 4, bloom: true, css: [400, 800], buffer: [800, 1600] },
     muted: false, overall: sc.summary, scenarios: [sc], effects: null, resolution: null, thermal: null,
     input: { touch: null, fallback: null, touchCount: 0 },

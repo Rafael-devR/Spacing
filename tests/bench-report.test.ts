@@ -149,6 +149,15 @@ describe('conclusões', () => {
     expect(free).not.toContain('cap');
   });
 
+  it('avisa quando a tela adaptativa ficou em 60 Hz ou caiu durante o teste', () => {
+    const base = report();
+    const low = { ...base, refreshObserved: { ...base.refreshObserved, peakHz: 60, reliable120: false, seconds: [{ hz: 60, seconds: 100, pct: 100 }] } };
+    expect(findings(low).map((x) => x.id)).toContain('refresh60');
+    const drops = { ...base, refreshObserved: { ...base.refreshObserved, peakHz: 120, belowPeakPct: 40, reliable120: false } };
+    expect(findings(drops).map((x) => x.id)).toContain('refreshDrops');
+    expect(findings(base).map((x) => x.id)).not.toContain('refresh60');
+  });
+
   it('avisa quando o aparelho segura o desempenho por calor e quando há tarefas longas', () => {
     const r = report();
     r.thermal = { minutes: [], fpsSlope: -3, dropPct: 0.2, throttled: true, series: { bucketMs: 1000, avg: [], max: [] } };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BENCH_EFFECTS, BENCH_SCENARIOS, BENCH_TARGETS, CRYSTAL_BREAK_RATE, MATRIX_SCENARIO, RESOLUTION_SCALES, THERMAL_MINUTES, plannedSeconds } from '../src/data/bench';
 import {
-  bucketSeries, budgetOf, compare, detectRefreshRate, fpsEffective, fpsPresented, frameStats, framesLost, highestSustained,
+  RefreshTracker, bucketSeries, budgetOf, compare, detectRefreshRate, fpsEffective, fpsPresented, frameStats, framesLost, highestSustained,
   histogram, histogramLabels, jitter, longestOffTarget, mean, median, pacing, percentile, slope, sorted, stddev, targetFluidity,
 } from '../src/bench/stats';
 
@@ -381,5 +381,46 @@ describe('cenários do teste (dados)', () => {
     expect(a.emit).toBeGreaterThan(0);
     expect(a.walk ?? 0).toBe(0);
     expect(a.breakRate ?? 0).toBe(0);
+  });
+});
+
+describe('taxa da tela durante o teste (tela adaptativa)', () => {
+  const feed = (t: RefreshTracker, ms: number, seconds: number): void => {
+    for (let i = 0; i < (seconds * 1000) / ms; i++) t.push(ms);
+  };
+
+  it('mede quanto tempo a tela ficou em cada taxa', () => {
+    const t = new RefreshTracker();
+    feed(t, 1000 / 60, 6);
+    feed(t, 1000 / 120, 4);
+    const r = t.result();
+    expect(r.seconds.map((x) => x.hz)).toEqual([120, 60]);
+    expect(r.seconds[0].pct).toBeGreaterThan(30);
+    expect(r.seconds[0].pct).toBeLessThan(50);
+    expect(r.peakHz).toBe(120);
+    expect(r.belowPeakPct).toBeGreaterThan(50);
+    expect(r.reliable120).toBe(false);
+  });
+
+  it('tela sempre em 120 Hz é confiável; sempre em 60 Hz não', () => {
+    const a = new RefreshTracker();
+    feed(a, 1000 / 120, 10);
+    expect(a.result().reliable120).toBe(true);
+    const b = new RefreshTracker();
+    feed(b, 1000 / 60, 10);
+    expect(b.result().peakHz).toBe(60);
+    expect(b.result().reliable120).toBe(false);
+  });
+
+  it('uma janela de 120 Hz com alguns quadros atrasados continua 120 Hz', () => {
+    const t = new RefreshTracker();
+    for (let i = 0; i < 1200; i++) t.push(i % 5 === 0 ? 25 : 1000 / 120);
+    expect(t.result().peakHz).toBe(120);
+  });
+
+  it('sem dados não inventa nada', () => {
+    const r = new RefreshTracker().result();
+    expect(r.totalSeconds).toBe(0);
+    expect(r.reliable120).toBe(false);
   });
 });

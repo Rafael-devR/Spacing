@@ -552,6 +552,7 @@ export class Game {
     this.haptics.enabled = false; // 30 blocos por segundo não precisam vibrar o aparelho
     this.base.leaveInstant();
     this.benchForceMap = true;
+    this.survival.immortal = true;
     this.sfx.setPaused(false);
     this.fixed.reset();
     this.last = performance.now();
@@ -995,6 +996,12 @@ export class Game {
     }
     this.time += dt;
     const time = this.time;
+    if (bench) {
+      // oxigênio, bateria e integridade sempre cheios (só na memória; o salvamento está travado)
+      const sv = this.survival;
+      sv.o2 = sv.battery = sv.integrity = 100;
+      sv.dead = false;
+    }
     bench?.beforeFrame(rawMs); // anda, quebra blocos, solta meteoros (o roteiro) e zera a sonda
     const p = this.probe;
 

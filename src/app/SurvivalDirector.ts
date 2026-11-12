@@ -121,6 +121,12 @@ export class SurvivalDirector {
 
   private die(cause: DeathCause): void {
     const { d } = this;
+    // no teste de desempenho a morte não existe: se vier mesmo assim, o teste segue de onde parou
+    if (d.getState() === 'benchmark') {
+      d.survival.dead = false;
+      d.survival.o2 = d.survival.battery = d.survival.integrity = 100;
+      return;
+    }
     d.setState('dead');
     d.input.reset();
     d.interaction.cancel();

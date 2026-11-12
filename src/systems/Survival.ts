@@ -39,6 +39,8 @@ export class Survival {
   energy: number = NEEDS.energy.max;
   suitId: SuitId = 'emergency';
   dead = false;
+  /** o teste de desempenho não pode matar o astronauta: sem dano (o save nunca é alterado) */
+  immortal = false;
   /** segundos restantes sem levar dano */
   invulnerable = 0;
   /** dentro da área pressurizada neste passo */
@@ -142,7 +144,7 @@ export class Survival {
    * 'player:damaged' a cada passo, só a morte.
    */
   damage(amount: number, cause: DeathCause, continuous = false): void {
-    if (this.dead || amount <= 0) return;
+    if (this.dead || this.immortal || amount <= 0) return;
     if (this.invulnerable > 0 && !continuous) return;
     this.integrity = clamp(this.integrity - amount);
     if (!continuous) this.d.events.emit('player:damaged', { amount, cause, integrity: this.integrity });
