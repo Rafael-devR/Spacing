@@ -3,7 +3,7 @@ import { createBus } from '../src/app/events';
 import { ITEMS, ITEM_ORDER, type ItemId } from '../src/data/items';
 import { PROPS } from '../src/data/props';
 import { BLOCK_DATA } from '../src/data/blocks';
-import { JITTER, RECIPES, recipeById, recipeSeconds, rollSeconds } from '../src/data/recipes';
+import { JITTER, RECIPES, recipeById, recipeSeconds, rollTimes, unitSeconds } from '../src/data/recipes';
 import { STATION_ORDER, STATIONS, type StationId } from '../src/data/stations';
 import { HAB_MODULE, STATION_FURNITURE } from '../src/data/base';
 import { Crafting } from '../src/systems/Crafting';
@@ -81,27 +81,23 @@ describe('receitas como dados', () => {
     expect([...made].sort()).toEqual(RECIPES.map((x) => x.id).sort());
   });
 
-  it('o tempo vem dos ingredientes: forno e eletrolisador em segundos, bancada perto de minuto e meio', () => {
+  it('rápido como o dono pediu: uma unidade em poucos segundos; material quente, pesado e raro demora mais', () => {
     for (const rec of RECIPES) {
       const s = recipeSeconds(rec);
-      if (rec.station === 'furnace') expect(s, rec.id).toBeGreaterThanOrEqual(20);
-      if (rec.station === 'furnace') expect(s, rec.id).toBeLessThanOrEqual(70);
-      if (rec.station === 'electrolyzer') expect(s, rec.id).toBeGreaterThanOrEqual(30);
-      if (rec.station === 'electrolyzer') expect(s, rec.id).toBeLessThanOrEqual(90);
-      if (rec.station === 'workbench') expect(s, rec.id).toBeGreaterThanOrEqual(50);
-      if (rec.station === 'workbench') expect(s, rec.id).toBeLessThanOrEqual(150);
+      expect(s, rec.id).toBeGreaterThan(1);
+      expect(s, rec.id).toBeLessThanOrEqual(rec.station === 'workbench' ? 15 : 7);
     }
-    // material comum e frio é mais rápido que material raro e quente
     expect(recipeSeconds(r('glass'))).toBeLessThan(recipeSeconds(r('ilmenite')));
     expect(recipeSeconds(r('drill_iron'))).toBeLessThan(recipeSeconds(r('drill_crystal')));
+    // 10 barras: o preparo conta uma vez
+    expect(recipeSeconds(r('iron_bar'), 10)).toBeCloseTo(STATIONS.furnace.base + unitSeconds(r('iron_bar')) * 10, 0);
   });
 
   it('a variação muda o tempo em até ±12%, nunca igual em todo trabalho', () => {
     const rec = r('iron_bar');
-    const s = recipeSeconds(rec);
-    expect(rollSeconds(rec, 0)).toBeCloseTo(s * (1 - JITTER));
-    expect(rollSeconds(rec, 1)).toBeCloseTo(s * (1 + JITTER));
-    expect(rollSeconds(rec, 0.5)).toBeCloseTo(s);
+    expect(rollTimes(rec, 0).unit).toBeCloseTo(unitSeconds(rec) * (1 - JITTER));
+    expect(rollTimes(rec, 1).unit).toBeCloseTo(unitSeconds(rec) * (1 + JITTER));
+    expect(rollTimes(rec, 0.5).prep).toBeCloseTo(STATIONS.furnace.base);
   });
 
   it('a química fecha a conta: 2 H₂O → 2 H₂ + O₂, e a ilmenita devolve a água', () => {
@@ -157,8 +153,8 @@ describe('estações trabalhando sozinhas', () => {
     const [a, b] = c.slots('furnace');
     expect(a!.share).toBeCloseTo(1 / 3);
     // com três dividindo, o vidro leva o triplo
-    expect(b!.remaining).toBeCloseTo(recipeSeconds(r('glass')) * 3);
-    const glass = recipeSeconds(r('glass'));
+    const glass = STATIONS.furnace.base + unitSeconds(r('glass'));
+    expect(b!.remaining).toBeCloseTo(glass * 3);
     c.update(glass * 3);
     expect(c.slots('furnace')[1]!.ready).toBe(true);
     expect(c.slots('furnace')[0]!.share).toBeCloseTo(1 / 2);
@@ -216,31 +212,78 @@ describe('estações trabalhando sozinhas', () => {
     expect(c.busy('electrolyzer')).toBe(false);
   });
 
+  it('cada unidade pronta já pode ser pega, sem esperar o lote inteiro', () => {
+    const { inventory } = setup({ iron: 10 });
+    const c = builtAll(inventory);
+    c.start(r('iron_bar'), 5);
+    const prep = STATIONS.furnace.base, unit = unitSeconds(r('iron_bar'));
+    c.update(prep + unit * 2 + 0.01);
+    const v = c.slots('furnace')[0]!;
+    expect(v.units).toBe(2);
+    expect(v.waiting).toEqual({ iron_bar: 2 });
+    expect(c.take('furnace', 0)?.items).toEqual({ iron_bar: 2 });
+    expect(c.slots('furnace')[0]!.waitingCount).toBe(0);
+    c.update(unit * 3 + 0.01);
+    expect(c.take('furnace')?.items).toEqual({ iron_bar: 3 });
+    expect(c.busy('furnace')).toBe(false);
+    expect(inventory.count('iron_bar')).toBe(5);
+  });
+
+  it('pausar não gasta energia e os outros aceleram; cancelar devolve o que não ficou pronto', () => {
+    const { inventory } = setup({ iron: 10, regolith: 3 });
+    const c = builtAll(inventory);
+    c.start(r('iron_bar'), 5);
+    c.start(r('glass'));
+    expect(c.togglePause('furnace', 0)).toBe(true);
+    expect(c.slots('furnace')[1]!.share).toBe(1);
+    expect(c.slots('furnace')[0]!.remaining).toBe(Infinity);
+    c.update(100);
+    expect(c.slots('furnace')[0]!.progress).toBe(0);
+    c.togglePause('furnace', 0);
+    const prep = STATIONS.furnace.base, unit = unitSeconds(r('iron_bar'));
+    c.update(prep + unit * 2 + 0.01);
+    const back = c.cancel('furnace', 0)!;
+    // 2 barras prontas vão para a mochila; os 3 lotes que faltavam devolvem 6 minérios (o do meio também)
+    expect(back).toEqual({ iron_bar: 2, iron: 6 });
+    expect(inventory.count('iron')).toBe(6);
+    expect(inventory.count('iron_bar')).toBe(2);
+    expect(c.slots('furnace')[0]).toBeNull();
+    // equipamento: cancela tudo
+    const eq = setup({ iron_bar: 4, brick: 2 });
+    eq.crafting.start(r('drill_iron'));
+    eq.crafting.update(1);
+    expect(eq.crafting.cancel('workbench', 0)).toEqual({ iron_bar: 4, brick: 2 });
+    expect(eq.inventory.count('iron_bar')).toBe(4);
+  });
+
   it('salva no meio do trabalho e continua de onde parou; vaga ou receita inválida é descartada', () => {
     const { inventory, equipment } = setup({ iron: 6 });
     const c = new Crafting({ inventory, equipment, rand: () => 0.5 }, { built: ['furnace'], jobs: [] });
     c.start(r('iron_bar'), 3);
-    c.update(30);
+    c.update(5);
+    c.togglePause('furnace', 0);
     const back = new Crafting({ inventory, equipment }, c.serialize());
     const v = back.slots('furnace')[0]!;
     expect(v.recipe.id).toBe('iron_bar');
     expect(v.batch).toBe(3);
-    expect(recipeSeconds(r('iron_bar'), 3) - v.remaining).toBeCloseTo(30, 0);
+    expect(v.paused).toBe(true);
+    expect(v.progress).toBeCloseTo(5 / recipeSeconds(r('iron_bar'), 3), 2);
     const bad = new Crafting(
       { inventory, equipment },
       {
         built: ['furnace'],
         jobs: [
-          { station: 'furnace', slot: 0, recipe: 'map', batch: 1, work: 2, done: 1 },
-          { station: 'furnace', slot: 7, recipe: 'glass', batch: 1, work: 2, done: 1 },
+          { station: 'furnace', slot: 0, recipe: 'map', batch: 1, prep: 1, unit: 2, done: 1 },
+          { station: 'furnace', slot: 7, recipe: 'glass', batch: 1, prep: 1, unit: 2, done: 1 },
         ],
       },
     );
     expect(bad.busy('furnace')).toBe(false);
     const left = new Crafting(
       { inventory, equipment },
-      { built: ['electrolyzer'], jobs: [{ station: 'electrolyzer', slot: 1, recipe: 'water', batch: 1, work: 40, done: 40, left: { o2: 1 }, rest: false }] },
+      { built: ['electrolyzer'], jobs: [{ station: 'electrolyzer', slot: 1, recipe: 'water', batch: 1, prep: 1, unit: 2, done: 3, leftover: { o2: 1 } }] },
     );
     expect(left.take('electrolyzer')?.items).toEqual({ o2: 1 });
+    expect(left.busy('electrolyzer')).toBe(false);
   });
 });

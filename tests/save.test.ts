@@ -148,7 +148,7 @@ describe('salvamento', () => {
       explored: { '0,0': 0xffff, '-2,5': 0b1010 },
       crafting: {
         built: ['furnace' as const],
-        jobs: [{ station: 'furnace' as const, slot: 2, recipe: 'glass', batch: 4, work: 90, done: 12 }],
+        jobs: [{ station: 'furnace' as const, slot: 2, recipe: 'glass', batch: 4, prep: 1, unit: 2.5, done: 6, taken: { glass: 1 }, paused: true }],
       },
       power: { battery: 300 },
     };
@@ -191,10 +191,10 @@ describe('salvamento', () => {
       3,
     );
     expect(totals(v7?.inventory)).toEqual({ ice: 2 });
-    // v7 → v8: um trabalho por estação vira a vaga 0, lote 1, com o tempo passado como trabalho feito
+    // v7 → v9: um trabalho por estação vira a vaga 0, lote 1, sem preparo; pronto com sobra vira `leftover`
     expect(v7?.crafting).toEqual({
       built: ['furnace'],
-      jobs: [{ station: 'electrolyzer', slot: 0, recipe: 'water', batch: 1, work: 40, done: 50, left: { h2: 2 }, rest: false }],
+      jobs: [{ station: 'electrolyzer', slot: 0, recipe: 'water', batch: 1, prep: 0, unit: 40, done: 50, leftover: { h2: 2 }, delivered: true }],
     });
     expect(v7?.power).toBeNull();
   });
