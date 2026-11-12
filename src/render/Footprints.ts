@@ -1,8 +1,10 @@
 // Pegadas da bota no regolito (desenhadas por shader, somem com o tempo).
 import * as THREE from 'three';
+import { PLANET } from '../core/planet';
 
 const MAX = 160;
-const LIFE = 45;
+/** segundos no chão (Lua 45; em Marte ficam bem mais, até o vento apagar) */
+const LIFE = PLANET.footprintLife;
 
 export class Footprints {
   private readonly fade = new Float32Array(MAX);
@@ -27,7 +29,7 @@ export class Footprints {
       polygonOffset: true,
       polygonOffsetFactor: -2,
       polygonOffsetUnits: -4,
-      uniforms: { uColor: { value: new THREE.Color(0.1, 0.085, 0.14) } },
+      uniforms: { uColor: { value: new THREE.Color(...PLANET.footprintColor) } },
       vertexShader: `
         attribute float aFade; varying float vFade; varying vec2 vUv;
         void main(){ vUv = uv; vFade = aFade; gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0); }`,
@@ -69,7 +71,9 @@ export class Footprints {
     this.mesh.geometry.attributes.aFade.needsUpdate = true;
   }
 
-  update(dt: number): void {
+  /** `wind` acelera o apagamento (tempestade em Marte) */
+  update(dt: number, wind = 0): void {
+    dt *= 1 + wind;
     let any = false;
     for (let i = 0; i < MAX; i++) {
       if (this.life[i] <= 0) continue;

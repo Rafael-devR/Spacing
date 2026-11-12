@@ -5,7 +5,10 @@
 // descem numa saia que some no escuro. Desenhado numa textura do tamanho da tela, com antisserrilhado e sombras.
 import * as THREE from 'three';
 import { litOnlyShadows } from './materials';
-import { BASALT, BEDROCK, CRYSTAL, HULL, ICE, IRON, REGOLITH, ROCK, type BlockId } from '../data/blocks';
+import {
+  BASALT, BEDROCK, CRYSTAL, DARK_SAND, GYPSUM, HEMATITE, HULL, ICE, IRON, LAVA, MARS_DUST, MARS_ROCK, OLIVINE, REGOLITH, ROCK, SEDIMENT,
+  VOLCANIC, type BlockId,
+} from '../data/blocks';
 
 /** blocos por lado de um chunk do mapa */
 const CS = 16;
@@ -31,6 +34,16 @@ const PALETTE: Record<number, [string, string]> = {
   [ICE]: ['#cdeef7', '#9fd2e3'],
   [BEDROCK]: ['#4a4354', '#3a3443'],
   [HULL]: ['#f2f3f7', '#cfd3de'],
+  // Marte: minérios aparecem como a rocha em volta; a lava aparece forte para o mapa avisar
+  [MARS_DUST]: ['#c4795a', '#9a5a42'],
+  [MARS_ROCK]: ['#9a5e4a', '#7c4a3a'],
+  [HEMATITE]: ['#9a5e4a', '#7c4a3a'],
+  [GYPSUM]: ['#c9a07c', '#a8825f'],
+  [SEDIMENT]: ['#c9a07c', '#a8825f'],
+  [DARK_SAND]: ['#5e4a48', '#4a3a38'],
+  [VOLCANIC]: ['#6a5652', '#53423f'],
+  [OLIVINE]: ['#6a5652', '#53423f'],
+  [LAVA]: ['#ff7a2a', '#d84a1a'],
 };
 const FALLBACK: [string, string] = ['#a69d94', '#8a8178'];
 const paletteCache = new Map<number, [THREE.Color, THREE.Color]>();

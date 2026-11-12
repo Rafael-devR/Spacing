@@ -11,11 +11,12 @@ export interface BlockDef extends BlockData {
 
 function build(d: BlockData): BlockDef {
   const side = d.color;
+  const g = d.glow ?? 1;
   return {
     ...d,
-    topL: hexToLinear(d.top ?? d.color),
-    sideL: hexToLinear(side),
-    botL: hexToLinear(d.bottom ?? side, d.bottom ? 1 : 0.8),
+    topL: hexToLinear(d.top ?? d.color, g),
+    sideL: hexToLinear(side, g),
+    botL: hexToLinear(d.bottom ?? side, (d.bottom ? 1 : 0.8) * g),
     oreL: d.ore ? hexToLinear(d.ore, d.oreMul ?? 1) : null,
   };
 }

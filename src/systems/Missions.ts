@@ -3,7 +3,8 @@
 import * as THREE from 'three';
 import type { GameBus } from '../app/events';
 import type { ItemId } from '../data/items';
-import { MISSION_01, type MissionStep } from '../data/missions';
+import { PLANET } from '../core/planet';
+import { MISSION_01, MISSION_MARS, type MissionStep } from '../data/missions';
 import type { Meteors } from '../entities/Meteors';
 import type { Player } from '../entities/Player';
 import { LANDER } from '../world/terrain';
@@ -47,7 +48,7 @@ export class Missions {
   private meteorRetry = 0;
   private deliverWarned = false;
   private readonly landerPos = new THREE.Vector3(LANDER.x + 0.5, 0, LANDER.z + 0.5);
-  private readonly steps: MissionStep[] = MISSION_01;
+  private readonly steps: MissionStep[] = PLANET.id === 'marte' ? MISSION_MARS : MISSION_01;
 
   constructor(
     private readonly d: MissionsDeps,

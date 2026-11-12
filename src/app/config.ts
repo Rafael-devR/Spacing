@@ -1,7 +1,7 @@
 // Constantes do jogo.
 import pkg from '../../package.json';
 
-/** semente do mundo; mudar invalida os salvamentos (ADR 0003) */
+/** semente da Lua (a de cada planeta fica em data/planets.ts; mudar invalida os salvamentos, ADR 0003) */
 export const SEED = 20261111;
 
 export const VERSION: string = pkg.version;

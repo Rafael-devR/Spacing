@@ -30,7 +30,37 @@ export interface GeneratedChunk {
   maxY: number;
 }
 
-export class Terrain {
+/** o que o mundo precisa de um gerador de terreno (a Lua e Marte têm o seu) */
+export interface TerrainGen {
+  readonly seed: number;
+  /** altura (não arredondada) do planalto do pouso */
+  readonly spawnH: number;
+  column(x: number, z: number): { h: number; mare: number };
+  generate(cx: number, cz: number): GeneratedChunk;
+}
+
+/** Relevo de crateras numa grade: cada célula pode ter uma cratera (fundo côncavo e borda levantada). */
+export function craterField(seed: number, x: number, z: number, cell: number, minR: number, maxR: number, prob: number, salt: number): number {
+  const s = seed + salt;
+  const cx = Math.floor(x / cell), cz = Math.floor(z / cell);
+  let h = 0;
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dz = -1; dz <= 1; dz++) {
+      const gx = cx + dx, gz = cz + dz;
+      if (hash2(gx, gz, s) > prob) continue;
+      const px = (gx + 0.15 + 0.7 * hash2(gx, gz, s + 1)) * cell;
+      const pz = (gz + 0.15 + 0.7 * hash2(gx, gz, s + 2)) * cell;
+      const r = minR + (maxR - minR) * Math.pow(hash2(gx, gz, s + 3), 2);
+      const d = Math.hypot(x - px, z - pz) / r;
+      if (d > 1.8) continue;
+      if (d < 1) h -= r * 0.4 * (1 - d * d);
+      h += Math.exp(-(((d - 1) / 0.24) ** 2)) * r * 0.17;
+    }
+  }
+  return h;
+}
+
+export class Terrain implements TerrainGen {
   readonly seed: number;
   /** altura (não arredondada) do planalto do pouso */
   readonly spawnH: number;
@@ -52,23 +82,7 @@ export class Terrain {
   }
 
   private craters(x: number, z: number, cell: number, minR: number, maxR: number, prob: number, salt: number): number {
-    const s = this.seed + salt;
-    const cx = Math.floor(x / cell), cz = Math.floor(z / cell);
-    let h = 0;
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dz = -1; dz <= 1; dz++) {
-        const gx = cx + dx, gz = cz + dz;
-        if (hash2(gx, gz, s) > prob) continue;
-        const px = (gx + 0.15 + 0.7 * hash2(gx, gz, s + 1)) * cell;
-        const pz = (gz + 0.15 + 0.7 * hash2(gx, gz, s + 2)) * cell;
-        const r = minR + (maxR - minR) * Math.pow(hash2(gx, gz, s + 3), 2);
-        const d = Math.hypot(x - px, z - pz) / r;
-        if (d > 1.8) continue;
-        if (d < 1) h -= r * 0.4 * (1 - d * d);
-        h += Math.exp(-(((d - 1) / 0.24) ** 2)) * r * 0.17;
-      }
-    }
-    return h;
+    return craterField(this.seed, x, z, cell, minR, maxR, prob, salt);
   }
 
   rawHeight(x: number, z: number): { h: number; mare: number } {

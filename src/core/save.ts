@@ -216,22 +216,24 @@ export function migrate(raw: unknown, seed: number): SaveData | null {
 }
 
 /** Lê o salvamento atual; se só houver o da v0.1, migra, grava no formato novo e apaga o antigo. */
-export function loadSave(store: KeyValueStore | null, seed: number): SaveData | null {
-  const current = migrate(readJSON(store, SAVE_KEY), seed);
+export function loadSave(store: KeyValueStore | null, seed: number, key = SAVE_KEY): SaveData | null {
+  const current = migrate(readJSON(store, key), seed);
   if (current) return current;
+  // o salvamento antigo (v0.1) só existe na Lua
+  if (key !== SAVE_KEY) return null;
   const legacy = migrate(readJSON(store, LEGACY_SAVE_KEY), seed);
   if (legacy && writeJSON(store, SAVE_KEY, legacy)) store?.removeItem(LEGACY_SAVE_KEY);
   return legacy;
 }
 
-export function writeSave(store: KeyValueStore | null, data: Omit<SaveData, 'version' | 'savedAt'>): boolean {
-  return writeJSON(store, SAVE_KEY, { ...data, version: SAVE_VERSION, savedAt: Date.now() });
+export function writeSave(store: KeyValueStore | null, data: Omit<SaveData, 'version' | 'savedAt'>, key = SAVE_KEY): boolean {
+  return writeJSON(store, key, { ...data, version: SAVE_VERSION, savedAt: Date.now() });
 }
 
-export function clearSave(store: KeyValueStore | null): void {
+export function clearSave(store: KeyValueStore | null, key = SAVE_KEY): void {
   try {
-    store?.removeItem(SAVE_KEY);
-    store?.removeItem(LEGACY_SAVE_KEY);
+    store?.removeItem(key);
+    if (key === SAVE_KEY) store?.removeItem(LEGACY_SAVE_KEY);
   } catch {
     /* sem armazenamento */
   }

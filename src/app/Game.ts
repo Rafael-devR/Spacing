@@ -6,8 +6,12 @@ import { applyOrientation, enterFullscreen, exitFullscreen, fullscreenSupported,
 import { Haptics } from '../core/haptics';
 import { Input } from '../core/Input';
 import { SHAKE_SCALE, loadPrefs, savePrefs, type Prefs } from '../core/prefs';
-import { SAVE_KEY, clearSave, defaultStore, loadSave, writeSave, type SaveData } from '../core/save';
-import { BASALT, ICE, REGOLITH } from '../data/blocks';
+import { PLANET } from '../core/planet';
+import { clearSave, defaultStore, loadSave, writeSave, type SaveData } from '../core/save';
+import { BASALT, DARK_SAND, ICE, MARS_DUST, REGOLITH } from '../data/blocks';
+
+/** chão macio que guarda pegadas (Lua e Marte) */
+const FOOTPRINT_BLOCKS: ReadonlySet<number> = new Set([REGOLITH, BASALT, ICE, MARS_DUST, DARK_SAND]);
 import { ITEMS, ITEM_ORDER, type ItemId } from '../data/items';
 import { Debris } from '../entities/Debris';
 import { ItemDrops } from '../entities/ItemDrops';
@@ -39,9 +43,13 @@ import { GraphicsMenu } from '../ui/GraphicsMenu';
 import { PauseMenu } from '../ui/PauseMenu';
 import { LANDER, SPAWN } from '../world/terrain';
 import { World } from '../world/World';
-import { AUTOSAVE_MS, FIXED_STEP, MAX_STEPS_PER_FRAME, MINE_SHAKE, SEED, TOUCH_AIM_OFFSET, VERSION } from './config';
+import { AUTOSAVE_MS, FIXED_STEP, MAX_STEPS_PER_FRAME, MINE_SHAKE, TOUCH_AIM_OFFSET, VERSION } from './config';
+
+/** semente e salvamento são do planeta desta sessão (data/planets.ts) */
+const SEED = PLANET.seed;
 import { createBus, type GameBus, type GameState, type Vec3Like } from './events';
 import { FixedStep } from './FixedStep';
+import { MarsDirector } from './MarsDirector';
 import { SurvivalDirector } from './SurvivalDirector';
 import { BaseDirector } from './BaseDirector';
 import { HAB_MODULE } from '../data/base';
@@ -117,6 +125,8 @@ export class Game {
   readonly loot: LootPiles;
   private readonly blockFx: BlockFx;
   private readonly director: SurvivalDirector;
+  /** só em Marte: clima, redemoinhos, lava e vulcão (app/MarsDirector.ts) */
+  private readonly mars: MarsDirector | null;
 
   private readonly hud = new Hud();
   private readonly pauseMenu: PauseMenu;
@@ -181,7 +191,7 @@ export class Game {
     this.glowMaterials = [materials.terrain, materials.props];
     const propFactory = new PropFactory(materials.props);
 
-    this.save = loadSave(this.store, SEED);
+    this.save = loadSave(this.store, SEED, PLANET.saveKey);
     this.prefs = loadPrefs(this.store);
     const events = this.events;
     events.debug = new URLSearchParams(location.search).has('eventos');
@@ -326,6 +336,13 @@ export class Game {
       },
     });
 
+    this.mars =
+      PLANET.id === 'marte'
+        ? new MarsDirector({
+            scene, world: this.world, player: this.player, rig: this.rig, particles: this.particles, survival: this.survival,
+            hud: this.hud, sfx: this.sfx, lights: this.lights, fog: this.fog, getState: () => this.state, indoors: () => this.indoors.on,
+          })
+        : null;
     this.director = new SurvivalDirector({
       events, hud: this.hud, sfx: this.sfx, haptics: this.haptics, rig: this.rig, post: this.post,
       camera: this.camera, canvas: renderer.domElement, player: this.player, inventory: this.inventory,
@@ -552,7 +569,7 @@ export class Game {
         muted: () => this.prefs.muted,
         saveBytes: () => {
           try {
-            const raw = this.store?.getItem(SAVE_KEY);
+            const raw = this.store?.getItem(PLANET.saveKey);
             return raw ? new Blob([raw]).size : null;
           } catch {
             return null;
@@ -620,7 +637,7 @@ export class Game {
 
   private newGame(): void {
     this.resetting = true;
-    clearSave(this.store);
+    clearSave(this.store, PLANET.saveKey);
     location.reload();
   }
 
@@ -988,7 +1005,7 @@ export class Game {
       equipment: this.equipment.serialize(),
       explored: this.exploration.serialize(),
       base: this.base.serialize(),
-    });
+    }, PLANET.saveKey);
   }
 
   // ---------- pegadas ----------
@@ -996,7 +1013,7 @@ export class Game {
   private footstep(both: boolean): void {
     const p = this.player.pos;
     const under = this.world.peekBlock(Math.floor(p.x), Math.round(p.y) - 1, Math.floor(p.z));
-    if (under !== REGOLITH && under !== BASALT && under !== ICE) return;
+    if (!FOOTPRINT_BLOCKS.has(under)) return;
     if (Math.abs(p.y - Math.round(p.y)) > 0.05) return;
     const a = this.player.facing;
     const rx = Math.cos(a), rz = -Math.sin(a);
@@ -1106,7 +1123,8 @@ export class Game {
     this.drops.update(dt, player);
     this.loot.update(dt, time, player, live);
     this.blockFx.update(dt);
-    this.footprints.update(dt);
+    // em Marte o vento apaga as pegadas, e a tempestade apaga muito mais rápido
+    this.footprints.update(dt, (this.mars?.dust ?? 0) * 15);
     if (live || dead) this.meteors.update(dt, time);
     if (playing) this.missions.update(dt);
     // o mapa vai sendo descoberto conforme o astronauta anda
@@ -1170,14 +1188,16 @@ export class Game {
     p?.end(SUB.particles);
     p?.begin(SUB.entities);
     this.director.update(realDt, time);
+    if (this.mars && !this.bench) this.mars.update(realDt, rig.target);
     p?.end(SUB.entities);
 
     const extent = Math.max(14, rig.dist * 0.8);
     if (this.gfxQ.shadow > 0 && Math.abs(this.lights.extent - extent) > 2) this.lights.setShadowSize(this.gfxQ.shadow, extent);
     this.lights.follow(rig.target);
     // dentro da base não há neblina (desligar recompilaria os shaders: só fica longe)
-    this.fog.near = this.indoors.on ? 1e4 : rig.dist * 1.15;
-    this.fog.far = this.indoors.on ? 2e4 : rig.dist * 2.1;
+    const [fogNear, fogFar] = this.mars?.fog(1.15, 2.1) ?? [1.15, 2.1];
+    this.fog.near = this.indoors.on ? 1e4 : rig.dist * fogNear;
+    this.fog.far = this.indoors.on ? 2e4 : rig.dist * fogFar;
 
     // marcadores: objetivo da missão e itens caídos
     p?.begin(SUB.hud);

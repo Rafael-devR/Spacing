@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import type { GameBus } from '../app/events';
 import type { RGB } from '../core/color';
-import { MICROGRAVITY } from '../data/physics';
+import { AIR_DRAG, MICROGRAVITY } from '../data/physics';
 import type { World } from '../world/World';
 import type { Player } from './Player';
 
@@ -267,6 +267,11 @@ export class Debris {
 
       it.prev.copy(it.pos);
       it.vel.y -= GRAVITY * dt;
+      // com ar (Marte), o arrasto freia os pedaços no voo
+      if (AIR_DRAG > 0) {
+        const k = Math.exp(-AIR_DRAG * dt);
+        it.vel.x *= k; it.vel.z *= k;
+      }
       if (it.vel.y < -25) it.vel.y = -25;
       if (this.moveAxis(it, 'x', it.vel.x * dt)) { it.vel.x *= -0.5; it.az *= 0.5; }
       if (this.moveAxis(it, 'z', it.vel.z * dt)) { it.vel.z *= -0.5; it.ax *= 0.5; }

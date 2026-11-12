@@ -110,6 +110,18 @@ function buildProp(type: PropType, seed: number): THREE.BufferGeometry {
     parts.push(crystal(rand, { x: -0.08, z: 0.02, h: 0.75, r: 0.13, tiltX: -0.2, tiltZ: 0.15 }));
     parts.push(crystal(rand, { x: 0.15, z: 0.1, h: 0.5, r: 0.1, tiltX: 0.25, tiltZ: -0.35 }));
     parts.push(crystal(rand, { x: -0.05, z: -0.18, h: 0.42, r: 0.09, tiltX: -0.45, tiltZ: -0.1 }));
+  } else if (type === 'marsBoulder') {
+    parts.push(rock(rand, { r: 0.55, sy: 0.7, color: '#7e4130' }));
+    if (rand() > 0.35) parts.push(rock(rand, { r: 0.28, detail: 0, color: '#6c3727', x: 0.5, z: 0.25 }));
+  } else if (type === 'blueberries') {
+    // esferas de hematita ("blueberries" do Opportunity): bolinhas escuras soltas num montinho de poeira
+    parts.push(rock(rand, { r: 0.4, sy: 0.22, color: '#a9573a' }));
+    for (let i = 0; i < 9; i++) {
+      const a = rand() * Math.PI * 2, d = 0.08 + rand() * 0.32;
+      const g = new THREE.IcosahedronGeometry(0.075 + rand() * 0.04, 1);
+      g.translate(Math.cos(a) * d, 0.16 + rand() * 0.06, Math.sin(a) * d);
+      parts.push(finish(g, '#3d4658', rand, 0.15));
+    }
   } else if (type === 'meteorite') {
     parts.push(rock(rand, { r: 0.62, sy: 0.85, jitter: 0.42, color: '#2b2430' }));
     parts.push(rock(rand, { r: 0.34, detail: 0, color: '#241e29', x: 0.55, z: -0.2 }));

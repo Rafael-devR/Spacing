@@ -57,3 +57,36 @@ export const MISSION_01: MissionStep[] = [
     title: 'Sinal enviado', text: 'Módulo reparado. Próxima missão: construir um foguete.',
   },
 ];
+
+/** Marte (provisório, docs/design/MARTE.md): minerais que contam a história da água e do vulcão */
+export const MISSION_MARS: MissionStep[] = [
+  {
+    id: 'mdust', kind: 'collect', item: 'marsdust', n: 8,
+    title: 'Chão vermelho', text: 'Colete poeira marciana',
+    hint: 'A cor vem do óxido de ferro: Marte é, literalmente, enferrujado.',
+  },
+  {
+    id: 'hematite', kind: 'collect', item: 'hematite', n: 4,
+    title: 'Esferas de hematita', text: 'Ache as esferas escuras no chão ou a hematita nas rochas',
+    hint: 'Bolinhas escuras soltas na poeira. O Opportunity achou iguais em 2004: elas se formam na água.',
+  },
+  {
+    id: 'gypsum', kind: 'collect', item: 'gypsum', n: 3,
+    title: 'Veios brancos', text: 'Colete gipsita nas paredes do cânion',
+    hint: 'O cânion fica ao sul do módulo. Os veios brancos nas camadas são sinal de água antiga.',
+  },
+  {
+    id: 'olivine', kind: 'collect', item: 'olivine', n: 3,
+    title: 'Pedras verdes', text: 'Colete olivina no basalto do vulcão',
+    hint: 'O vulcão fica a noroeste. Cuidado com a lava: ela queima o traje.',
+  },
+  {
+    id: 'samples', kind: 'deliver', needs: { hematite: 4, gypsum: 3, olivine: 3 },
+    title: 'Amostras para casa', text: 'Leve as amostras ao módulo de pouso',
+    hint: 'Chegue perto do módulo com tudo no inventário.',
+  },
+  {
+    id: 'done', kind: 'end',
+    title: 'Amostras analisadas', text: 'A água esteve aqui. Próximo passo: um abrigo em Marte.',
+  },
+];

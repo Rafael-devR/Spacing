@@ -1,5 +1,6 @@
 // Luz ambiente e sol com sombra que segue o jogador.
 import * as THREE from 'three';
+import { PLANET } from '../core/planet';
 
 const SUN_OFFSET = new THREE.Vector3(-14, 26, 9);
 
@@ -12,9 +13,10 @@ export class Lights {
   extent = 0;
 
   constructor(scene: THREE.Scene) {
-    this.hemi = new THREE.HemisphereLight('#a39ae6', '#5b4a44', 1.55);
+    const L = PLANET.light;
+    this.hemi = new THREE.HemisphereLight(L.sky, L.ground, L.hemi);
     scene.add(this.hemi);
-    this.sun = new THREE.DirectionalLight('#fff0dc', 3.3);
+    this.sun = new THREE.DirectionalLight(L.sun, L.sunPower);
     this.sun.castShadow = true;
     this.sun.shadow.bias = -0.0004;
     this.sun.shadow.normalBias = 0.03;

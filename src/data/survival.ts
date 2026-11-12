@@ -1,4 +1,5 @@
 // Números da sobrevivência (docs/design/SOBREVIVENCIA.md). Ponto de partida para ajustar em teste.
+import { PLANET } from '../core/planet';
 
 export interface SuitData {
   id: string;
@@ -36,7 +37,7 @@ export const SURVIVAL = {
   /** velocidade da furadeira sem bateria */
   noBatteryDrillRate: 1 / 3,
   /** queda: sem dano até esta velocidade de impacto (m/s) */
-  fallSafeSpeed: 14,
+  fallSafeSpeed: PLANET.physics.fallSafeSpeed,
   /** dano por m/s acima do limite */
   fallDamagePerSpeed: 6,
   /** meteoro: dano máximo no centro e raio de alcance */

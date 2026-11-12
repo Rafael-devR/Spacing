@@ -14,7 +14,8 @@ export interface Vec3Like {
 /** `benchmark`: o teste de desempenho está rodando (ou mostrando o resultado); o jogo não aceita comandos */
 export type GameState = 'loading' | 'menu' | 'playing' | 'paused' | 'dead' | 'benchmark';
 
-export type DeathCause = 'asphyxia' | 'meteor' | 'fall';
+/** `heat` = lava (Marte) */
+export type DeathCause = 'asphyxia' | 'meteor' | 'fall' | 'heat';
 
 export type Meter = 'o2' | 'battery' | 'integrity';
 

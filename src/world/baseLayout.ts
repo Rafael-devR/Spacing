@@ -2,7 +2,7 @@
 // importantes em coordenadas do mundo (porta, lado de fora e de dentro, frente de cada móvel).
 import type { FurnitureDef, ModuleDef, Side } from '../data/base';
 import { Cell, Structure } from './Structure';
-import type { Terrain } from './terrain';
+import type { TerrainGen } from './terrain';
 
 export interface Point {
   x: number;
@@ -41,7 +41,7 @@ const NORMAL: Record<Side, [number, number]> = { north: [0, -1], south: [0, 1], 
 /** ângulo de Player.facing para olhar na direção (dx, dz) */
 const angleOf = (dx: number, dz: number): number => Math.atan2(dx, dz);
 
-export function layoutModule(def: ModuleDef, terrain: Terrain): ModuleLayout {
+export function layoutModule(def: ModuleDef, terrain: TerrainGen): ModuleLayout {
   const { origin, size, interiorHeight } = def;
   // piso uma célula acima do ponto mais alto do terreno gerado (não depende de edições do jogador)
   let top = 0;

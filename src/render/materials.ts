@@ -1,11 +1,12 @@
 // Materiais do jogo: MeshLambertMaterial com GLSL injetado (onBeforeCompile).
 // Depende dos nomes internos dos shaders do Three.js 0.160.0 (ver ADR 0001).
 import * as THREE from 'three';
+import { PLANET } from '../core/planet';
 
 /** Paleta do céu e da neblina, compartilhada entre o fundo e todos os materiais. */
 export const SKY = {
-  top: new THREE.Color('#1a1636'),
-  bottom: new THREE.Color('#5d4f86'),
+  top: new THREE.Color(PLANET.sky.top),
+  bottom: new THREE.Color(PLANET.sky.bottom),
   res: new THREE.Vector2(1, 1),
   time: { value: 0 },
 };
@@ -17,7 +18,7 @@ export const U = {
   uRes: { value: SKY.res },
   uTime: SKY.time,
   uMistY: { value: 10 },
-  uMistColor: { value: new THREE.Color('#8b8fd8') },
+  uMistColor: { value: new THREE.Color(PLANET.sky.mist) },
 };
 
 /** linha do Three.js 0.160.0 (lights_fragment_begin) que aplica a sombra do sol a cada pixel */
@@ -59,6 +60,8 @@ export function patchMaterial<M extends THREE.Material>(mat: M, { edge = false, 
   const defines: Record<string, string> = (mat.defines as Record<string, string> | undefined) ?? {};
   if (edge) defines.USE_EDGE = '';
   if (grain) defines.USE_GRAIN = '';
+  // contas de vidro do regolito lunar: só na Lua
+  if (grain && PLANET.id === 'lua') defines.USE_SPARKLE = '';
   if (glow) defines.USE_GLOW = '';
   mat.defines = defines;
   mat.customProgramCacheKey = () => 'spacing-' + name;
@@ -93,6 +96,7 @@ export function patchMaterial<M extends THREE.Material>(mat: M, { edge = false, 
           vec3 gp = floor(vWP * 5.0 + 0.001);
           float gh = fract(sin(dot(gp, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
           diffuseColor.rgb *= 0.96 + 0.08 * gh;
+          #ifdef USE_SPARKLE
           if (vWN.y > 0.5) {
             vec3 gc = floor(vWP * 11.0);
             float gr = fract(sin(dot(gc, vec3(127.1, 311.7, 74.7))) * 43758.5453);
@@ -102,6 +106,7 @@ export function patchMaterial<M extends THREE.Material>(mat: M, { edge = false, 
               totalEmissiveRadiance += vec3(1.0, 0.95, 0.85) * smoothstep(0.75, 1.0, tw) * 0.9;
             }
           }
+          #endif
 #endif`,
         )
         .replace(

@@ -1,6 +1,7 @@
 // Itens caídos na morte: saem do astronauta com física, param no chão flutuando e brilhando,
 // e voltam ao inventário quando o jogador passa perto. Ficam no salvamento até serem recolhidos.
 import * as THREE from 'three';
+import { PLANET } from '../core/planet';
 import type { GameBus } from '../app/events';
 import { ITEM_ORDER, type ItemId } from '../data/items';
 import { SURVIVAL } from '../data/survival';
@@ -11,7 +12,7 @@ import type { Player } from './Player';
 
 /** no máximo este número de pedaços por tipo de item, para não encher a cena */
 const MAX_PIECES_PER_ITEM = 4;
-const GRAVITY = 9;
+const GRAVITY = PLANET.physics.lootGravity;
 const HOVER = 0.38;
 
 export interface LootSave {

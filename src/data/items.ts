@@ -1,8 +1,13 @@
 // Itens do inventário.
-import { BASALT, ICE, IRON, REGOLITH, ROCK, type BlockId } from './blocks';
+import {
+  BASALT, DARK_SAND, GYPSUM, HEMATITE, ICE, IRON, MARS_DUST, MARS_ROCK, OLIVINE, REGOLITH, ROCK, SEDIMENT, VOLCANIC, type BlockId,
+} from './blocks';
 import type { PropType } from './props';
 
-export type ItemId = 'regolith' | 'rock' | 'basalt' | 'ice' | 'iron' | 'ilmenite' | 'gold' | 'crystal';
+export type ItemId =
+  | 'regolith' | 'rock' | 'basalt' | 'ice' | 'iron' | 'ilmenite' | 'gold' | 'crystal'
+  // Marte
+  | 'marsdust' | 'marsrock' | 'darksand' | 'sediment' | 'volcanic' | 'hematite' | 'olivine' | 'gypsum';
 
 export interface ItemData {
   name: string;
@@ -32,10 +37,21 @@ export const ITEMS: Record<ItemId, ItemData> = {
   ilmenite: { name: 'Ilmenita', icon: { prop: 'ilmenite' } },
   gold: { name: 'Ouro', icon: { prop: 'gold' } },
   crystal: { name: 'Cristal lunar', icon: { prop: 'crystal' } },
+  marsdust: { name: 'Poeira marciana', block: MARS_DUST },
+  marsrock: { name: 'Rocha marciana', block: MARS_ROCK },
+  darksand: { name: 'Areia escura', block: DARK_SAND },
+  sediment: { name: 'Rocha sedimentar', block: SEDIMENT },
+  volcanic: { name: 'Basalto vulcânico', block: VOLCANIC },
+  hematite: { name: 'Hematita', icon: { block: HEMATITE } },
+  olivine: { name: 'Olivina', icon: { block: OLIVINE } },
+  gypsum: { name: 'Gipsita', icon: { block: GYPSUM } },
 };
 
 /** ordem de referência dos itens (ícones, conversão de salvamentos antigos) */
-export const ITEM_ORDER: ItemId[] = ['regolith', 'rock', 'basalt', 'ice', 'iron', 'ilmenite', 'gold', 'crystal'];
+export const ITEM_ORDER: ItemId[] = [
+  'regolith', 'rock', 'basalt', 'ice', 'iron', 'ilmenite', 'gold', 'crystal',
+  'marsdust', 'marsrock', 'darksand', 'sediment', 'volcanic', 'hematite', 'olivine', 'gypsum',
+];
 
 export function isItemId(v: unknown): v is ItemId {
   return typeof v === 'string' && v in ITEMS;

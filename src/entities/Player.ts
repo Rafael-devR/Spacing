@@ -1,6 +1,7 @@
 // Jogador: física em gravidade lunar, colisão com voxels, subida automática de degraus.
 // step() roda em passo fixo; animate() roda a cada quadro e interpola a posição.
 import * as THREE from 'three';
+import { PLANET } from '../core/planet';
 import type { GameBus } from '../app/events';
 import { createAstronaut, type AstronautModel } from '../render/models';
 import type { IsoRig } from '../render/IsoRig';
@@ -9,8 +10,9 @@ import type { World } from '../world/World';
 
 const HW = 0.3; // meia largura
 const HEIGHT = 1.5;
-const GRAVITY = 15;
-const JUMP = 7.4;
+/** gravidade e pulo do planeta (data/planets.ts): em Marte o pulo é mais baixo e a queda mais rápida */
+const GRAVITY = PLANET.physics.gravity;
+const JUMP = PLANET.physics.jump;
 const SPEED = 4.6;
 
 export interface MoveInput {
@@ -29,6 +31,8 @@ export class Player {
   /** posição no passo anterior (para interpolar a renderização) */
   readonly prevPos = new THREE.Vector3(0.5, 30, 0.5);
   readonly vel = new THREE.Vector3();
+  /** empurrão de fora (vento de Marte), em blocos/s; somado ao andar */
+  readonly push = new THREE.Vector3();
   onGround = false;
   facing = 0;
   /** ângulo para onde olhar enquanto minera; undefined = segue o movimento */
@@ -175,7 +179,7 @@ export class Player {
     this.vel.y -= GRAVITY * dt;
     if (this.vel.y < -30) this.vel.y = -30;
 
-    const ax = this.vel.x * dt, az = this.vel.z * dt;
+    const ax = (this.vel.x + this.push.x) * dt, az = (this.vel.z + this.push.z) * dt;
     if (this.moveAxis('x', ax) && !this.tryStep('x', ax)) this.vel.x = 0;
     if (this.moveAxis('z', az) && !this.tryStep('z', az)) this.vel.z = 0;
 

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { Game } from './app/Game';
 import { t } from './i18n';
 import { el } from './ui/dom';
+import { setupPlanetPicker } from './ui/PlanetPicker';
 
 const loading = el('#loading');
 loading.textContent = t('boot.loadingEngine');
@@ -15,6 +16,7 @@ try {
   throw err;
 }
 
+setupPlanetPicker();
 const game = new Game(el('#game'), renderer);
 loading.textContent = t('boot.generating');
 // deixa o texto aparecer antes de gerar o mundo (trava a tela por um instante)

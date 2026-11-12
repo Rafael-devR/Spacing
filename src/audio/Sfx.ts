@@ -2,13 +2,16 @@
 // Dois tipos de som (docs/design/AUDIO.md):
 // - do capacete (IA, alarmes, respiração, interface): sem posição, sempre no centro;
 // - do mundo (passos, mineração, destroços, meteoros, módulo): com posição, direção e distância.
+import { PLANET } from '../core/planet';
 import { distanceCutoff, distanceGain, FAR, HUM, listenerPosition, NEAR, reverbSend, type SpatialProfile } from './spatial';
 
 export type SoundName =
   | 'hit' | 'break' | 'pop' | 'step' | 'land' | 'jump' | 'place' | 'deny' | 'ui'
   | 'clink' | 'kick' | 'whoosh' | 'boom' | 'chime'
   | 'beep' | 'alarm' | 'breath' | 'heartbeat' | 'hurt' | 'death' | 'respawn' | 'charge' | 'powerDown' | 'pickupBig'
-  | 'door' | 'pressurize' | 'depressurize' | 'rest' | 'craftDone' | 'equip' | 'tabletOpen' | 'tabletClose';
+  | 'door' | 'pressurize' | 'depressurize' | 'rest' | 'craftDone' | 'equip' | 'tabletOpen' | 'tabletClose'
+  // Marte
+  | 'rumble' | 'sizzle' | 'gust';
 
 const MASTER = 0.55;
 /** volume do eco da cratera */
@@ -90,6 +93,8 @@ export class Sfx {
     wet.connect(this.master);
     this.ambient(ctx, this.master);
     this.indoorAmbient(ctx, this.master);
+    if (PLANET.air) this.windBed(ctx, this.master);
+    this.setMuffled(0);
     this.setIndoors(this.indoors, true);
     this.onReady?.();
   }
@@ -327,7 +332,9 @@ export class Sfx {
   /** Abafa o som (0 = normal, 1 = quase só graves), como ouvir de dentro do capacete. */
   setMuffled(amount: number): void {
     if (!this.ctx || !this.muffle) return;
-    const f = 20000 * Math.pow(250 / 20000, Math.max(0, Math.min(1, amount)));
+    // em Marte o ar ralo come os agudos (o Perseverance gravou sons abafados e mais baixos)
+    const top = PLANET.air ? 6500 : 20000;
+    const f = top * Math.pow(250 / top, Math.max(0, Math.min(1, amount)));
     this.muffle.frequency.setTargetAtTime(f, this.ctx.currentTime, 0.15);
   }
 
@@ -350,6 +357,46 @@ export class Sfx {
     this.outdoorBed?.gain.setTargetAtTime(on ? 0.008 : AMBIENT, t, tc);
     this.indoorBed?.gain.setTargetAtTime(on ? INDOOR_AMBIENT : 0, t, tc);
     this.wet?.gain.setTargetAtTime(on ? REVERB * 0.25 : REVERB, t, tc);
+  }
+
+  private wind: GainNode | null = null;
+  private windFilter: BiquadFilterNode | null = null;
+
+  /** Vento de Marte, 0 (brisa) .. 1 (tempestade). */
+  setWind(level: number): void {
+    if (!this.ctx || !this.wind || !this.windFilter) return;
+    const t = this.ctx.currentTime;
+    const l = Math.max(0, Math.min(1, level));
+    this.wind.gain.setTargetAtTime((this.indoors ? 0.15 : 1) * (0.05 + l * 0.42), t, 0.6);
+    this.windFilter.frequency.setTargetAtTime(380 + l * 520, t, 0.6);
+  }
+
+  /** chiado de vento filtrado, com rajadas lentas */
+  private windBed(ctx: AudioContext, master: GainNode): void {
+    if (!this.noise) return;
+    const out = (this.wind = ctx.createGain());
+    out.gain.value = 0.05;
+    out.connect(master);
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.loop = true;
+    const bp = (this.windFilter = ctx.createBiquadFilter());
+    bp.type = 'bandpass';
+    bp.frequency.value = 380;
+    bp.Q.value = 0.7;
+    const g = ctx.createGain();
+    g.gain.value = 0.8;
+    src.connect(bp);
+    bp.connect(g);
+    g.connect(out);
+    src.start();
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.11;
+    const lg = ctx.createGain();
+    lg.gain.value = 0.35;
+    lfo.connect(lg);
+    lg.connect(g.gain);
+    lfo.start();
   }
 
   /** ventilação da base: chiado de ar filtrado e um zumbido grave de máquinas, sem posição */
@@ -489,6 +536,9 @@ export class Sfx {
       case 'clink': T(900 + Math.random() * 900, 600 + Math.random() * 300, 0.07, 0.05, 'triangle'); N(0.04, 'highpass', 2500, 0.06); break;
       case 'kick': N(0.09, 'bandpass', 600 + Math.random() * 400, 0.22, 1.5); T(300, 160, 0.08, 0.08, 'triangle'); break;
       case 'whoosh': N(1.7, 'bandpass', 250, 0.35, 2, 9); break;
+      case 'rumble': T(46, 28, 2.8, 0.8); N(2.6, 'lowpass', 240, 0.9, 1, 0.4); break;
+      case 'sizzle': N(0.45, 'highpass', 2600, 0.12); break;
+      case 'gust': N(1.6, 'bandpass', 420, 0.5, 0.8, 2.2); break;
       case 'boom':
         T(95, 28, 1.1, 0.7);
         N(1.3, 'lowpass', 1800, 0.8, 0.8, 0.05);

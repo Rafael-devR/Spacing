@@ -7,7 +7,9 @@ import type { PropType } from '../data/props';
 import type { Structure } from './Structure';
 import type { PropFactory } from '../render/models';
 import { meshPadded } from './mesher';
-import { CH, CS, Terrain, idx, type PropSpawn } from './terrain';
+import { PLANET } from '../core/planet';
+import { MarsTerrain } from './marsTerrain';
+import { CH, CS, Terrain, idx, type PropSpawn, type TerrainGen } from './terrain';
 
 const PW = CS + 2;
 const PL = PW * PW;
@@ -52,7 +54,7 @@ export interface VoxelHit {
 export type BlockEdit = [x: number, y: number, z: number, id: BlockId];
 
 export class World {
-  readonly terrain: Terrain;
+  readonly terrain: TerrainGen;
   readonly chunks = new Map<string, Chunk>();
   /** chave do chunk -> Map(índice -> id) */
   private readonly edits = new Map<string, Map<number, BlockId>>();
@@ -78,7 +80,7 @@ export class World {
     readonly props: PropFactory,
     private readonly events?: GameBus,
   ) {
-    this.terrain = new Terrain(seed);
+    this.terrain = PLANET.id === 'marte' ? new MarsTerrain(seed) : new Terrain(seed);
   }
 
   key(cx: number, cz: number): string {

@@ -2,9 +2,10 @@
 import type { RGB } from '../core/color';
 import type { ItemId } from './items';
 
-export type PropType = 'boulder' | 'ilmenite' | 'gold' | 'crystal' | 'meteorite';
+/** `marsBoulder` e `blueberries` (esferas de hematita) só existem em Marte */
+export type PropType = 'boulder' | 'ilmenite' | 'gold' | 'crystal' | 'meteorite' | 'marsBoulder' | 'blueberries';
 
-export const PROP_TYPES: PropType[] = ['boulder', 'ilmenite', 'gold', 'crystal', 'meteorite'];
+export const PROP_TYPES: PropType[] = ['boulder', 'ilmenite', 'gold', 'crystal', 'meteorite', 'marsBoulder', 'blueberries'];
 
 export interface PropData {
   name: string;
@@ -24,6 +25,8 @@ export const PROPS: Record<PropType, PropData> = {
   gold: { name: 'Ouro', hardness: 1.6, tier: 2, drop: 'gold', amount: 1 },
   crystal: { name: 'Cristal lunar', hardness: 1.2, tier: 1, drop: 'crystal', amount: 2 },
   meteorite: { name: 'Meteorito', hardness: 2.2, drop: 'crystal', amount: 3, bonus: { gold: 2, iron: 2 } },
+  marsBoulder: { name: 'Pedra marciana', hardness: 0.9, drop: 'marsrock', amount: 2 },
+  blueberries: { name: 'Esferas de hematita', hardness: 0.5, drop: 'hematite', amount: 2 },
 };
 
 /** cores (lineares) dos destroços de cada objeto */
@@ -42,5 +45,10 @@ export const PROP_DEBRIS: Record<PropType, RGB[]> = {
     [0.03, 0.025, 0.035],
     [2.2, 0.7, 0.15],
     [0.4, 1.2, 1.4],
+  ],
+  marsBoulder: [[0.27, 0.08, 0.04]],
+  blueberries: [
+    [0.06, 0.07, 0.1],
+    [0.36, 0.1, 0.05],
   ],
 };

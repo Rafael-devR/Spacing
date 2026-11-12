@@ -219,7 +219,7 @@
     <div class="pause-head">
       <h2 id="pause-title">Pausado</h2>
       <div class="where">
-        <span class="eyebrow">Missão 01 · Cratera Shackleton</span>
+        <span class="eyebrow" id="pause-region">Missão 01 · Cratera Shackleton</span>
         <span id="coords"></span>
       </div>
     </div>
@@ -331,10 +331,18 @@
 
 <div id="start">
   <div class="start-inner">
-    <span class="kicker">Missão 01 · Cratera Shackleton</span>
+    <span class="kicker" id="start-kicker">Missão 01 · Cratera Shackleton</span>
     <h1 class="title">Spacing</h1>
-    <p class="pitch">Seu módulo pousou no polo sul da Lua. Minere regolito, gelo e minérios, construa com blocos e prepare o caminho para um planeta com vida.</p>
-    <div class="legend">
+    <p class="pitch" id="start-pitch">Seu módulo pousou no polo sul da Lua. Minere regolito, gelo e minérios, construa com blocos e prepare o caminho para um planeta com vida.</p>
+    <!-- provisório (docs/design/MARTE.md): escolha do planeta até existir a viagem de verdade -->
+    <div class="start-planet" role="group" aria-label="Planeta">
+      <span class="setting-label">Planeta (provisório)</span>
+      <div class="seg">
+        <button type="button" data-planet="lua">Lua</button>
+        <button type="button" data-planet="marte">Marte</button>
+      </div>
+    </div>
+    <div class="legend" id="start-legend">
       <span><b>Regolito</b> poeira da superfície</span>
       <span><b>Gelo</b> fundo das crateras</span>
       <span><b>Ilmenita</b> rocha escura de titânio</span>
