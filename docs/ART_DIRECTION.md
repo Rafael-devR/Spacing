@@ -66,7 +66,7 @@ compilação (`onBeforeCompile`).
 | ------ | --------- | ------ | ---- | ----- | -------------- |
 | Baixa  | 1.0x      | 1024   | não  | não   | 3              |
 | Média  | até 1.5x  | 2048   | 4x   | não   | 3              |
-| Alta   | até 2.0x  | 2048   | 4x   | sim   | 4              |
+| Alta   | até 2.0x  | 2048   | 2x   | sim   | 4              |
 
 Regras para qualquer efeito novo:
 

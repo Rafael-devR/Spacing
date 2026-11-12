@@ -135,7 +135,8 @@ export interface QualityPreset {
 export const QUALITY: Record<QualityName, QualityPreset> = {
   baixo: { pixelRatio: 1, shadow: 1024, samples: 0, bloom: false, radius: 3 },
   medio: { pixelRatio: 1.5, shadow: 2048, samples: 4, bloom: false, radius: 3 },
-  alto: { pixelRatio: 2, shadow: 2048, samples: 4, bloom: true, radius: 4 },
+  // MSAA 2× (era 4×): com a resolução 2× as bordas já saem finas, e o MSAA era o efeito mais caro (teste de desempenho)
+  alto: { pixelRatio: 2, shadow: 2048, samples: 2, bloom: true, radius: 4 },
 };
 
 export const QUALITY_ORDER: QualityName[] = ['baixo', 'medio', 'alto'];
@@ -234,6 +235,11 @@ export class Post {
     this.grade.uniforms.uDesat.value = desat;
     this.grade.uniforms.uHurt.value = hurt;
     this.grade.uniforms.uDark.value = dark;
+  }
+
+  /** amostras de MSAA que o jogo pediu (o teste de desempenho liga o MSAA com esse valor) */
+  get gameSamples(): number {
+    return this.base?.q.samples ?? 0;
   }
 
   /** as passadas do pós-processamento, na ordem (o teste de desempenho mede cada uma) */

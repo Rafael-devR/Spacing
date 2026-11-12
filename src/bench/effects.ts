@@ -88,7 +88,7 @@ export class EffectToggles {
         d.post.benchSet({ bloom: on }, this.scale);
         break;
       case 'msaa':
-        d.post.benchSet({ samples: on ? 4 : 0 }, this.scale);
+        d.post.benchSet({ samples: on ? d.post.gameSamples || 4 : 0 }, this.scale);
         break;
       case 'shadow':
         for (const l of this.shadowLights) l.castShadow = on;

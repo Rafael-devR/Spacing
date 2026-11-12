@@ -14,6 +14,9 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Alterado
 
+- **Qualidade Alta com MSAA 2× (era 4×):** no teste de desempenho o MSAA era o efeito mais caro (~5 ms por quadro). Com a
+  resolução 2× as bordas continuam lisas; a diferença, se aparecer, é nas bordas finas. As outras qualidades não mudam.
+  O teste de desempenho liga o MSAA com o valor que o jogo usa.
 - **Sombra mais barata, mesma imagem:** o terreno, os objetos e o mapa só leem a sombra do sol nas faces voltadas para
   ele (nas outras a luz direta já é zero, e cada leitura custava 16 consultas ao mapa de sombra por pixel). O mapa do
   tablet só refaz a própria sombra quando os blocos ou o sol dele mudam, e com o mapa em tela cheia a sombra do mundo
