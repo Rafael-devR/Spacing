@@ -62,7 +62,7 @@ check('menu de pausa visível', await page.isVisible('#pause'));
 await page.screenshot({ path: `${out}/play-2-pausa.png` });
 
 const save = await page.evaluate(() => JSON.parse(localStorage.getItem('spacing.save') || 'null'));
-check('salvou ao pausar', !!save && save.version === 6, save ? `versão ${save.version}` : 'sem salvamento');
+check('salvou ao pausar', !!save && save.version === 10, save ? `versão ${save.version}` : 'sem salvamento');
 check('inventário no salvamento', !!save && save.inventory.slots.some(Boolean));
 
 await page.click('#pause-resume');
@@ -70,6 +70,8 @@ await page.waitForTimeout(300);
 check('Continuar volta ao jogo', (await page.evaluate(() => window.spacing.state)) === 'playing');
 
 // ---- sobrevivência: morrer sem oxigênio, itens no chão, renascer, recolher ----
+// mesmas quantidades, em qualquer ordem
+const same = (a, b) => Object.keys(a).length === Object.keys(b).length && Object.keys(a).every((k) => a[k] === b[k]);
 const before = await page.evaluate(() => window.spacing.inventory.totals());
 // dentro da área pressurizada o módulo recarrega o traje: primeiro confere isso
 await page.evaluate(() => (window.spacing.survival.o2 = 40));
@@ -103,7 +105,7 @@ const died = await page
 check('sem oxigênio, o astronauta morre', died);
 const afterDeath = await page.evaluate(() => ({ inv: window.spacing.inventory.totals(), loot: window.spacing.loot.totals() }));
 check('inventário esvaziou na morte', Object.keys(afterDeath.inv).length === 0, JSON.stringify(afterDeath.inv));
-check('itens caíram no chão', JSON.stringify(afterDeath.loot) === JSON.stringify(before), `chão ${JSON.stringify(afterDeath.loot)}`);
+check('itens caíram no chão', same(afterDeath.loot, before), `chão ${JSON.stringify(afterDeath.loot)}`);
 const card = await page.waitForSelector('#death:not([hidden])', { timeout: 30000 }).then(() => true, () => false);
 check('tela de morte aparece', card);
 if (!card) {
@@ -127,7 +129,7 @@ check('traje cheio ao renascer', re.o2 === 100 && re.hp === 100, `O2 ${re.o2}, i
 check('renasce dentro da área pressurizada', re.dist < 4.5, `${re.dist.toFixed(1)} blocos do módulo`);
 check('itens continuam no chão', re.loot > 0);
 const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('spacing.save') || 'null'));
-check('itens caídos estão no salvamento', !!saved && saved.version === 6 && saved.loot.length > 0);
+check('itens caídos estão no salvamento', !!saved && saved.version === 10 && saved.loot.length > 0);
 await page.screenshot({ path: `${out}/play-4-renasceu.png` });
 
 // leva o astronauta até os itens
@@ -143,7 +145,7 @@ const recovered = await page
   .then(() => true, () => false);
 check('passar por cima recolhe os itens', recovered);
 const backInInv = await page
-  .waitForFunction((b) => JSON.stringify(window.spacing.inventory.totals()) === JSON.stringify(b), before, { timeout: 90000, polling: 250 })
+  .waitForFunction((b) => { const t = window.spacing.inventory.totals(); return Object.keys(b).length === Object.keys(t).length && Object.keys(b).every((k) => t[k] === b[k]); }, before, { timeout: 90000, polling: 250 })
   .then(() => true, () => false);
 check('inventário voltou ao que era', backInInv, JSON.stringify(await page.evaluate(() => window.spacing.inventory.totals())));
 

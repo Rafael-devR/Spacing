@@ -34,7 +34,7 @@ describe('World', () => {
   it('o raio de mira atinge o topo do terreno, de cima para baixo', () => {
     const world = makeWorld();
     const top = world.topY(5, 5);
-    const hit = world.raycast(new Vector3(5.5, 45, 5.5), new Vector3(0, -1, 0));
+    const hit = world.raycast(new Vector3(5.5, 90, 5.5), new Vector3(0, -1, 0));
     expect(hit).not.toBeNull();
     expect([hit!.x, hit!.y, hit!.z]).toEqual([5, top, 5]);
     expect(hit!.normal).toEqual([0, 1, 0]);

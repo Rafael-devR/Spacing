@@ -67,6 +67,16 @@ Abre as telas cheias em Canvas (bancada, forno com 3 vagas e lote, ciência no "
 da base e retrato) e toca nos botões de verdade (as áreas que a tela desenha a cada quadro, em `hits`). Capturas
 `st-*.png` com densidade 2. Rode depois de mexer em `src/ui/CraftPanel.ts`, `PowerPanel.ts` ou `canvasScreen.ts`.
 
+## Teste das cavernas
+
+```bash
+node caves.mjs http://localhost:5173/ /tmp/shots [semente] [largura] [altura]
+```
+
+Começa um jogo novo com a semente pedida (`?semente=`), leva o astronauta à entrada de caverna garantida perto do pouso,
+desce a rampa até o tubo de lava e anda por ele. Confere que a câmera aproxima, que ele não fica preso na rocha, que o
+fundo fica escuro e tira capturas de cada ponto ([design/MUNDO.md](../../docs/design/MUNDO.md)).
+
 ## Teste do áudio
 
 ```bash

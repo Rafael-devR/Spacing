@@ -291,7 +291,7 @@ check('descanso enche o traje e marca o renascimento na base', rested.o2 === 100
 await page.keyboard.press('Escape');
 await page.waitForTimeout(300);
 const save = await g(() => JSON.parse(localStorage.getItem('spacing.save')));
-check('salvou dentro da base com o mapa, as estações e o forno trabalhando', save.version === 9 && save.base.inside && save.equipment.map === 'map' && save.crafting.built.length === 2 && save.crafting.jobs[0]?.recipe === 'brick', JSON.stringify({ v: save.version, base: save.base, eq: save.equipment, c: save.crafting }));
+check('salvou dentro da base com o mapa, as estações e o forno trabalhando', save.version === 10 && save.base.inside && save.equipment.map === 'map' && save.crafting.built.length === 2 && save.crafting.jobs[0]?.recipe === 'brick', JSON.stringify({ v: save.version, base: save.base, eq: save.equipment, c: save.crafting }));
 await page.click('#pause-resume');
 await page.waitForTimeout(300);
 

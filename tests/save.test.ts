@@ -7,6 +7,7 @@ import {
   migrate,
   writeSave,
   type KeyValueStore,
+  renewWorld,
 } from '../src/core/save';
 import { Inventory, type InventorySave } from '../src/systems/Inventory';
 
@@ -24,6 +25,14 @@ function memoryStore(init: Record<string, string> = {}): KeyValueStore & { data:
 }
 
 // formato exato que a v0.1.0 gravava em `spacing.save.v1`
+/** um salvamento v9 mínimo, com um pouco de progresso */
+const V9_BASE = {
+  seed: 20261111, savedAt: 1, world: { edits: {}, removedProps: [], extraProps: [] },
+  inventory: { slots: [{ item: 'iron', n: 5 }], selected: 0 }, player: null, missions: { step: 2, count: 1 }, suit: null, loot: [],
+  equipment: { map: 'map' }, base: { inside: false, respawn: 'base', visited: true }, explored: {},
+  crafting: { built: ['furnace'], jobs: [] }, power: { battery: 100 },
+};
+
 const V1 = {
   world: { edits: { '0,0': [[4437, 0], [5120, 3]] }, removedProps: ['5,7'], extraProps: [] },
   inventory: { regolith: 12, iron: 3, bogus: 9, gold: -2 },
@@ -140,7 +149,7 @@ describe('salvamento', () => {
   it('grava e lê de volta o mesmo conteúdo', () => {
     const store = memoryStore();
     const data = {
-      seed: 3, world: V1.world as never, inventory: slots({ ice: 2 }), player: null, missions: { step: 0, count: 0 },
+      seed: 3, worldGen: 2, world: V1.world as never, inventory: slots({ ice: 2 }), player: null, missions: { step: 0, count: 0 },
       suit: { suit: 'emergency' as const, o2: 40, battery: 10, integrity: 75 },
       loot: [{ item: 'iron' as const, amount: 3, x: 1, y: 18, z: 2, pile: 1 }],
       equipment: { map: 'map' as const },
@@ -203,10 +212,45 @@ describe('salvamento', () => {
     expect(loadSave(null, 1)).toBeNull();
     expect(
       writeSave(null, {
-        seed: 1, world: { edits: {}, removedProps: [], extraProps: [] }, inventory: slots({}), player: null,
+        seed: 1,
+      worldGen: 1, world: { edits: {}, removedProps: [], extraProps: [] }, inventory: slots({}), player: null,
         missions: { step: 0, count: 0 }, suit: null, loot: [], equipment: {},
         base: { inside: false, respawn: 'lander', visited: false }, explored: {}, crafting: { built: [], jobs: [] }, power: null,
       }),
     ).toBe(false);
+  });
+
+  it('v10: guarda a versão do gerador; salvamentos antigos são do gerador 1', () => {
+    expect(migrate({ ...V9_BASE, version: 9 }, 5)?.worldGen).toBe(1);
+    expect(migrate({ ...V9_BASE, version: 10, worldGen: 2 }, 5)?.worldGen).toBe(2);
+  });
+
+  it('renewWorld: o progresso fica, o mundo é refeito e os painéis colocados voltam para o inventário', () => {
+    const old = migrate({
+      ...V9_BASE, version: 9, seed: 20261111,
+      player: { x: 30, y: 20, z: 4 },
+      world: {
+        edits: { '0,0': [[5, 0]] }, removedProps: ['x9,9,solarPanel'],
+        extraProps: [
+          { wx: 4, wz: 4, type: 'solarPanel', variant: 0, rot: 0, scale: 1, key: 'x4,4,solarPanel' },
+          { wx: 9, wz: 9, type: 'solarPanel', variant: 0, rot: 0, scale: 1, key: 'x9,9,solarPanel' },
+          { wx: 7, wz: 7, type: 'meteorite', variant: 0, rot: 0, scale: 1, key: 'x7,7,meteorite' },
+        ],
+      },
+      explored: { '0,0': 3 },
+      loot: [{ item: 'ice', amount: 2, x: 1, y: 20, z: 1, pile: 0 }],
+    }, 5)!;
+    const fresh = renewWorld(old, 777, 2);
+    expect(fresh.seed).toBe(777);
+    expect(fresh.worldGen).toBe(2);
+    expect(fresh.world).toEqual({ edits: {}, removedProps: [], extraProps: [] });
+    expect(fresh.player).toBeNull();
+    expect(fresh.loot).toEqual([]);
+    expect(fresh.explored).toEqual({});
+    const inv = new Inventory(undefined, fresh.inventory);
+    expect(inv.count('solar_panel')).toBe(1);
+    expect(inv.count('iron')).toBe(new Inventory(undefined, old.inventory).count('iron'));
+    expect(fresh.equipment).toEqual(old.equipment);
+    expect(fresh.crafting).toEqual(old.crafting);
   });
 });
