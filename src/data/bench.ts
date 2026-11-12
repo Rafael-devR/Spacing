@@ -43,7 +43,7 @@ export interface BenchActions {
   mapEvery?: number;
   /** entra e sai da base, repetidamente */
   baseCycle?: boolean;
-  /** explosões de partículas por segundo (carga constante para medir efeitos) */
+  /** partículas soltas por segundo (carga constante para medir efeitos) */
   emit?: number;
 }
 
@@ -102,16 +102,19 @@ export const THERMAL_SCENARIO: BenchScenario = {
  * Carga das etapas de efeitos e de resolução: o astronauta parado, com partículas e destroços constantes. Parado,
  * qualquer diferença de custo vem do efeito ligado ou desligado, não do que acontece na cena.
  */
-export const MATRIX_SCENARIO: BenchScenario = { id: 'matrix', seconds: { full: 2 }, warmup: 1, origin: 'region', actions: { emit: 60 } };
+export const MATRIX_SCENARIO: BenchScenario = { id: 'matrix', seconds: { full: 2 }, warmup: 1, origin: 'region', actions: { emit: 200 } };
 
 /** carga da curva de resolução: a do cenário "tudo ao mesmo tempo" (um jogo de verdade), por 4 s */
 export const RESOLUTION_SCENARIO: BenchScenario = {
   id: 'resolution',
   seconds: { full: 4 },
-  warmup: 1,
+  warmup: 2,
   origin: 'region',
   actions: { walk: 9, breakRate: 20, meteorEvery: 1.1 },
 };
+
+/** segundos a mais de aquecimento no primeiro passo das comparações (a região volta a ser carregada) */
+export const MATRIX_PREROLL = 2;
 
 export type EffectId = 'bloom' | 'msaa' | 'shadow' | 'chromatic' | 'vignette' | 'noise' | 'fog' | 'glow' | 'particles';
 
@@ -157,7 +160,7 @@ export function plannedSeconds(mode: BenchMode, scale = 1): number {
   }
   if (mode === 'full') {
     const step = (sc: BenchScenario): number => ((sc.seconds.full ?? 0) + (sc.warmup ?? 2)) * scale;
-    s += step(MATRIX_SCENARIO) * (1 + BENCH_EFFECTS.length * 2); // linha de base e cada efeito ligado e desligado
+    s += step(MATRIX_SCENARIO) * (1 + BENCH_EFFECTS.length * 2) + MATRIX_PREROLL * scale; // linha de base e cada efeito ligado e desligado
     s += step(RESOLUTION_SCENARIO) * RESOLUTION_SCALES.length;
     s += THERMAL_MINUTES * step(THERMAL_SCENARIO);
   }

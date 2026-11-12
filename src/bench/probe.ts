@@ -97,6 +97,13 @@ export class Timer {
     this.total += ms;
     if (ms > this.top) this.top = ms;
   }
+  /** soma as medidas de outro Timer */
+  merge(o: Timer): void {
+    const v = o.value;
+    this.count += v.count;
+    this.total += v.totalMs;
+    if (v.maxMs > this.top) this.top = v.maxMs;
+  }
   get value(): { count: number; totalMs: number; avgMs: number; maxMs: number } {
     return { count: this.count, totalMs: this.total, avgMs: this.count ? this.total / this.count : 0, maxMs: this.top };
   }

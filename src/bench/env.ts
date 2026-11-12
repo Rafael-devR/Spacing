@@ -81,16 +81,13 @@ export function readGl(gl: WebGLRenderingContext | WebGL2RenderingContext): GlIn
   };
 }
 
-/** Bateria, se o navegador deixa ler (Chrome/Android sim; Safari e Firefox não). */
-export async function readBattery(): Promise<BatteryInfo | null> {
+/** Leitor síncrono da bateria (o objeto do navegador é "vivo": cada leitura traz o nível de agora). Null se não há. */
+export async function openBattery(): Promise<(() => BatteryInfo) | null> {
   const nav = navigator as Navigator & { getBattery?: () => Promise<{ level: number; charging: boolean }> };
   if (typeof nav.getBattery !== 'function') return null;
   try {
-    const b = await Promise.race([
-      nav.getBattery(),
-      new Promise<null>((r) => setTimeout(() => r(null), 1500)),
-    ]);
-    return b ? { level: b.level, charging: b.charging } : null;
+    const b = await Promise.race([nav.getBattery(), new Promise<null>((r) => setTimeout(() => r(null), 1500))]);
+    return b ? () => ({ level: b.level, charging: b.charging }) : null;
   } catch {
     return null;
   }
@@ -116,7 +113,7 @@ export async function readEnv(gl: WebGLRenderingContext | WebGL2RenderingContext
     screen: typeof screen !== 'undefined' ? { width: screen.width, height: screen.height } : null,
     viewport: { width: window.innerWidth, height: window.innerHeight },
     orientation: orient,
-    battery: await readBattery(),
+    battery: (await openBattery())?.() ?? null,
     perfMemory: readJsHeap() !== null,
     longTask: types.includes('longtask'),
     longAnimationFrame: types.includes('long-animation-frame'),
