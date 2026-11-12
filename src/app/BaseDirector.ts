@@ -68,6 +68,8 @@ export class BaseDirector {
    * pressurização, um pouco depois de entrar e um pouco antes de sair (o Game aplica a troca).
    */
   indoorView = false;
+  /** o teste de desempenho roda as cenas de entrar e sair da base com o jogo no estado 'benchmark' */
+  benchRun = false;
   private seqT = 0;
   private step = 0;
   private outsideZoom = 30;
@@ -118,6 +120,17 @@ export class BaseDirector {
     if (this.mode !== 'inside') this.outsideZoom = d.rig.distTarget;
     this.setInsideView(true, true);
     this.mode = 'inside';
+  }
+
+  /** Teste de desempenho: começa a cena de entrar (só se estiver fora) ou de sair (só se estiver dentro). */
+  benchCycle(): void {
+    if (this.mode === 'outside') this.beginEnter();
+    else if (this.mode === 'inside') this.beginExit();
+  }
+
+  /** Onde fica a porta da base, do lado de fora (ponto de partida do cenário "entrar e sair da base"). */
+  get outsidePoint(): { x: number; z: number } {
+    return this.d.layout.outside;
   }
 
   /** Coloca o astronauta fora da base na hora, sem cena (o teste de desempenho começa sempre do lado de fora). */
@@ -394,7 +407,7 @@ export class BaseDirector {
   update(dt: number): void {
     const { d } = this;
     const state = d.getState();
-    if (state === 'playing') {
+    if (state === 'playing' || (this.benchRun && state === 'benchmark')) {
       if (this.mode === 'entering') this.updateEnter(dt);
       else if (this.mode === 'exiting') this.updateExit(dt);
       else if (this.mode === 'resting') this.updateRest(dt);

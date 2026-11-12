@@ -5,6 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import type { Pass } from 'three/addons/postprocessing/Pass.js';
 import { SKY } from './materials';
 
 const GradeShader = {
@@ -76,6 +77,10 @@ export class Post {
   private composer: EffectComposer | null = null;
   private readonly grade = new ShaderPass(GradeShader);
   bloom: UnrealBloomPass | null = null;
+  /** última construção pedida pelo jogo (o teste de desempenho refaz a partir dela e depois volta a ela) */
+  private base: { q: QualityPreset; w: number; h: number } | null = null;
+  /** só no teste de desempenho: o que sobrepor ao preset e a escala da resolução (1 = a do jogo) */
+  private bench: { over: Partial<QualityPreset> | null; scale: number } = { over: null, scale: 1 };
 
   constructor(
     private readonly renderer: THREE.WebGLRenderer,
@@ -84,8 +89,15 @@ export class Post {
   ) {}
 
   build(q: QualityPreset, w: number, h: number): void {
+    this.base = { q, w, h };
+    this.construct();
+  }
+
+  private construct(): void {
+    const { w, h } = this.base as { q: QualityPreset; w: number; h: number };
+    const q = { ...(this.base as { q: QualityPreset }).q, ...this.bench.over };
     const r = this.renderer;
-    const pr = Math.min(window.devicePixelRatio || 1, q.pixelRatio);
+    const pr = Math.min(window.devicePixelRatio || 1, q.pixelRatio) * this.bench.scale;
     r.setPixelRatio(pr);
     r.setSize(w, h, false);
     if (this.composer) {
@@ -115,6 +127,10 @@ export class Post {
   }
 
   resize(w: number, h: number, pr = this.renderer.getPixelRatio()): void {
+    if (this.base) {
+      this.base.w = w;
+      this.base.h = h;
+    }
     this.renderer.setSize(w, h, false);
     this.composer?.setSize(w, h);
     SKY.res.set(w * pr, h * pr);
@@ -132,6 +148,27 @@ export class Post {
     this.grade.uniforms.uDesat.value = desat;
     this.grade.uniforms.uHurt.value = hurt;
     this.grade.uniforms.uDark.value = dark;
+  }
+
+  /** as passadas do pós-processamento, na ordem (o teste de desempenho mede cada uma) */
+  get passes(): readonly Pass[] {
+    return this.composer?.passes ?? [];
+  }
+
+  /** material da passada de correção de cor (o teste de desempenho liga e desliga trechos dele, só na memória) */
+  get gradeMaterial(): THREE.ShaderMaterial {
+    return this.grade.material as THREE.ShaderMaterial;
+  }
+
+  /**
+   * SÓ PARA O TESTE DE DESEMPENHO: refaz o pós-processamento com partes do preset trocadas (bloom, MSAA) e/ou a
+   * resolução multiplicada. `null` e escala 1 voltam ao que o jogo pediu. Não mexe nos shaders nem nas preferências.
+   */
+  benchSet(over: Partial<QualityPreset> | null, scale = 1): void {
+    if (!this.base) return;
+    this.bench = { over, scale };
+    this.bloom?.dispose();
+    this.construct();
   }
 
   render(t: number): void {
