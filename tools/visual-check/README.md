@@ -70,6 +70,16 @@ soa mais baixo, que o zumbido do módulo some de longe e que o meteoro toca sem 
 - `mobile`: ativa toque e tela de celular (mostra joystick e botões).
 - Saída: `<prefixo>1-inicio.png` e `<prefixo>2-jogo.png`, além dos erros e avisos do console.
 
+## Teste de Marte
+
+```bash
+node mars.mjs http://localhost:5173/ /tmp/shots
+```
+
+Abre o jogo em Marte (`?planeta=marte`) e confere a tela inicial, o chão de poeira, as camadas e a gipsita do cânion, a lava
+na caldeira, a lava queimando o traje, a tempestade (visão menor e vento empurrando), o redemoinho devolvendo bateria, o
+pulo mais baixo e que o salvamento de Marte é separado do da Lua. Captura cada lugar (`mars-*.png`).
+
 ## Teste dos gráficos avançados
 
 ```bash
