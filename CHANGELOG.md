@@ -7,14 +7,22 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Adicionado
 
-- **Teste de desempenho** ([design/DESEMPENHO.md](docs/design/DESEMPENHO.md)): botão no menu de pausa, logo abaixo de
-  Continuar. Roda sozinho por cerca de 51 segundos e reproduz o que mais pesa: muitos blocos quebrados rápido com
-  destroços, partículas, itens voando e som, meteoros, e uma caminhada a quase 6 vezes a velocidade normal que força a
-  geração de chunks. Mede FPS médio, mínimo e dos 1% piores, os piores quadros, o tempo de gerar e malhar chunks (novos e
-  refeitos ao quebrar bloco), triângulos, chamadas de desenho e objetos, resolução e qualidade. Mostra o resultado numa
-  tela clara e guarda o último e o anterior para comparar antes e depois de otimizar. O progresso do jogo não muda: o
-  salvamento fica travado durante o teste e o jogo recarrega no fim.
-- Teste `tools/visual-check/bench.mjs`.
+- **Teste de desempenho completo** ([design/BENCHMARK.md](docs/design/BENCHMARK.md), [ADR 0007](docs/adr/0007-teste-de-desempenho-completo.md)):
+  o botão **Teste de desempenho** do menu de pausa abre a escolha entre **rápido** (cerca de 2 min) e **completo** (cerca de
+  16 min, com 10 min de aquecimento). Mede tudo o que afeta a fluidez no celular de 120 Hz (alvo principal; 60 Hz é o
+  secundário): detecta a taxa da tela e lê o aparelho (GPU, WebGL, núcleos, bateria; "não disponível" onde o navegador não
+  informa); fluidez com média, mediana, 95%, 99%, 99,9%, desvio, jitter, quadros perdidos, maior sequência ruim, histograma e
+  **ritmo** (separa um 60 FPS fluido de um irregular); CPU por subsistema, passos fixos por quadro, tarefas longas, quadros
+  longos e criações por segundo; GPU (`renderer.info`, timer query onde existir); memória, energia e latência do toque. Roda 15
+  cenários (os 5 de antes mais parado, girar a câmera, zoom, círculo, broca de cristal, explosão, mapa, base, itens voando e
+  pior caso sustentado). O modo completo ainda mede o **custo de cada efeito** (ligado e desligado, só na memória), a **curva
+  de resolução** (0,5× a 2×, com a maior escala que sustenta 120 e 60 FPS) e o **aquecimento**. O resultado traz o veredito
+  de 120 e 60 Hz, o gráfico do tempo dos quadros, tabelas, conclusões (inclusive a investigação do limite de 60 FPS) e a
+  comparação com o resultado anterior; guarda os **últimos 10** no aparelho (chave própria, o save não muda), exporta em
+  **JSON** e copia um resumo. O teste só observa: não muda aparência, jogabilidade, salvamento nem preferências.
+- Código novo em `src/bench/` (estatísticas puras com testes, sondas nulas fora do teste, efeitos ligados e desligados só na
+  memória, condutor, resultado, histórico, gráfico em canvas 2D e telas) e cenários como dados em `src/data/bench.ts`.
+- Teste `tools/visual-check/bench.mjs` (roda o teste encurtado no Chromium headless; os números dali não valem para o celular).
 
 - **Brocas** ([design/BROCAS.md](docs/design/BROCAS.md)): a ferramenta de mineração evolui. A broca do traje
   ganha duas irmãs fabricadas na bancada, a **Broca de ferro** (1,7× mais rápida) e a **Broca de cristal**
@@ -42,6 +50,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Alterado
 
+- O teste de desempenho antigo (51 s, resultado em `spacing.bench.v1`) foi substituído pelo novo; o resultado antigo não é
+  mais lido.
 - **Tremor da câmera ao minerar** mais leve e sem acumular: com a broca rápida, ele crescia sem parar. A pausa de
   impacto só vale no primeiro bloco de uma sequência.
 - **Ícone do tablet** (Mapa): agora um tablet de verdade, com moldura, aro laranja, câmera frontal e a tela com o
