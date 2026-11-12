@@ -60,3 +60,14 @@ feito; a separação em camadas deixa esse passo mais fácil, mas ele ainda não
 O interior também passou a ser modelo do Blender (paredes em peças de baixo e de cima por lado, para o corte continuar
 funcionando), e a base cresceu para 11×9. A sugestão do dono de levar o interior para uma cena à parte, com carregamento,
 continua em aberto: por enquanto o interior segue no mesmo lugar, na camada de dentro.
+
+## Adendo (2026-11-12): cena de dentro e corte sem meia parede
+
+- **Cena à parte.** Dentro da base, a câmera desenha outra `THREE.Scene` (`IndoorView.interior`, `src/render/indoors.ts`),
+  com luz e sombra próprias e o mesmo fundo e neblina. Ao entrar, só três raízes mudam de cena: o grupo da base, o
+  astronauta e as partículas. A cena de fora não é desenhada lá dentro, então o terreno e os meteoros não custam nada.
+  A câmera de camadas continua valendo, para o casco do Blender (só de fora) não aparecer dentro.
+  Fica de fora da cena à parte: o tablet (tem a própria cena de sobreposição) e o que ainda é colocado no mundo.
+- **Corte sem meia parede.** A parede viradas para a câmera, ao entrar, **some inteira** (a de baixo também), em vez de
+  abaixar a parte de cima. A porta some junto com a parede da frente. Motivo do dono: a parede pela metade ficava
+  esquisita de ver.

@@ -71,10 +71,11 @@ const iso = await g(() => {
   return {
     layers: s.camera.layers.mask, locked: s.interaction.worldLocked, body: document.body.classList.contains('in-base'),
     build: getComputedStyle(document.querySelector('#btn-build')).display, chip: getComputedStyle(document.querySelector('#base-chip')).display,
-    bg: !!s.scene.background,
+    // a cena desenhada é a de dentro (cena à parte, com o fundo da base); a de fora fica parada
+    drawn: s.post.scene === s.indoors.interior, bg: !!s.indoors.interior.background,
   };
 });
-check('dentro: só o interior aparece, com fundo da base e aviso de pressurizado', iso.layers === 2 && iso.bg && iso.body && iso.chip !== 'none', JSON.stringify(iso));
+check('dentro: a cena de dentro é a desenhada, com fundo da base e aviso de pressurizado', iso.layers === 2 && iso.drawn && iso.bg && iso.body && iso.chip !== 'none', JSON.stringify(iso));
 const world0 = await g(() => JSON.stringify(window.spacing.world.serialize()));
 await g(() => window.spacing.interaction.setBuildMode(true));
 const box = await page.locator('#game canvas').boundingBox();
@@ -314,8 +315,11 @@ const outside = await g(() => {
   return { inBox: p.x >= b.x0 && p.x < b.x1 + 1 && p.z >= b.z0 && p.z < b.z1 + 1, cut: s.base.d.layout.structure.cutaway };
 });
 check('do lado de fora, sem corte', !outside.inBox && !outside.cut, JSON.stringify(outside));
-const back = await g(() => ({ layers: window.spacing.camera.layers.mask, locked: window.spacing.interaction.worldLocked, body: document.body.classList.contains('in-base') }));
-check('fora: o mundo volta a aparecer e a ser editável', back.layers === 1 && !back.locked && !back.body, JSON.stringify(back));
+const back = await g(() => ({
+  layers: window.spacing.camera.layers.mask, locked: window.spacing.interaction.worldLocked, body: document.body.classList.contains('in-base'),
+  drawn: window.spacing.post.scene === window.spacing.scene,
+}));
+check('fora: o mundo volta a aparecer e a ser editável', back.layers === 1 && !back.locked && !back.body && back.drawn, JSON.stringify(back));
 
 check('sem erros no console', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(results.join('\n'));

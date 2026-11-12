@@ -5,8 +5,8 @@
 // O interior também vem do Blender (tools/models/habitat_interior.py): piso, forro das paredes (cada lado em duas peças, a
 // de cima abaixa no corte) e porta de dentro; móveis de furniture.py, máquinas de workbench/furnace/electrolyzer.py.
 // Sem os .glb, ou com outras medidas, tudo é montado em código como antes.
-// Corte (cutaway): com o astronauta dentro, o telhado some e as paredes viradas para a câmera abaixam,
-// mostrando o interior. Dentro, a câmera só vê a camada do interior (render/indoors.ts): as partes de fora
+// Corte (cutaway): com o astronauta dentro, o telhado some e as paredes viradas para a câmera somem por inteiro
+// (sem meia altura), mostrando o interior. Dentro, a câmera só vê a camada do interior (render/indoors.ts): as partes de fora
 // (pernas, degrau, círculo da porta, telhado) ficam só na camada do mundo.
 import * as THREE from 'three';
 import type { FurnitureKind, Side } from '../data/base';
@@ -37,9 +37,13 @@ const NORMAL: Record<Side, [number, number]> = { north: [0, -1], south: [0, 1], 
 interface WallPart {
   side: Side;
   /** fileiras de cima: abaixam no corte */
+  /** a parede inteira (fileira de baixo e de cima): o corte a tira de cena */
+  wall: THREE.Group;
+  /** fileira de cima (pivô em y = 2): luminárias, placas e a Terra */
   upper: THREE.Group;
   /** 0 = de pé, 1 = abaixada */
-  lowered: number;
+  /** 0 = de pé; 1 = tirada de cena pelo corte */
+  away: number;
 }
 
 export interface FurnitureModel {
@@ -144,7 +148,9 @@ export class BaseModel {
       const lower = new THREE.Group();
       const upper = new THREE.Group();
       upper.position.y = 2; // pivô na base das fileiras de cima
-      hullG.add(lower, upper);
+      const wall = new THREE.Group();
+      wall.add(lower, upper);
+      hullG.add(wall);
       // retângulo da parede no plano xz
       const along: 'x' | 'z' = side === 'north' || side === 'south' ? 'x' : 'z';
       const [a0, a1] = along === 'x' ? [0, SX] : [1, SZ - 1];
@@ -210,7 +216,7 @@ export class BaseModel {
           lining(upper, s - 0.06, s + 0.06, 0, H - 1.3, hullDark, 0.06);
           lining(lower, s - 0.06, s + 0.06, 1.2, 2, hullDark, 0.06);
         }
-      this.walls.push({ side, upper, lowered: 0 });
+      this.walls.push({ side, wall, upper, away: 0 });
     }
 
     // ---- porta: batente, duas folhas que correm para dentro da parede, luzes ----
@@ -390,8 +396,8 @@ export class BaseModel {
   }
 
   /**
-   * Troca as paredes, a porta e o piso montados em código pelo interior do Blender. As paredes de cima de cada lado
-   * (wall_<l>_hi, lit_wall_<l>_hi, glow_wall_<l>_hi) vão para um grupo com pivô em y = 2, que o corte achata.
+   * Troca as paredes, a porta e o piso montados em código pelo interior do Blender. Cada lado vira um grupo com a parede
+   * inteira (wall_<l>_lo/_hi, lit_, glow_); a parte de cima tem pivô em y = 2 (luminárias, placas). O corte tira o grupo.
    */
   private useInteriorModel(inner: THREE.Object3D, codeHull: THREE.Object3D, codeLining: THREE.Object3D): void {
     codeHull.removeFromParent();
@@ -406,16 +412,21 @@ export class BaseModel {
     if (floor) this.interior.add(floor);
     const short: Record<Side, string> = { north: 'n', south: 's', west: 'w', east: 'e' };
     for (const side of ['north', 'south', 'west', 'east'] as Side[]) {
+      const wall = new THREE.Group();
+      inner.add(wall);
       const upper = new THREE.Group();
       upper.position.y = 2;
-      inner.add(upper);
-      const re = new RegExp(`(^|_)wall_${short[side]}_hi$`);
+      wall.add(upper);
+      const low = new RegExp(`(^|_)wall_${short[side]}_lo$`);
+      const high = new RegExp(`(^|_)wall_${short[side]}_hi$`);
       for (const o of pieces) {
-        if (!re.test(o.name)) continue;
-        o.position.y -= 2;
-        upper.add(o);
+        if (low.test(o.name)) wall.add(o);
+        else if (high.test(o.name)) {
+          o.position.y -= 2;
+          upper.add(o);
+        }
       }
-      this.walls.push({ side, upper, lowered: 0 });
+      this.walls.push({ side, wall, upper, away: 0 });
     }
     // janela da Terra: a imagem vai na moldura da parede norte
     const earthAt = inner.getObjectByName('earth')?.position;
@@ -471,7 +482,7 @@ export class BaseModel {
     this.padMat.opacity = 0.35 + 0.25 * Math.sin(t * 3) * 0.5 + this.padHighlight * 0.5;
     this.antennaLamp.set(Math.sin(t * 2.4) > 0.6 ? 1 : 0);
 
-    // corte: telhado some, paredes viradas para a câmera abaixam
+    // corte: telhado some, paredes viradas para a câmera somem
     for (const m of this.roofMats) m.opacity = 1 - ins;
     this.roof.visible = ins < 0.98;
     const c = this.group.position;
@@ -481,10 +492,9 @@ export class BaseModel {
       const [nx, nz] = NORMAL[w.side];
       const front = (nx * vx + nz * vz) / vl > 0.2;
       const want = front ? this.insideTarget : 0;
-      w.lowered += (want - w.lowered) * k(6);
-      w.upper.scale.y = Math.max(0.001, 1 - w.lowered);
-      w.upper.visible = w.lowered < 0.99;
-      if (w.side === this.layout.door.side) this.doorFrame.scale.y = 1 - w.lowered * 0.5;
+      w.away += (want - w.away) * k(6);
+      w.wall.visible = w.away < 0.5;
+      if (w.side === this.layout.door.side) this.doorFrame.visible = w.wall.visible;
     }
     this.light.intensity = ins * 22;
     this.interior.visible = ins > 0.01 || this.door > 0.02;
@@ -496,7 +506,7 @@ export class BaseModel {
   snap(): void {
     this.inside = this.insideTarget;
     this.door = this.doorTarget;
-    for (const w of this.walls) w.lowered = 0;
+    for (const w of this.walls) w.away = 0;
   }
 }
 

@@ -155,6 +155,8 @@ export class Game {
   private readonly map: MapDirector;
   /** a câmera está vendo só o tablet (mapa em tela cheia) */
   private tabletOnly = false;
+  /** cena vazia: com o mapa em tela cheia o mundo não é desenhado */
+  private readonly blankScene = new THREE.Scene();
   private readonly craftPanel: CraftPanel;
   private readonly powerPanel: PowerPanel;
   readonly power: Power;
@@ -346,7 +348,7 @@ export class Game {
     scene.add(this.baseModel.group);
     this.base = new BaseDirector(
       {
-        events, scene, world: this.world, layout: baseLayout, model: this.baseModel, player: this.player, rig: this.rig,
+        events, scene: () => this.indoors.scene, world: this.world, layout: baseLayout, model: this.baseModel, player: this.player, rig: this.rig,
         input: this.input, interaction: this.interaction, survival: this.survival, crafting: this.crafting,
         craftPanel: this.craftPanel, powerPanel: this.powerPanel, hud: this.hud, baseHud: this.baseHud, sfx: this.sfx, haptics: this.haptics,
         particles: this.particles, itemModels: this.itemModels, getState: () => this.state, persist: () => this.persist(),
@@ -450,7 +452,8 @@ export class Game {
     // dentro da base a câmera só vê a camada do interior: o astronauta e as faíscas também estão nela
     showIndoors(this.player.model.root);
     showIndoors(this.particles.mesh);
-    this.indoors = new IndoorView(scene, this.camera, this.lights); // depois de todas as luzes existirem
+    // o que vai junto para dentro da base: a própria base, o astronauta e as partículas (a cena de dentro é outra)
+    this.indoors = new IndoorView(scene, this.camera, [this.baseModel.group, this.player.model.root, this.particles.mesh], this.fog);
     const landerPos = this.lander.group.position;
     this.map = new MapDirector({
       events, overlay: this.post.overlay, camera: this.camera, renderer, sfx: this.sfx, haptics: this.haptics,
@@ -1036,6 +1039,7 @@ export class Game {
    */
   private setIndoors(on: boolean): void {
     this.indoors.set(on);
+    this.syncScene();
     this.interaction.lockWorld(on);
     this.meteors.holdSpawns = on;
     this.sfx.setIndoors(on);
@@ -1043,6 +1047,11 @@ export class Game {
     this.hud.setProgress(null);
     this.hud.setAim(null);
     this.events.emit('base:view', { inside: on });
+  }
+
+  /** cena que o post desenha: a de dentro ou a de fora; com o mapa em tela cheia, nenhuma (o tablet está no overlay) */
+  private syncScene(): void {
+    this.post.setScene(this.tabletOnly ? this.blankScene : this.indoors.scene);
   }
 
   // ---------- qualidade e tela ----------
@@ -1317,6 +1326,7 @@ export class Game {
     this.focus.set(rp.x, rp.y + 0.8, rp.z);
     this.updateCover(dt);
     rig.update(dt, this.focus);
+    this.indoors.update(this.focus);
     // corte da caverna: abre junto com a câmera de caverna; o material com corte só entra nos chunks enquanto é preciso
     setCut(this.camera, player.model.root.position, rig.cave);
     this.underside.position.set(rig.target.x, 0.5, rig.target.z);
@@ -1329,6 +1339,7 @@ export class Game {
     if (this.map.full !== this.tabletOnly) {
       this.tabletOnly = this.map.full;
       this.camera.layers.set(this.tabletOnly ? TABLET_LAYER : this.indoors.on ? INTERIOR_LAYER : 0);
+      this.syncScene();
       // com o mapa em tela cheia o mundo não aparece: a sombra dele não precisa ser refeita (volta ao fechar)
       this.lights.sun.shadow.autoUpdate = !this.tabletOnly;
       this.lights.sun.shadow.needsUpdate = true;

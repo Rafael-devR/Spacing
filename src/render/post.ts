@@ -165,6 +165,7 @@ export class Post {
    */
   readonly overlay = new THREE.Scene();
   private overlayPass: RenderPass | null = null;
+  private scenePass: RenderPass | null = null;
   private overlayOn = false;
   private composer: EffectComposer | null = null;
   private readonly grade = new ShaderPass(GradeShader);
@@ -178,9 +179,15 @@ export class Post {
 
   constructor(
     private readonly renderer: THREE.WebGLRenderer,
-    private readonly scene: THREE.Scene,
+    private scene: THREE.Scene,
     private readonly camera: THREE.Camera,
   ) {}
+
+  /** troca a cena desenhada (fora ou dentro da base: render/indoors.ts); vale já no próximo quadro */
+  setScene(scene: THREE.Scene): void {
+    this.scene = scene;
+    if (this.scenePass) this.scenePass.scene = scene;
+  }
 
   build(q: QualityPreset, w: number, h: number): void {
     this.base = { q, w, h };
@@ -203,7 +210,9 @@ export class Post {
     const c = new EffectComposer(r, rt);
     c.setPixelRatio(pr);
     c.setSize(w, h);
-    c.addPass(new RenderPass(this.scene, this.camera));
+    const sp = new RenderPass(this.scene, this.camera);
+    this.scenePass = sp;
+    c.addPass(sp);
     const ov = new RenderPass(this.overlay, this.camera);
     ov.clear = false;
     ov.clearDepth = true;

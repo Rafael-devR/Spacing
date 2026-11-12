@@ -40,7 +40,8 @@ export interface BaseSaveState {
 
 export interface BaseDirectorDeps {
   events: GameBus;
-  scene: THREE.Scene;
+  /** cena onde a base está agora: a de fora ou a de dentro (render/indoors.ts) */
+  scene: () => THREE.Scene;
   world: World;
   layout: ModuleLayout;
   model: BaseModel;
@@ -75,6 +76,8 @@ export function outputName(o: RecipeOutput): string {
 
 interface Flying {
   obj: THREE.Object3D;
+  /** a cena em que a peça foi posta (a de fora ou a de dentro) */
+  scene: THREE.Scene;
   t: number;
   from: THREE.Vector3;
   /** null = até o astronauta */
@@ -490,7 +493,7 @@ export class BaseDirector {
   private fly(station: StationId, to: THREE.Vector3 | null, done: () => void): void {
     const { d } = this;
     if (this.flying) {
-      d.scene.remove(this.flying.obj);
+      this.flying.scene.remove(this.flying.obj);
       this.flying.done();
     }
     const fab = d.model.fabricator;
@@ -500,8 +503,9 @@ export class BaseDirector {
       return;
     }
     showIndoors(obj);
-    d.scene.add(obj);
-    this.flying = { obj, t: 0, from: obj.position.clone(), to, done };
+    const scene = d.scene();
+    scene.add(obj);
+    this.flying = { obj, scene, t: 0, from: obj.position.clone(), to, done };
   }
 
   private updateFlying(dt: number): void {
@@ -517,7 +521,7 @@ export class BaseDirector {
     f.obj.scale.setScalar(1 - k * 0.7);
     f.obj.rotation.y += dt * 10;
     if (k >= 1) {
-      d.scene.remove(f.obj);
+      f.scene.remove(f.obj);
       this.flying = null;
       d.haptics.play('success');
       f.done();

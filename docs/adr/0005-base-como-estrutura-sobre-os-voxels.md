@@ -20,7 +20,7 @@ vai crescer: novos módulos, corredores e máquinas.
    O mundo recusa editar blocos dentro dela e não põe pedras soltas embaixo.
 3. **Modelo próprio** (`src/render/baseModel.ts`) feito do mesmo layout que a colisão (`world/baseLayout.ts`).
 4. **Corte:** com o astronauta dentro, `peekBlock` (usado pela mira) trata telhado e paredes altas como ar,
-   enquanto `getBlock` (colisão) continua sólido. O modelo esconde o telhado e abaixa as paredes viradas para
+   enquanto `getBlock` (colisão) continua sólido. O modelo esconde o telhado e tira de cena as paredes viradas para
    a câmera.
 
 ## Alternativas consideradas

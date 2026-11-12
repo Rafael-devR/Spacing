@@ -24,9 +24,9 @@ Proposta escolhida, pensada para parecer bem feita e não acontecer por acidente
 2. A **porta corre** para dentro da parede e o astronauta **entra andando sozinho** até a câmara.
 3. A porta fecha e **duas portas de bloqueio** (com faixas de atenção) descem sobre a tela, com a leitura
    **"Câmara de pressurização"** subindo de 0 a 100% e o chiado do ar entrando.
-4. Atrás das portas de bloqueio a câmera troca para o **interior**: o telhado some, as paredes da frente
-   abaixam e o mundo de fora **deixa de aparecer** (terreno, pedras, céu, módulo de pouso); fica só a sala
-   sobre um fundo escuro, com a luz de dentro acesa. A luz da porta fica verde.
+4. Atrás das portas de bloqueio a câmera troca para o **interior**: o telhado e as paredes da frente **somem por
+   inteiro** (sem meia altura) e o mundo de fora **deixa de aparecer** (terreno, pedras, céu, módulo de pouso); fica
+   só a sala sobre um fundo escuro, com a luz de dentro acesa. A luz da porta fica verde.
 5. As portas de bloqueio abrem e a IA do traje avisa que a base está pressurizada.
 
 **Sair** é o caminho inverso: botão "Sair da base" perto da porta, "Despressurizando" de 100 a 0%, a câmera

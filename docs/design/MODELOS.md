@@ -96,10 +96,9 @@ painéis, nervuras, rodapé aceso, linha laranja e luminária no alto; janelas l
 espaço), canos e moldura da janela da Terra na parede norte, grade de ventilação e quadro elétrico; batentes e folhas da
 porta por dentro.
 
-- Cada parede sai em duas peças, porque o corte (a câmera de dentro) abaixa só a parte de cima das paredes viradas para
-  ela: `wall_<l>_lo` (fica de pé) e `wall_<l>_hi` (pivô em y = 2; o código achata em y). Peças acesas e vidros da
-  mesma parede seguem o nome (`lit_wall_<l>_hi`, `glow_wall_<l>_hi`). O topo das paredes é escuro: aparece quando
-  abaixam.
+- Cada parede sai em duas peças (`wall_<l>_lo` e `wall_<l>_hi`, pivô em y = 2 para luminárias e placas). Peças acesas
+  e vidros da mesma parede seguem o nome (`lit_wall_<l>_hi`, `glow_wall_<l>_hi`). O corte, ao entrar, tira a parede
+  inteira de cena (sem meia altura); ver [ADR 0006](../adr/0006-interior-da-base-como-camada-isolada.md).
 - O piso vai para as duas camadas (de fora, com a porta aberta, vê-se lá dentro); o resto só para a de dentro.
 - Pontos: `earth` (a imagem da Terra, em código), `door_in_l/r` (folhas), `door_in_lamp` (luz com halo).
 

@@ -1,10 +1,11 @@
-// Interior da base como ambiente à parte (docs/adr/0006-interior-da-base-como-camada-isolada.md).
-// A base continua no mesmo lugar do mundo, mas, com o astronauta dentro, a câmera passa a ver só a camada
-// do interior: a base, o astronauta, as faíscas e as luzes. Terreno, pedras, céu, módulo de pouso, meteoros
-// e marcadores somem; o fundo vira o escuro da base e a luz troca para a de dentro.
-// A neblina não é desligada (isso recompilaria os shaders): o Game só a empurra para longe.
+// Interior da base como cena à parte (docs/adr/0006-interior-da-base-como-camada-isolada.md).
+// A base continua no mesmo lugar do mundo, mas com o astronauta dentro a câmera passa a desenhar outra cena: a de
+// dentro. Nela ficam só a base, o astronauta, as partículas e a luz de dentro (luz própria, com sombra). A cena de
+// fora não é desenhada, então terreno, pedras, céu, módulo de pouso e meteoros não custam nada lá dentro.
+// Ao trocar, as raízes listadas são movidas de uma cena para a outra (na hora, atrás das portas de bloqueio).
+// A neblina é a mesma nas duas cenas (o Game só a empurra para longe): assim o shader não recompila.
 import * as THREE from 'three';
-import type { Lights } from './lights';
+import { Lights } from './lights';
 
 /** camada do three.js que a câmera vê dentro da base (a 0 é a do mundo) */
 export const INTERIOR_LAYER = 1;
@@ -37,44 +38,61 @@ export function exteriorOnly<T extends THREE.Object3D>(obj: T): T {
 
 /** Luz de dentro: teto claro e frio, chão quente, sol só como luz de teto (dá as sombras). */
 const INSIDE = { hemiSky: new THREE.Color('#dfe8ff'), hemiGround: new THREE.Color('#6e5a4c'), hemi: 1.15, sun: 1.6 };
+/** tamanho da sombra do sol de dentro: a base inteira cabe com folga */
+const INSIDE_SHADOW = { size: 1024, extent: 9 };
 
 export class IndoorView {
-  /** true = câmera vendo só o interior */
+  /** true = câmera vendo a cena de dentro */
   on = false;
-  private readonly background: THREE.Texture;
-  private readonly outside: { hemiSky: THREE.Color; hemiGround: THREE.Color; hemi: number; sun: number };
+  /** a cena de dentro: só o que está na base e a luz de dentro */
+  readonly interior = new THREE.Scene();
+  /** luz de dentro, separada da de fora (a de fora não é desenhada enquanto se está na base) */
+  private readonly lights: Lights;
 
+  /**
+   * @param outside a cena do mundo, onde as raízes `moved` começam
+   * @param moved o que vai junto para dentro (base, astronauta, partículas)
+   */
   constructor(
-    private readonly scene: THREE.Scene,
+    private readonly outside: THREE.Scene,
     private readonly camera: THREE.Camera,
-    private readonly lights: Lights,
+    private readonly moved: THREE.Object3D[],
+    fog: THREE.Fog,
   ) {
-    this.background = backgroundTexture();
-    const { hemi, sun } = lights;
-    this.outside = { hemiSky: hemi.color.clone(), hemiGround: hemi.groundColor.clone(), hemi: hemi.intensity, sun: sun.intensity };
-    // as luzes valem nas duas camadas; sem isso o número de luzes mudaria e os shaders recompilariam
-    scene.traverse((o) => {
-      if ((o as THREE.Light).isLight) o.layers.enable(INTERIOR_LAYER);
-    });
+    this.interior.background = backgroundTexture();
+    this.interior.fog = fog;
+    this.lights = new Lights(this.interior);
+    this.lights.hemi.color.copy(INSIDE.hemiSky);
+    this.lights.hemi.groundColor.copy(INSIDE.hemiGround);
+    this.lights.hemi.intensity = INSIDE.hemi;
+    this.lights.sun.intensity = INSIDE.sun;
+    this.lights.setShadowSize(INSIDE_SHADOW.size, INSIDE_SHADOW.extent);
+    // o three.js só usa luz que cai numa camada que a câmera vê: a luz de dentro tem de estar na do interior
+    this.lights.hemi.layers.enable(INTERIOR_LAYER);
+    this.lights.sun.layers.enable(INTERIOR_LAYER);
+  }
+
+  /** a cena que deve ser desenhada agora */
+  get scene(): THREE.Scene {
+    return this.on ? this.interior : this.outside;
   }
 
   /** Troca de ambiente na hora (acontece atrás das portas da câmara de pressurização). */
   set(on: boolean): void {
     if (on === this.on) return;
     this.on = on;
-    const { scene, camera, lights } = this;
-    if (on) {
-      camera.layers.set(INTERIOR_LAYER);
-      scene.background = this.background;
-    } else {
-      camera.layers.set(0);
-      scene.background = null;
+    const from = on ? this.outside : this.interior;
+    const to = on ? this.interior : this.outside;
+    for (const o of this.moved) {
+      from.remove(o);
+      to.add(o);
     }
-    const l = on ? INSIDE : this.outside;
-    lights.hemi.color.copy(l.hemiSky);
-    lights.hemi.groundColor.copy(l.hemiGround);
-    lights.hemi.intensity = l.hemi;
-    lights.sun.intensity = l.sun;
+    this.camera.layers.set(on ? INTERIOR_LAYER : 0);
+  }
+
+  /** por quadro, dentro: a sombra do sol de dentro acompanha o astronauta */
+  update(target: THREE.Vector3): void {
+    if (this.on) this.lights.follow(target);
   }
 }
 

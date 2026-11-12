@@ -5,6 +5,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Não lançado]
 
+### Alterado
+
+- **Interior da base é uma cena à parte** (ADR 0006): lá dentro a câmera desenha a cena de dentro, com luz e sombra
+  próprias; o mundo de fora não é desenhado. Só a base, o astronauta e as partículas mudam de cena.
+- **Corte da base:** ao entrar, as paredes da frente somem por inteiro, em vez de abaixar pela metade.
+
 ### Adicionado
 
 - **Modelos 3D feitos no Blender** ([design/MODELOS.md](docs/design/MODELOS.md),
