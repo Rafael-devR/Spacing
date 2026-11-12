@@ -1,8 +1,9 @@
 // Luz ambiente e sol com sombra que segue o jogador.
 import * as THREE from 'three';
 import { PLANET } from '../core/planet';
+import { SUN_DIRECTION } from '../data/power';
 
-const SUN_OFFSET = new THREE.Vector3(-14, 26, 9);
+const SUN_OFFSET = new THREE.Vector3(...SUN_DIRECTION);
 
 export class Lights {
   readonly hemi: THREE.HemisphereLight;

@@ -2,10 +2,10 @@
 import type { RGB } from '../core/color';
 import type { ItemId } from './items';
 
-/** `marsBoulder` e `blueberries` (esferas de hematita) só existem em Marte */
-export type PropType = 'boulder' | 'ilmenite' | 'gold' | 'crystal' | 'meteorite' | 'marsBoulder' | 'blueberries';
+/** `marsBoulder` e `blueberries` (esferas de hematita) só existem em Marte; `solarPanel` é colocado pelo jogador */
+export type PropType = 'boulder' | 'ilmenite' | 'gold' | 'crystal' | 'meteorite' | 'marsBoulder' | 'blueberries' | 'solarPanel';
 
-export const PROP_TYPES: PropType[] = ['boulder', 'ilmenite', 'gold', 'crystal', 'meteorite', 'marsBoulder', 'blueberries'];
+export const PROP_TYPES: PropType[] = ['boulder', 'ilmenite', 'gold', 'crystal', 'meteorite', 'marsBoulder', 'blueberries', 'solarPanel'];
 
 export interface PropData {
   name: string;
@@ -27,6 +27,8 @@ export const PROPS: Record<PropType, PropData> = {
   meteorite: { name: 'Meteorito', hardness: 2.2, drop: 'crystal', amount: 3, bonus: { gold: 2, iron: 2 } },
   marsBoulder: { name: 'Pedra marciana', hardness: 0.9, drop: 'marsrock', amount: 2 },
   blueberries: { name: 'Esferas de hematita', hardness: 0.5, drop: 'hematite', amount: 2 },
+  /** minerar o painel desmonta e devolve o item */
+  solarPanel: { name: 'Painel solar', hardness: 0.6, drop: 'solar_panel', amount: 1 },
 };
 
 /** cores (lineares) dos destroços de cada objeto */
@@ -50,5 +52,9 @@ export const PROP_DEBRIS: Record<PropType, RGB[]> = {
   blueberries: [
     [0.06, 0.07, 0.1],
     [0.36, 0.1, 0.05],
+  ],
+  solarPanel: [
+    [0.04, 0.08, 0.3],
+    [0.5, 0.52, 0.6],
   ],
 };

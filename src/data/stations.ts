@@ -1,21 +1,9 @@
 // Estações de fabricação da base (docs/design/CRAFTING.md). Cada estação é um móvel (data/base.ts) que
-// trabalha sozinha: o jogador começa a receita, sai, e volta para pegar. Nova estação = uma entrada aqui,
+// trabalha sozinha: o jogador começa a receita, sai, e volta para pegar. Várias receitas podem trabalhar ao mesmo
+// tempo (vagas), dividindo a energia; a energia vem de algum lugar (docs/design/ENERGIA.md). Nova estação = uma entrada aqui,
 // um móvel em base.ts, um modelo em render/stationModels.ts e receitas em recipes.ts.
 
 export type StationId = 'workbench' | 'furnace' | 'electrolyzer';
-
-/** o que a tela da estação mostra nos medidores ao vivo */
-export interface Gauge {
-  label: string;
-  unit: string;
-  /** valor parado e trabalhando (o trabalho usa o da receita, se ela disser) */
-  idle: number;
-  work: number;
-  /** quanto o valor oscila trabalhando (fração) */
-  wobble: number;
-  /** casas decimais */
-  digits?: number;
-}
 
 export interface StationData {
   id: StationId;
@@ -26,11 +14,18 @@ export interface StationData {
   accent: string;
   /** como a câmara aparece no diagrama da tela */
   chamber: 'laser' | 'heat' | 'cell';
-  /** segundos fixos de cada trabalho (preparar e terminar) */
+  /** segundos fixos de cada trabalho (preparar e terminar), com energia cheia */
   base: number;
   /** segundos por ponto de trabalho dos ingredientes (ver `recipeSeconds`) */
   perWork: number;
-  gauges: [Gauge, Gauge];
+  /** quantos trabalhos cabem ao mesmo tempo (cadinhos, células); a energia é dividida entre os que estão trabalhando */
+  slots: number;
+  /** de onde vem a energia: `grid` = eletricidade da base (painéis e bateria); `sun` = sol concentrado pelos espelhos */
+  energy: 'grid' | 'sun';
+  /** consumo de eletricidade trabalhando (kW), qualquer que seja o número de trabalhos */
+  kw: number;
+  /** o nome da energia na tela */
+  energyName: string;
   /** já vem pronta na base; as outras são fabricadas na bancada */
   builtIn?: boolean;
 }
@@ -44,37 +39,37 @@ export const STATIONS: Record<StationId, StationData> = {
     chamber: 'laser',
     base: 40,
     perWork: 2.4,
-    gauges: [
-      { label: 'Laser', unit: 'kW', idle: 0, work: 1.2, wobble: 0.08, digits: 2 },
-      { label: 'Bico', unit: '°C', idle: 22, work: 1650, wobble: 0.03 },
-    ],
+    slots: 1,
+    energy: 'grid',
+    kw: 1.2,
+    energyName: 'Eletricidade',
     builtIn: true,
   },
   furnace: {
     id: 'furnace',
     name: 'Forno solar',
-    tagline: 'Espelhos no telhado concentram o sol do polo sul: funde, sinteriza e reduz minérios.',
+    tagline: 'Espelhos no telhado concentram o sol: funde, sinteriza e reduz minérios. Três cadinhos dividem o calor.',
     accent: '#ff8a3d',
     chamber: 'heat',
     base: 14,
     perWork: 3.2,
-    gauges: [
-      { label: 'Temperatura', unit: '°C', idle: 22, work: 1500, wobble: 0.02 },
-      { label: 'Sol concentrado', unit: 'kW', idle: 0, work: 6, wobble: 0.06, digits: 1 },
-    ],
+    slots: 3,
+    energy: 'sun',
+    kw: 0.15,
+    energyName: 'Sol concentrado',
   },
   electrolyzer: {
     id: 'electrolyzer',
     name: 'Eletrolisador',
-    tagline: 'Corrente elétrica quebra moléculas: água em H₂ e O₂, óxidos em metal e oxigênio.',
+    tagline: 'Eletricidade quebra moléculas: água em H₂ e O₂, óxidos em metal e oxigênio. Duas células dividem a corrente.',
     accent: '#5fd0ff',
     chamber: 'cell',
     base: 18,
     perWork: 4,
-    gauges: [
-      { label: 'Corrente', unit: 'A', idle: 0, work: 120, wobble: 0.05 },
-      { label: 'Tensão', unit: 'V', idle: 0, work: 1.8, wobble: 0.04, digits: 2 },
-    ],
+    slots: 2,
+    energy: 'grid',
+    kw: 2.4,
+    energyName: 'Eletricidade',
   },
 };
 

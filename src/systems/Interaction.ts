@@ -6,8 +6,9 @@ import type { GameBus } from '../app/events';
 import type { RGB } from '../core/color';
 import type { Input, PointerState } from '../core/Input';
 import { AIR, BLOCK_DATA, HULL } from '../data/blocks';
-import { ITEMS } from '../data/items';
-import { PROPS, PROP_DEBRIS } from '../data/props';
+import { ITEMS, type ItemId } from '../data/items';
+import { SUN_DIRECTION } from '../data/power';
+import { PROPS, PROP_DEBRIS, type PropType } from '../data/props';
 import type { Debris } from '../entities/Debris';
 import type { ItemDrops } from '../entities/ItemDrops';
 import type { MoveInput, Player } from '../entities/Player';
@@ -209,6 +210,11 @@ export class Interaction {
       events.emit('action:denied', { reason: 'emptySlot' });
       return;
     }
+    const placeType = ITEMS[item].place;
+    if (placeType) {
+      this.placeProp(t, item, placeType);
+      return;
+    }
     const block = ITEMS[item].block;
     if (block === undefined) {
       events.emit('action:denied', { reason: 'notBlock', item });
@@ -227,6 +233,31 @@ export class Interaction {
     inventory.removeSelected(1);
     particles.dust(x + 0.5, y, z + 0.5, 5, 0.5);
     events.emit('block:placed', { x, y, z, id: block });
+  }
+
+  /** Coloca um objeto (painel solar) em cima do bloco mirado, virado para o sol. */
+  private placeProp(t: BlockTarget, item: ItemId, type: PropType): void {
+    const { world, player, inventory, events, particles } = this.d;
+    const x = t.x + t.normal[0], y = t.y + t.normal[1], z = t.z + t.normal[2];
+    const pm = world.propAt(x, z);
+    if (
+      t.normal[1] !== 1 || y >= CH - 2 || world.getBlock(x, y, z) !== AIR || world.getBlock(x, y + 1, z) !== AIR ||
+      player.intersectsBlock(x, y, z) || world.structureAt(x, y, z) || pm
+    ) {
+      events.emit('action:denied', { reason: 'blocked', item });
+      return;
+    }
+    const facing = Math.atan2(SUN_DIRECTION[0], SUN_DIRECTION[2]);
+    // o objeto é salvo mesmo se o chunk ainda não tiver malha; só não entra em cima da base
+    const before = world.placedProps(type).length;
+    world.addExtraProp({ wx: x, wz: z, type, rot: facing });
+    if (world.placedProps(type).length === before) {
+      events.emit('action:denied', { reason: 'blocked', item });
+      return;
+    }
+    inventory.removeSelected(1);
+    particles.dust(x + 0.5, y, z + 0.5, 6, 0.5);
+    events.emit('prop:placed', { x, y, z, type });
   }
 
   /**

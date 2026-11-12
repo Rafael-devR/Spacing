@@ -87,9 +87,11 @@ export interface GameEvents {
   'base:exited': { module: string };
   /** a câmera passou a ver só o interior da base (true) ou voltou ao mundo de fora */
   'base:view': { inside: boolean };
+  /** o jogador colocou um objeto no mundo (painel solar) */
+  'prop:placed': Vec3Like & { type: PropType };
   /** uma estação começou a fabricar, terminou (resultado esperando) ou o jogador pegou o resultado */
-  'craft:started': { station: StationId; recipe: string; seconds: number };
-  'craft:ready': { station: StationId; recipe: string };
+  'craft:started': { station: StationId; recipe: string; seconds: number; slot: number; batch: number };
+  'craft:ready': { station: StationId; recipe: string; slot: number };
   'craft:taken': { station: StationId; recipe: string; partial: boolean };
   /** o traje conectou um cilindro de O₂ de reserva (docs/design/CRAFTING.md) */
   'suit:o2Reserve': { left: number };

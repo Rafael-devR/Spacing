@@ -22,8 +22,8 @@ export interface RecipeProcess {
   steps: string[];
   /** por que isso funciona (fato real), em uma ou duas frases */
   note: string;
-  /** valores dos medidores trabalhando, no lugar dos da estação */
-  gauges?: [number, number];
+  /** temperatura do processo (°C), para a tela mostrar a cor do calor */
+  temp?: number;
 }
 
 export interface Recipe {
@@ -45,17 +45,28 @@ export function itemWork(item: ItemId): number {
   return 1 + 0.6 * t.heat + 0.4 * t.mass + 0.8 * t.rarity;
 }
 
-/** segundos esperados da receita (sem a variação) */
-export function recipeSeconds(r: Recipe): number {
+/**
+ * Segundos esperados da receita feita `batch` vezes de uma vez, com a energia cheia e a estação só com ela (sem a
+ * variação). O preparo conta uma vez só: fazer em lote rende mais que fazer um por um.
+ */
+export function recipeSeconds(r: Recipe, batch = 1): number {
   const st = STATIONS[r.station];
   let work = 0;
   for (const [item, n] of Object.entries(r.inputs) as [ItemId, number][]) work += n * itemWork(item);
-  return Math.round(st.base + st.perWork * work * (r.effort ?? 1));
+  return Math.round(st.base + st.perWork * work * (r.effort ?? 1) * batch);
 }
 
 /** segundos de uma fabricação, com a variação; `u` de 0 a 1 (sorteado pelo sistema) */
-export function rollSeconds(r: Recipe, u: number): number {
-  return recipeSeconds(r) * (1 + (u * 2 - 1) * JITTER);
+export function rollSeconds(r: Recipe, u: number, batch = 1): number {
+  return recipeSeconds(r, batch) * (1 + (u * 2 - 1) * JITTER);
+}
+
+/** lote máximo de uma vez (receitas de equipamento e de estação: sempre 1) */
+export const MAX_BATCH = 32;
+
+/** a receita pode ser feita em lote (só as que dão itens) */
+export function batchable(r: Recipe): boolean {
+  return r.outputs.every((o) => o.kind === 'item');
 }
 
 const item = (i: ItemId, n = 1): RecipeOutput => ({ kind: 'item', item: i, n });
@@ -107,6 +118,17 @@ export const RECIPES: Recipe[] = [
     },
   },
   {
+    id: 'solar_panel',
+    station: 'workbench',
+    inputs: { silicon: 2, glass: 1, iron_bar: 1 },
+    outputs: [item('solar_panel')],
+    process: {
+      reaction: 'células de Si + vidro + moldura de ferro',
+      steps: ['Cortar células', 'Ligar células', 'Cobrir com vidro', 'Moldura'],
+      note: 'A luz arranca elétrons do silício e cria corrente. No polo sul da Lua há picos quase sempre iluminados: os melhores lugares para painéis.',
+    },
+  },
+  {
     id: 'drill_iron',
     station: 'workbench',
     inputs: { iron_bar: 4, brick: 2 },
@@ -139,7 +161,7 @@ export const RECIPES: Recipe[] = [
       reaction: 'minério → Fe (líquido) + escória',
       steps: ['Aquecer', 'Fundir a 1540 °C', 'Separar escória', 'Moldar barra'],
       note: 'O ferro funde a 1538 °C. A escória (silicatos) é mais leve: boia e é tirada por cima.',
-      gauges: [1560, 7.5],
+      temp: 1560,
     },
   },
   {
@@ -151,7 +173,7 @@ export const RECIPES: Recipe[] = [
       reaction: 'regolito → grãos soldados (sinterização)',
       steps: ['Compactar', 'Aquecer a 1100 °C', 'Sinterizar', 'Resfriar'],
       note: 'Na sinterização os grãos se soldam sem derreter. A ESA já imprimiu tijolos assim com regolito simulado.',
-      gauges: [1120, 4.5],
+      temp: 1120,
     },
   },
   {
@@ -163,7 +185,7 @@ export const RECIPES: Recipe[] = [
       reaction: 'SiO₂ + óxidos → vidro',
       steps: ['Aquecer', 'Fundir a 1400 °C', 'Laminar', 'Resfriar rápido'],
       note: 'Resfriado rápido, o regolito fundido não cristaliza e vira vidro. A Apollo 17 achou contas de vidro vulcânico laranja na Lua.',
-      gauges: [1420, 6],
+      temp: 1420,
     },
   },
   {
@@ -175,7 +197,7 @@ export const RECIPES: Recipe[] = [
       reaction: 'basalto fundido → fios de 10 µm',
       steps: ['Fundir a 1450 °C', 'Passar no bico', 'Estirar', 'Enrolar'],
       note: 'Fibra de basalto é fabricada na Terra igual: rocha fundida passa por bicos e é puxada em fios.',
-      gauges: [1460, 6.5],
+      temp: 1460,
     },
   },
   {
@@ -188,7 +210,7 @@ export const RECIPES: Recipe[] = [
       reaction: 'FeTiO₃ + H₂ → Fe + TiO₂ + H₂O',
       steps: ['Aquecer a 1000 °C', 'Injetar H₂', 'Reduzir', 'Condensar água'],
       note: 'É o método mais estudado pela NASA para tirar oxigênio da Lua. A água sai como vapor e congela de novo: o hidrogênio volta.',
-      gauges: [1000, 5],
+      temp: 1000,
     },
   },
 
@@ -202,7 +224,7 @@ export const RECIPES: Recipe[] = [
       reaction: '2 H₂O → 2 H₂ + O₂',
       steps: ['Derreter gelo', 'Aplicar corrente', 'Separar gases', 'Comprimir'],
       note: 'O hidrogênio sai no eletrodo negativo e o oxigênio no positivo, sempre na proporção de 2 para 1.',
-      gauges: [80, 1.8],
+      temp: 80,
     },
   },
   {
@@ -215,7 +237,7 @@ export const RECIPES: Recipe[] = [
       reaction: 'TiO₂ → Ti + O₂ (sal fundido a 900 °C)',
       steps: ['Fundir sal', 'Prensar catodo', 'Eletrolisar', 'Lavar metal'],
       note: 'Processo FFC Cambridge: o óxido vira o polo negativo num banho de sal fundido e perde o oxigênio, deixando titânio puro.',
-      gauges: [160, 3.1],
+      temp: 900,
     },
   },
   {
@@ -228,7 +250,7 @@ export const RECIPES: Recipe[] = [
       reaction: 'SiO₂ → Si + O₂ (regolito fundido a 1600 °C)',
       steps: ['Fundir regolito', 'Aplicar corrente', 'Separar silício', 'Cortar pastilha'],
       note: 'Eletrólise de regolito fundido (MRE): a corrente separa metais e silício e solta oxigênio, sem precisar de nada da Terra.',
-      gauges: [220, 4.2],
+      temp: 1600,
     },
   },
 ];

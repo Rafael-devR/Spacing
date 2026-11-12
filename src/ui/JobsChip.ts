@@ -34,10 +34,11 @@ export class JobsChip {
     this.t = 0.25;
     const html = this.crafting
       .activeJobs()
-      .map(({ station, view }) => {
+      .map((view) => {
+        const station = view.station;
         const o = view.recipe.outputs[0];
         const name = o.kind === 'item' ? ITEMS[o.item].name : o.kind === 'equip' ? EQUIPMENT[o.equip].name : STATIONS[o.station].name;
-        const time = view.ready ? t('craft.status.ready') : mmss(view.remaining);
+        const time = view.ready ? t('craft.status.ready') : Number.isFinite(view.remaining) ? mmss(view.remaining) : '—';
         return `<span class="job${view.ready ? ' ready' : ''}" title="${STATIONS[station].name}: ${name}"><img alt="" src="${this.icon(o)}">${time}</span>`;
       })
       .join('');

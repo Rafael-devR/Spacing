@@ -23,7 +23,7 @@ import { BlockFx } from '../render/BlockFx';
 import { Footprints } from '../render/Footprints';
 import { renderIcon } from '../render/icons';
 import { createStationModel } from '../render/stationModels';
-import { STATION_ORDER, type StationId } from '../data/stations';
+import { STATION_ORDER, STATIONS, type StationId } from '../data/stations';
 import { IsoRig } from '../render/IsoRig';
 import { ItemModels } from '../render/itemModels';
 import { Lights } from '../render/lights';
@@ -73,6 +73,9 @@ import { Equipment } from '../systems/Equipment';
 import { BaseHud } from '../ui/BaseHud';
 import { CraftPanel } from '../ui/CraftPanel';
 import { JobsChip } from '../ui/JobsChip';
+import { PowerPanel } from '../ui/PowerPanel';
+import { Power, type Load } from '../systems/Power';
+import { POWER, SUN_DIRECTION } from '../data/power';
 import { layoutModule } from '../world/baseLayout';
 
 export class Game {
@@ -149,6 +152,8 @@ export class Game {
   /** a câmera está vendo só o tablet (mapa em tela cheia) */
   private tabletOnly = false;
   private readonly craftPanel: CraftPanel;
+  private readonly powerPanel: PowerPanel;
+  readonly power: Power;
   private readonly jobsChip: JobsChip;
   private readonly baseHud = new BaseHud();
   /** último aviso de mochila cheia (para não repetir a cada item) */
@@ -212,8 +217,36 @@ export class Game {
     this.exploration = new Exploration(events, this.save?.explored);
     // jogo novo: a placa de circuito do Mapa vem aproveitada do módulo de pouso (docs/design/CRAFTING.md)
     if (!this.save) this.inventory.add('circuit', 1, false);
-    this.crafting = new Crafting({ inventory: this.inventory, equipment: this.equipment, events }, this.save?.crafting);
-    this.craftPanel = new CraftPanel(this.crafting);
+    // energia da base (docs/design/ENERGIA.md): o sol vira eletricidade nos painéis; as máquinas gastam
+    const sunDir = new THREE.Vector3(...SUN_DIRECTION);
+    this.power = new Power(
+      {
+        base: baseLayout.center,
+        solar: PLANET.solar,
+        shade: PLANET.id === 'marte' ? POWER.shadeMarte : POWER.shadeLua,
+        panels: () => this.world.placedProps('solarPanel'),
+        exposure: (x, z) => this.world.sunExposure(x, z, sunDir),
+        loads: () => {
+          const out: Load[] = [];
+          for (const id of STATION_ORDER) if (this.crafting.working(id)) out.push({ id, kw: STATIONS[id].kw });
+          const s = this.survival;
+          if (this.base.inside && s.battery < 100 && !s.dead) out.push({ id: 'suit', kw: POWER.suitChargeKw });
+          return out;
+        },
+        dust: () => this.mars?.dust ?? 0,
+      },
+      this.save?.power ?? null,
+    );
+    this.crafting = new Crafting(
+      {
+        inventory: this.inventory, equipment: this.equipment, events,
+        // forno: sol dos espelhos; bancada e eletrolisador: eletricidade da base
+        speed: (id) => (STATIONS[id].energy === 'sun' ? this.power.sun : this.power.satisfaction),
+      },
+      this.save?.crafting,
+    );
+    this.craftPanel = new CraftPanel(this.crafting, { speed: (id) => (STATIONS[id].energy === 'sun' ? this.power.sun : this.power.satisfaction) });
+    this.powerPanel = new PowerPanel(this.power);
     this.jobsChip = new JobsChip(this.crafting);
     this.player = new Player(scene, this.world, events);
     this.rig = new IsoRig(this.camera);
@@ -260,6 +293,7 @@ export class Game {
         pressureCenter: () => this.lander.group.position,
         sheltered: () => this.base.inside,
         drillDrain: () => this.equipment.drill.drain,
+        baseCharge: () => this.power.satisfaction,
       },
       this.save?.suit,
     );
@@ -272,7 +306,7 @@ export class Game {
       {
         events, scene, world: this.world, layout: baseLayout, model: this.baseModel, player: this.player, rig: this.rig,
         input: this.input, interaction: this.interaction, survival: this.survival, crafting: this.crafting,
-        craftPanel: this.craftPanel, hud: this.hud, baseHud: this.baseHud, sfx: this.sfx, haptics: this.haptics,
+        craftPanel: this.craftPanel, powerPanel: this.powerPanel, hud: this.hud, baseHud: this.baseHud, sfx: this.sfx, haptics: this.haptics,
         particles: this.particles, itemModels: this.itemModels, getState: () => this.state, persist: () => this.persist(),
       },
       this.save?.base ?? null,
@@ -393,7 +427,7 @@ export class Game {
       props: () => this.world.propMeshes.map((m) => ({ type: m.userData.prop.type, x: m.position.x, z: m.position.z })),
       canOpen: () =>
         this.benchForceMap ||
-        (this.state === 'playing' && this.equipment.has('map') && !this.bag.open && !this.craftPanel.open && !this.base.busy),
+        (this.state === 'playing' && this.equipment.has('map') && !this.bag.open && !this.craftPanel.open && !this.powerPanel.open && !this.base.busy),
     });
 
     this.benchUi.onStart = (mode) => void this.startBenchmark(mode);
@@ -511,6 +545,7 @@ export class Game {
     this.hud.setAim(null);
     this.bag.close();
     this.craftPanel.close();
+    this.powerPanel.close();
     this.sfx.setPaused(true);
     this.pauseMenu.show(this.prefs);
     this.persist();
@@ -556,6 +591,10 @@ export class Game {
     }
     if (this.craftPanel.open) {
       this.craftPanel.close();
+      return;
+    }
+    if (this.powerPanel.open) {
+      this.powerPanel.close();
       return;
     }
     if (this.state === 'playing') this.pause();
@@ -710,6 +749,14 @@ export class Game {
       else if (reason === 'emptySlot') hud.toast(t('deny.emptySlot'), true);
       else if (reason === 'noItems' && item) hud.toast(t('deny.noItems', { item: ITEMS[item].name.toLowerCase() }), true);
     });
+    e.on('prop:placed', ({ x, z, type }) => {
+      if (type !== 'solarPanel') return;
+      const c = this.base.center;
+      const far = Math.hypot(x + 0.5 - c.x, z + 0.5 - c.z) > POWER.cableReach;
+      const lit = this.world.sunExposure(x, z, new THREE.Vector3(...SUN_DIRECTION));
+      hud.ai(far ? t('panel.far', { reach: POWER.cableReach }) : lit === 0 ? t('panel.shade') : t('panel.linked'), far || lit === 0);
+      sfx.play('equip');
+    });
     e.on('item:collected', ({ item, amount }) => {
       const combo = this.popCombo;
       combo.n = this.time - combo.t < 0.7 ? Math.min(combo.n + 1, 10) : 0;
@@ -726,6 +773,7 @@ export class Game {
       this.map.close(true);
       this.bag.close();
       this.craftPanel.close();
+      this.powerPanel.close();
     });
     e.on('equipment:changed', () => {
       this.bag.render();
@@ -848,13 +896,15 @@ export class Game {
       this.base.use();
     };
     input.onUse = () => this.base.use();
-    this.craftPanel.onToggle = (open) => {
+    const screenToggle = (open: boolean): void => {
       input.reset();
       interaction.cancel();
       this.hud.setProgress(null);
       this.hud.setAim(null);
       if (!open) sfx.play('ui');
     };
+    this.craftPanel.onToggle = screenToggle;
+    this.powerPanel.onToggle = screenToggle;
 
     // tela cheia: botão no canto e, no celular, ao tocar na tela (o navegador exige um gesto: toque solto)
     const fsBtn = el<HTMLButtonElement>('#btn-fullscreen');
@@ -1022,6 +1072,7 @@ export class Game {
       explored: this.exploration.serialize(),
       base: this.base.serialize(),
       crafting: this.crafting.serialize(),
+      power: this.power.serialize(),
     }, PLANET.saveKey);
   }
 
@@ -1153,7 +1204,10 @@ export class Game {
     this.waypoint.update(time);
     this.lootMarker.update(time);
     this.lander.update(time);
-    if (playing) this.crafting.update(dt);
+    if (playing) {
+      this.power.update(dt);
+      this.crafting.update(dt);
+    }
     this.jobsChip.update(dt);
     this.base.update(dt);
     for (const [id, v] of this.meteorVoices) {

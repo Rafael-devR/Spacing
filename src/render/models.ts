@@ -122,6 +122,25 @@ function buildProp(type: PropType, seed: number): THREE.BufferGeometry {
       g.translate(Math.cos(a) * d, 0.16 + rand() * 0.06, Math.sin(a) * d);
       parts.push(finish(g, '#3d4658', rand, 0.15));
     }
+  } else if (type === 'solarPanel') {
+    // painel solar colocado pelo jogador: poste, placa inclinada para o sol (+z local) com células e moldura
+    const post = new THREE.CylinderGeometry(0.06, 0.08, 0.62, 6);
+    post.translate(0, 0.31, 0);
+    parts.push(finish(post, '#8c90a0', rand, 0.05));
+    const foot = new THREE.CylinderGeometry(0.22, 0.26, 0.08, 6);
+    foot.translate(0, 0.04, 0);
+    parts.push(finish(foot, '#5b6070', rand, 0.05));
+    const tilt = new THREE.Matrix4().makeRotationX(-0.6).setPosition(0, 0.68, 0);
+    const plate = new THREE.BoxGeometry(1.0, 0.05, 0.72);
+    plate.applyMatrix4(tilt);
+    parts.push(finish(plate, '#c3c7d2', rand, 0.04));
+    for (let i = 0; i < 3; i++)
+      for (let k = 0; k < 2; k++) {
+        const cell = new THREE.BoxGeometry(0.29, 0.02, 0.31);
+        cell.translate(-0.315 + i * 0.315, 0.035, -0.165 + k * 0.33);
+        cell.applyMatrix4(tilt);
+        parts.push(scaleColors(finish(cell, '#1d3f8f', rand, 0.12), 1.25));
+      }
   } else if (type === 'meteorite') {
     parts.push(rock(rand, { r: 0.62, sy: 0.85, jitter: 0.42, color: '#2b2430' }));
     parts.push(rock(rand, { r: 0.34, detail: 0, color: '#241e29', x: 0.55, z: -0.2 }));

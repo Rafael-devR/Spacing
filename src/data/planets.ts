@@ -35,6 +35,8 @@ export interface PlanetDef {
     /** itens caídos na morte */
     lootGravity: number;
   };
+  /** luz do sol que chega, perto da Lua = 1 (Marte recebe ~43%): painéis solares e espelhos do forno */
+  solar: number;
   /** atmosfera: som abafado e vento ao fundo */
   air: boolean;
   /** quanto tempo uma pegada fica no chão (s) */
@@ -53,6 +55,7 @@ export const PLANETS: Record<PlanetId, PlanetDef> = {
     sky: { top: '#1a1636', bottom: '#5d4f86', stars: true, moons: false, mist: '#8b8fd8' },
     light: { sky: '#a39ae6', ground: '#5b4a44', hemi: 1.55, sun: '#fff0dc', sunPower: 3.3 },
     physics: { gravity: 15, jump: 7.4, fallSafeSpeed: 14, debrisGravity: 0.45, debrisDrag: 0, lootGravity: 9 },
+    solar: 1,
     air: false,
     footprintLife: 45,
     footprintColor: [0.1, 0.085, 0.14],
@@ -67,6 +70,7 @@ export const PLANETS: Record<PlanetId, PlanetDef> = {
     sky: { top: '#a8674a', bottom: '#e2b48a', stars: false, moons: true, mist: '#d39a72' },
     light: { sky: '#e2bca2', ground: '#5c3426', hemi: 1.45, sun: '#fff0e2', sunPower: 2.9 },
     physics: { gravity: 30, jump: 9.2, fallSafeSpeed: 16, debrisGravity: 3.5, debrisDrag: 0.6, lootGravity: 13 },
+    solar: 0.43,
     air: true,
     footprintLife: 240,
     footprintColor: [0.16, 0.05, 0.03],

@@ -10,13 +10,14 @@ import { Inventory, type InventorySave, type ItemCounts } from '../systems/Inven
 import type { SurvivalSave } from '../systems/Survival';
 import type { ExplorationSave } from '../systems/Exploration';
 import type { CraftingSave, JobSave } from '../systems/Crafting';
+import type { PowerSave } from '../systems/Power';
 import { isStationId, STATIONS } from '../data/stations';
 
 export const SAVE_KEY = 'spacing.save';
 /** chave usada pela v0.1, sem campo de versão */
 export const LEGACY_SAVE_KEY = 'spacing.save.v1';
 export const PREFS_KEY = 'spacing.prefs.v1';
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 export interface ExtraPropSave {
   wx: number;
@@ -54,8 +55,10 @@ export interface SaveData {
   base: BaseSave;
   /** mapa descoberto (v6): chunk "cx,cz" → máscara de 16 bits dos ladrilhos vistos */
   explored: ExplorationSave;
-  /** estações construídas e trabalhos em andamento ou esperando (v7) */
+  /** estações construídas e trabalhos em andamento ou esperando (v7; vagas e lotes na v8) */
   crafting: CraftingSave;
+  /** energia da base (v8): carga da bateria; null = cheia */
+  power: PowerSave | null;
 }
 
 export interface BaseSave {
@@ -188,15 +191,24 @@ function cleanExplored(v: unknown): ExplorationSave {
   return out;
 }
 
-/** v7: estações construídas e trabalhos. O sistema confere de novo se a receita existe. */
-function cleanCrafting(v: unknown): CraftingSave {
+/**
+ * v7 e v8: estações construídas e trabalhos. A v7 tinha um trabalho por estação (`t` e `duration`); a v8 tem vagas,
+ * lotes e trabalho feito (`slot`, `batch`, `work`, `done`). O sistema confere de novo se a receita e a vaga existem.
+ */
+function cleanCrafting(v: unknown, version: number): CraftingSave {
   const c = isObj(v) ? v : {};
   const built = Array.isArray(c.built) ? c.built.filter((id) => isStationId(id) && !STATIONS[id].builtIn) : [];
   const jobs: JobSave[] = [];
   if (Array.isArray(c.jobs)) {
     for (const j of c.jobs) {
       if (!isObj(j) || !isStationId(j.station) || typeof j.recipe !== 'string') continue;
-      const job: JobSave = { station: j.station, recipe: j.recipe, t: Math.max(0, num(j.t, 0)), duration: Math.max(0, num(j.duration, 0)) };
+      const job: JobSave =
+        version >= 8
+          ? {
+              station: j.station, slot: Math.max(0, Math.floor(num(j.slot, 0))), recipe: j.recipe,
+              batch: Math.max(1, Math.floor(num(j.batch, 1))), work: Math.max(0, num(j.work, 0)), done: Math.max(0, num(j.done, 0)),
+            }
+          : { station: j.station, slot: 0, recipe: j.recipe, batch: 1, work: Math.max(0, num(j.duration, 0)), done: Math.max(0, num(j.t, 0)) };
       if (isObj(j.left)) {
         const left: JobSave['left'] = {};
         for (const [k, n] of Object.entries(j.left)) if (isItemId(k) && typeof n === 'number' && n > 0) left[k] = Math.floor(n);
@@ -230,11 +242,12 @@ export function withStarterCircuit(inv: InventorySave, equipment: EquipmentSave)
  * v5: `equipment` (equipamentos fora do inventário) e `base` (dentro da base, onde renasce).
  * v6: `explored` (mapa do tablet descoberto aos poucos). Antes disso, nada descoberto: o jogo revela em volta ao abrir.
  * v7: `crafting` (estações e trabalhos longos). Quem vem de antes e não tem o Mapa ganha a placa de circuito inicial.
+ * v8: trabalhos com vaga e lote; `power` (bateria da base).
  */
 export function migrate(raw: unknown, seed: number): SaveData | null {
   if (!isObj(raw)) return null;
   const version = raw.version === undefined ? 1 : raw.version;
-  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== SAVE_VERSION) return null; // versão futura: não arrisca
+  if (typeof version !== 'number' || !Number.isInteger(version) || version < 1 || version > SAVE_VERSION) return null; // versão futura: não arrisca
   const p = isObj(raw.player) ? raw.player : null;
   const m = isObj(raw.missions) ? raw.missions : {};
   const equipment = version >= 5 ? cleanEquipment(raw.equipment) : {};
@@ -252,7 +265,8 @@ export function migrate(raw: unknown, seed: number): SaveData | null {
     equipment,
     base: version >= 5 ? cleanBase(raw.base) : { inside: false, respawn: 'lander', visited: false },
     explored: version >= 6 ? cleanExplored(raw.explored) : {},
-    crafting: version >= 7 ? cleanCrafting(raw.crafting) : { built: [], jobs: [] },
+    crafting: version >= 7 ? cleanCrafting(raw.crafting, version) : { built: [], jobs: [] },
+    power: version >= 8 && isObj(raw.power) && Number.isFinite(raw.power.battery) ? { battery: Math.max(0, num(raw.power.battery, 0)) } : null,
   };
 }
 

@@ -1,7 +1,7 @@
 // Renderiza um objeto 3D em uma imagem (ícones do inventário).
 import * as THREE from 'three';
 
-export function renderIcon(renderer: THREE.WebGLRenderer, object: THREE.Object3D, size = 192): string {
+export function renderIcon(renderer: THREE.WebGLRenderer, object: THREE.Object3D, size = 256): string {
   const scene = new THREE.Scene();
   scene.add(new THREE.HemisphereLight('#c9c3ff', '#6b5a50', 2.2));
   const d = new THREE.DirectionalLight('#fff3e2', 3.4);

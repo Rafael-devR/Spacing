@@ -9,7 +9,7 @@ import type { Input } from '../core/Input';
 import { BASE, STATION_FURNITURE } from '../data/base';
 import { EQUIPMENT } from '../data/equipment';
 import { ITEMS } from '../data/items';
-import type { Recipe, RecipeOutput } from '../data/recipes';
+import { recipeById, type Recipe, type RecipeOutput } from '../data/recipes';
 import { STATIONS, type StationId } from '../data/stations';
 import type { Player } from '../entities/Player';
 import { t } from '../i18n';
@@ -23,8 +23,8 @@ import type { Crafting } from '../systems/Crafting';
 import type { Interaction } from '../systems/Interaction';
 import type { Survival } from '../systems/Survival';
 import type { BaseHud } from '../ui/BaseHud';
-import type { CraftPanel } from '../ui/CraftPanel';
-import { mmss } from '../ui/dom';
+import { humanTime, type CraftPanel } from '../ui/CraftPanel';
+import type { PowerPanel } from '../ui/PowerPanel';
 import type { Hud } from '../ui/Hud';
 import type { ModuleLayout, Point } from '../world/baseLayout';
 import type { World } from '../world/World';
@@ -51,6 +51,7 @@ export interface BaseDirectorDeps {
   survival: Survival;
   crafting: Crafting;
   craftPanel: CraftPanel;
+  powerPanel: PowerPanel;
   hud: Hud;
   baseHud: BaseHud;
   sfx: Sfx;
@@ -61,7 +62,7 @@ export interface BaseDirectorDeps {
   persist(): void;
 }
 
-type UseKind = 'enter' | 'exit' | 'bed' | StationId;
+type UseKind = 'enter' | 'exit' | 'bed' | 'console' | StationId;
 
 const isStationUse = (k: UseKind): k is StationId => k in STATIONS;
 
@@ -119,9 +120,9 @@ export class BaseDirector {
       st.onParticle = (x, y, z, vx, vy, vz, color, life) => d.particles.spawn(x, y, z, vx, vy, vz, 0.03, color, life, 2);
     }
     // trabalho que já estava na bancada ao carregar: a peça volta para o ponto em que estava
-    const job = d.crafting.job('workbench');
+    const job = d.crafting.slots('workbench')[0];
     if (fab && job) fab.resume(this.pieceFor(job.recipe), job.progress, job.ready);
-    d.craftPanel.onCraft = (r) => this.craft(r);
+    d.craftPanel.onCraft = (r, batch) => this.craft(r, batch);
     d.craftPanel.onTake = (station) => this.take(station);
     d.events.on('craft:ready', ({ station, recipe }) => this.ready(station, recipe));
   }
@@ -159,6 +160,11 @@ export class BaseDirector {
     else if (this.mode === 'inside') this.beginExit();
   }
 
+  /** centro da base (alcance do cabo dos painéis solares) */
+  get center(): { x: number; z: number } {
+    return this.d.layout.center;
+  }
+
   /** Onde fica a porta da base, do lado de fora (ponto de partida do cenário "entrar e sair da base"). */
   get outsidePoint(): { x: number; z: number } {
     return this.d.layout.outside;
@@ -172,6 +178,7 @@ export class BaseDirector {
     d.baseHud.setFade(false);
     d.player.frozen = false;
     d.craftPanel.close();
+    d.powerPanel.close();
     d.model.doorTarget = 0;
     d.layout.structure.doorOpen = false;
     this.setInsideView(false, true);
@@ -221,6 +228,7 @@ export class BaseDirector {
     if (kind === 'enter') this.beginEnter();
     else if (kind === 'exit') this.beginExit();
     else if (kind === 'bed') this.beginRest();
+    else if (kind === 'console') this.d.powerPanel.show();
     else if (isStationUse(kind)) this.d.craftPanel.show(kind);
   }
 
@@ -254,6 +262,7 @@ export class BaseDirector {
     d.interaction.cancel();
     d.input.reset();
     d.craftPanel.close();
+    d.powerPanel.close();
     const inside = this.v3(d.layout.inside, d.layout.floorY + 1.02);
     const dist = Math.hypot(d.player.pos.x - inside.x, d.player.pos.z - inside.z);
     d.player.walkTo(inside, Math.max(0.2, dist / 3), () => (this.step = 1));
@@ -390,9 +399,9 @@ export class BaseDirector {
     return this.d.model.stations.get(station)?.topPosition(new THREE.Vector3()) ?? this.d.player.center();
   }
 
-  private craft(r: Recipe): void {
+  private craft(r: Recipe, batch: number): void {
     const { d } = this;
-    if (!d.crafting.start(r)) return;
+    if (!d.crafting.start(r, batch)) return;
     const st = STATIONS[r.station];
     if (r.station === 'workbench') {
       const fab = d.model.fabricator;
@@ -401,17 +410,17 @@ export class BaseDirector {
       this.laser = fab ? d.sfx.laser(fab.piecePosition(this.v)) : null;
     } else d.sfx.play('pressurize', 1.4, this.stationPoint(r.station));
     d.haptics.play('tap');
-    const secs = Math.round(d.crafting.job(r.station)?.duration ?? 0);
-    d.hud.toast(t('craft.started', { station: st.name, name: outputName(r.outputs[0]), time: mmss(secs) }));
-    d.craftPanel.render();
+    const job = d.crafting.slots(r.station).find((j) => j?.recipe.id === r.id && !j.ready && j.progress === 0);
+    const name = (batch > 1 ? `${batch}× ` : '') + outputName(r.outputs[0]);
+    d.hud.toast(t('craft.started', { station: st.name, name, time: humanTime(job?.remaining ?? Infinity) }));
     d.persist();
   }
 
   /** a estação terminou: o resultado fica nela esperando */
   private ready(station: StationId, recipeId: string): void {
     const { d } = this;
-    const job = d.crafting.job(station);
-    const name = job ? outputName(job.recipe.outputs[0]) : recipeId;
+    const recipe = recipeById(recipeId);
+    const name = recipe ? outputName(recipe.outputs[0]) : recipeId;
     const at = this.stationPoint(station);
     if (station === 'workbench') {
       this.laser?.stop();
@@ -426,7 +435,6 @@ export class BaseDirector {
     d.haptics.play('success');
     if (this.inside) d.hud.toast(t('craft.ready', { station: STATIONS[station].name, name }));
     else d.hud.ai(t('craft.readyAway', { station: STATIONS[station].name, name }));
-    d.craftPanel.render();
     d.persist();
   }
 
@@ -453,11 +461,11 @@ export class BaseDirector {
         });
       }
     }
+    if (res.recipes.some((r) => r.id === 'solar_panel')) d.hud.ai(t('panel.howTo'));
     // itens da bancada: a peça voa até o astronauta (os do forno e do eletrolisador saem direto)
     if (station === 'workbench' && res.delivered.length === 0 && !res.partial) this.fly(station, null, () => d.sfx.play('equip'));
     if (station === 'workbench' && !res.partial && fab?.holding) fab.takePiece();
     d.haptics.play('success');
-    d.craftPanel.render();
     d.persist();
   }
 
@@ -513,24 +521,22 @@ export class BaseDirector {
 
     // as máquinas mostram o estado do sistema
     const fab = d.model.fabricator;
-    const bench = d.crafting.job('workbench');
+    const bench = d.crafting.slots('workbench')[0];
     if (fab && bench && !bench.ready) {
       fab.progress = bench.progress;
       // o som do laser só pode começar depois do primeiro toque (áudio do navegador)
       if (!this.laser && fab.busy) this.laser = d.sfx.laser(fab.piecePosition(this.v));
     }
     for (const [id, st] of d.model.stations) {
-      const j = d.crafting.job(id);
-      st.working = !!j && !j.ready;
-      st.ready = !!j && j.ready;
-      st.progress = j?.progress ?? 0;
+      st.working = d.crafting.working(id);
+      st.ready = d.crafting.hasReady(id);
     }
 
     // botão de ação: o que estiver mais perto
     const p = d.player.pos;
     let kind: UseKind | null = null;
     let label: string | null = null;
-    if (state === 'playing' && !this.busy && !d.craftPanel.open) {
+    if (state === 'playing' && !this.busy && !d.craftPanel.open && !d.powerPanel.open) {
       const near = (q: Point, r = BASE.useRadius): number => {
         const dd = Math.hypot(p.x - q.x, p.z - q.z);
         return dd < r && Math.abs(p.y - q.y) < 2.2 ? dd : Infinity;
@@ -543,20 +549,20 @@ export class BaseDirector {
           const station = STATION_FURNITURE[f.def.kind];
           if (station) options.push([station, near(f.use)]);
           if (f.def.kind === 'bed') options.push(['bed', near(f.use)]);
+          if (f.def.kind === 'console') options.push(['console', near(f.use)]);
         }
       }
       const best = options.filter(([, dd]) => dd < Infinity).sort((a, b) => a[1] - b[1])[0];
       if (best) {
         kind = best[0];
         if (isStationUse(kind)) {
-          const j = d.crafting.job(kind);
           const name = STATIONS[kind].name;
           label = !d.crafting.isBuilt(kind)
             ? t('base.stationSpot', { name })
-            : j?.ready
+            : d.crafting.hasReady(kind)
               ? t('base.stationReady', { name })
               : t('base.station', { name });
-        } else label = t(kind === 'enter' ? 'base.enter' : kind === 'exit' ? 'base.exit' : 'base.bed');
+        } else label = t(kind === 'enter' ? 'base.enter' : kind === 'exit' ? 'base.exit' : kind === 'console' ? 'base.console' : 'base.bed');
       }
       // primeira vez perto da base: a IA explica
       if (!this.visited && this.mode === 'outside' && Math.hypot(p.x - d.layout.center.x, p.z - d.layout.center.z) < 11) {

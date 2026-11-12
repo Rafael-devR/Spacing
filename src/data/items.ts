@@ -10,7 +10,9 @@ export type ItemId =
   // Marte
   | 'marsdust' | 'marsrock' | 'darksand' | 'sediment' | 'volcanic' | 'hematite' | 'olivine' | 'gypsum'
   // fabricados (docs/design/CRAFTING.md)
-  | 'iron_bar' | 'brick' | 'glass' | 'basalt_fiber' | 'h2' | 'o2' | 'tio2' | 'titanium' | 'silicon' | 'circuit';
+  | 'iron_bar' | 'brick' | 'glass' | 'basalt_fiber' | 'h2' | 'o2' | 'tio2' | 'titanium' | 'silicon' | 'circuit'
+  // energia (docs/design/ENERGIA.md)
+  | 'solar_panel';
 
 /** forma do modelo de um item fabricado (render/craftedModels.ts) */
 export type CraftedModel = 'ingot' | 'brick' | 'pane' | 'spool' | 'tank' | 'powder' | 'wafer' | 'chip';
@@ -38,6 +40,8 @@ export interface ItemData {
   icon?: { block?: BlockId; prop?: PropType; model?: CraftedModel; color?: string };
   /** quantos cabem num espaço do inventário (padrão STACK_SIZE) */
   stack?: number;
+  /** objeto que o item coloca no mundo no modo construir (ex.: painel solar) */
+  place?: PropType;
   /** comida (ainda sem uso: a energia vem da comida, docs/design/BASE.md) */
   food?: { energy: number };
   /** cor de destaque (partículas e linhas da tela das estações) */
@@ -158,6 +162,10 @@ export const ITEMS: Record<ItemId, ItemData> = {
     name: 'Placa de circuito', icon: { model: 'chip', color: '#2f8a5a' }, traits: tr(0, 0, 3), tint: '#7dffa8', stack: 16,
     about: 'Chip de silício com contatos de ouro. O cérebro do Mapa e das máquinas.',
   },
+  solar_panel: {
+    name: 'Painel solar', icon: { prop: 'solarPanel' }, place: 'solarPanel', traits: tr(1, 1, 2), tint: '#4f7fd8', stack: 8,
+    about: 'Células de silício: transforma luz do sol em eletricidade para a base. Coloque no chão, ao sol e perto da base.',
+  },
 };
 
 /** ordem de referência dos itens (ícones, conversão de salvamentos antigos) */
@@ -165,6 +173,7 @@ export const ITEM_ORDER: ItemId[] = [
   'regolith', 'rock', 'basalt', 'ice', 'iron', 'ilmenite', 'gold', 'crystal',
   'marsdust', 'marsrock', 'darksand', 'sediment', 'volcanic', 'hematite', 'olivine', 'gypsum',
   'iron_bar', 'brick', 'glass', 'basalt_fiber', 'h2', 'o2', 'tio2', 'titanium', 'silicon', 'circuit',
+  'solar_panel',
 ];
 
 export function isItemId(v: unknown): v is ItemId {

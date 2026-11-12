@@ -27,6 +27,8 @@ export interface SurvivalDeps {
   sheltered?: () => boolean;
   /** multiplicador do gasto de bateria da broca em uso (1 = broca inicial) */
   drillDrain?: () => number;
+  /** dentro da base, a bateria do traje recarrega da energia da base: 0..1 de quanto ela entrega agora */
+  baseCharge?: () => number;
 }
 
 const clamp = (v: number): number => Math.max(0, Math.min(100, v));
@@ -95,7 +97,9 @@ export class Survival {
     const mining = d.mining();
     if (inside) {
       this.o2 = clamp(this.o2 + SURVIVAL.refill.o2 * dt);
-      this.battery = clamp(this.battery + SURVIVAL.refill.battery * dt);
+      // na base a recarga vem da bateria da base (nada vem do nada; docs/design/ENERGIA.md)
+      const k = d.sheltered?.() ? (d.baseCharge?.() ?? 1) : 1;
+      this.battery = clamp(this.battery + SURVIVAL.refill.battery * k * dt);
       this.integrity = clamp(this.integrity + SURVIVAL.refill.integrity * dt);
     } else {
       const s = this.suit;

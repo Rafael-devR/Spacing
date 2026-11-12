@@ -1,73 +1,92 @@
-// Tela técnica das estações (docs/design/CRAFTING.md e INTERFACE.md): lista de receitas à esquerda e, à direita,
-// o processo ao vivo: os materiais entrando pela tubulação, a câmara trabalhando (calor, bolhas ou laser), o
-// produto se formando, medidores, reação química, etapas e o porquê do tempo. Só lê o sistema Crafting.
+// Tela cheia das estações (docs/design/CRAFTING.md e INTERFACE.md), desenhada em Canvas. Esquerda: receitas.
+// Direita, em cima: a máquina com as vagas (cadinhos, células, mesa da impressora). Cada pontinho que se mexe é
+// alguma coisa de verdade: um minério saindo do funil e entrando na vaga, um produto saindo para a bandeja, ou um
+// pacote de energia vindo do sol ou da bateria e se dividindo entre as vagas que trabalham. Embaixo: a receita
+// escolhida, quantas vezes fazer e o botão. Poucos números: tempo e quantidades; o resto é cor, barra e movimento.
 import { EQUIPMENT, type EquipId } from '../data/equipment';
 import { ITEMS, type ItemId } from '../data/items';
-import { itemWork, recipeById, RECIPES, recipeSeconds, JITTER, type Recipe, type RecipeOutput } from '../data/recipes';
-import { STATIONS, type StationId } from '../data/stations';
+import { batchable, MAX_BATCH, RECIPES, recipeById, recipeSeconds, type Recipe, type RecipeOutput } from '../data/recipes';
+import { STATIONS, type StationData, type StationId } from '../data/stations';
 import { t } from '../i18n';
-import type { Crafting } from '../systems/Crafting';
-import { el, mmss } from './dom';
+import type { Crafting, JobView } from '../systems/Crafting';
+import { boltIcon, CanvasScreen, COLORS, FONT_TITLE, FONT_UI, fitText, hexA, roundRect, sunIcon, wrapText, type Rect } from './canvasScreen';
 
 type Icons = { items: Record<ItemId, string>; equip: Record<EquipId, string>; stations: Partial<Record<StationId, string>> };
+
+/** o que a tela precisa saber da energia (systems/Power.ts) */
+export interface EnergyView {
+  /** 0..1: energia que a estação recebe agora */
+  speed(station: StationId): number;
+}
 
 const outName = (o: RecipeOutput): string =>
   o.kind === 'item' ? ITEMS[o.item].name : o.kind === 'equip' ? EQUIPMENT[o.equip].name : STATIONS[o.station].name;
 
-interface Node {
+/** 130 → "2 min 10 s" (arredondado para ficar fácil de ler) */
+export function humanTime(seconds: number): string {
+  if (!Number.isFinite(seconds)) return t('craft.noEnergy');
+  const s = Math.max(1, Math.round(seconds));
+  if (s < 60) return `${s} s`;
+  const r = Math.round(s / 10) * 10;
+  const m = Math.floor(r / 60), ss = r % 60;
+  return ss ? `${m} min ${ss} s` : `${m} min`;
+}
+
+/** relógio curto para as vagas: 75 → "1:15" */
+const clock = (seconds: number): string => {
+  if (!Number.isFinite(seconds)) return '—';
+  const s = Math.max(0, Math.ceil(seconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+interface Token {
   img: HTMLImageElement | null;
   tint: string;
-  n: number;
-  label: string;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  t: number;
+  dur: number;
+  size: number;
+  arc: number;
 }
 
-interface Mote {
-  /** índice do cano */
-  pipe: number;
-  /** 0..1 ao longo do cano */
-  f: number;
-  speed: number;
-  out: boolean;
+interface Spark {
+  slot: number;
+  t: number;
+  dur: number;
 }
 
-export class CraftPanel {
-  onCraft: ((r: Recipe) => void) | null = null;
+/** o que já foi mostrado de cada trabalho (para cada minério virar um pontinho uma vez só) */
+interface Seen {
+  inn: number;
+  out: number;
+}
+
+export class CraftPanel extends CanvasScreen {
+  onCraft: ((r: Recipe, batch: number) => void) | null = null;
   onTake: ((station: StationId) => void) | null = null;
-  onToggle: ((open: boolean) => void) | null = null;
-  private readonly root = el('#craft');
-  private readonly card = el('#craft .st-card');
-  private readonly list = el('#craft-list');
-  private readonly canvas = el<HTMLCanvasElement>('#st-canvas');
-  private readonly ctx = this.canvas.getContext('2d');
-  private readonly action = el<HTMLButtonElement>('#st-action');
   private icons: Icons = { items: {} as Record<ItemId, string>, equip: {} as Record<EquipId, string>, stations: {} };
-  private readonly imgs = new Map<string, HTMLImageElement>();
   private station: StationId = 'workbench';
   private selected: string | null = null;
-  private raf = 0;
-  private last = 0;
-  private time = 0;
-  private domT = 0;
-  /** 0..1: quanto a câmara está "quente" (sobe trabalhando, desce parada) */
-  private heat = 0;
-  private motes: Mote[] = [];
-  private moteT = 0;
+  private batch = 1;
+  private info = false;
+  private tokens: Token[] = [];
+  private sparks: Spark[] = [];
+  private sparkT = 0;
+  private sparkRR = 0;
+  private readonly seen = new Map<string, Seen>();
 
-  constructor(private readonly crafting: Crafting) {
-    el('#craft-close').addEventListener('click', () => this.close());
-    this.root.addEventListener('pointerdown', (e) => {
-      if (e.target === this.root) this.close();
-    });
-    this.action.addEventListener('click', () => this.act());
+  constructor(
+    private readonly crafting: Crafting,
+    private readonly energy: EnergyView,
+  ) {
+    super('#craft');
   }
 
   setIcons(items: Record<ItemId, string>, equip: Record<EquipId, string>, stations: Partial<Record<StationId, string>> = {}): void {
     this.icons = { items, equip, stations };
-    this.imgs.clear();
-  }
-
-  get open(): boolean {
-    return !this.root.hidden;
   }
 
   /** a estação aberta agora */
@@ -76,35 +95,30 @@ export class CraftPanel {
   }
 
   show(station: StationId = 'workbench'): void {
-    const reopen = this.open && this.station === station;
-    this.station = station;
-    if (!reopen) {
+    if (!this.open || this.station !== station) {
+      this.station = station;
       this.selected = null;
-      this.heat = this.crafting.job(station) && !this.crafting.job(station)?.ready ? 1 : 0;
-      this.motes = [];
+      this.batch = 1;
+      this.info = false;
+      this.tokens = [];
+      this.sparks = [];
+      this.seen.clear();
+      this.scrollPos.clear();
     }
-    if (!this.open) {
-      this.root.hidden = false;
-      this.onToggle?.(true);
-      this.last = performance.now();
-      this.raf = requestAnimationFrame(this.frame);
-    }
-    this.render();
+    this.openScreen();
   }
 
-  close(): void {
-    if (!this.open) return;
-    this.root.hidden = true;
-    cancelAnimationFrame(this.raf);
-    this.onToggle?.(false);
+  /** compatibilidade: a tela se redesenha sozinha a cada quadro */
+  render(): void {}
+
+  private iconFor(o: RecipeOutput): string | undefined {
+    if (o.kind === 'item') return this.icons.items[o.item];
+    if (o.kind === 'equip') return this.icons.equip[o.equip];
+    return this.icons.stations[o.station];
   }
 
-  // ---------- dados da tela ----------
-
-  /** receita mostrada à direita: a do trabalho da estação, a escolhida, ou a primeira */
+  /** receita mostrada embaixo: a escolhida, ou a primeira que dá para fazer */
   private shown(): Recipe | null {
-    const job = this.crafting.job(this.station);
-    if (job && (this.selected === null || this.selected === job.recipe.id)) return job.recipe;
     if (!this.crafting.isBuilt(this.station)) return RECIPES.find((r) => r.outputs.some((o) => o.kind === 'station' && o.station === this.station)) ?? null;
     const list = this.crafting.recipes(this.station);
     const sel = this.selected ? recipeById(this.selected) : undefined;
@@ -112,516 +126,612 @@ export class CraftPanel {
     return list.find((r) => this.crafting.check(r).ok) ?? list.find((r) => !this.crafting.check(r).owned) ?? list[0] ?? null;
   }
 
-  private iconFor(o: RecipeOutput): string {
-    if (o.kind === 'item') return this.icons.items[o.item];
-    if (o.kind === 'equip') return this.icons.equip[o.equip];
-    return this.icons.stations[o.station] ?? '';
-  }
+  // ---------- desenho ----------
 
-  private img(src: string): HTMLImageElement | null {
-    if (!src) return null;
-    let i = this.imgs.get(src);
-    if (!i) {
-      i = new Image();
-      i.src = src;
-      this.imgs.set(src, i);
-    }
-    return i;
-  }
-
-  /** Redesenha a parte de texto (lista, cabeçalho, detalhes). O diagrama anda sozinho a cada quadro. */
-  render(): void {
-    if (!this.open) return;
+  protected draw(dt: number): void {
     const st = STATIONS[this.station];
-    const built = this.crafting.isBuilt(this.station);
-    this.card.style.setProperty('--accent', st.accent);
-    this.card.dataset.chamber = st.chamber;
-    el('#craft-title').textContent = st.name;
-    el('#st-tagline').textContent = st.tagline;
-    this.renderList(built);
-    this.renderDetail();
-    this.renderLive();
-  }
-
-  private renderList(built: boolean): void {
-    this.list.innerHTML = '';
-    if (!built) {
-      const p = document.createElement('p');
-      p.className = 'st-locked';
-      p.textContent = t('craft.locked', { name: STATIONS[this.station].name });
-      this.list.appendChild(p);
-      return;
-    }
-    const shown = this.shown();
-    const job = this.crafting.job(this.station);
-    for (const r of this.crafting.recipes(this.station)) {
-      const c = this.crafting.check(r);
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'st-recipe';
-      b.dataset.recipe = r.id;
-      const state = job?.recipe.id === r.id ? (job.ready ? 'ready' : 'work') : c.owned ? 'owned' : c.missing.length ? 'miss' : 'ok';
-      b.dataset.state = state;
-      if (shown?.id === r.id) b.classList.add('on');
-      const out = r.outputs[0];
-      const n = out.kind === 'item' && out.n > 1 ? `<i class="st-x">×${out.n}</i>` : '';
-      const tag = out.kind === 'equip' ? t('craft.equipTag') : out.kind === 'station' ? t('craft.stationTag') : '';
-      b.innerHTML =
-        `<img alt="" src="${this.iconFor(out)}">${n}` +
-        `<span class="st-rname">${outName(out)}${r.outputs.length > 1 ? ' <small>+' + (r.outputs.length - 1) + '</small>' : ''}</span>` +
-        `<span class="st-rmeta"><i class="st-dot"></i>${tag ? tag + ' · ' : ''}~${mmss(recipeSeconds(r))}</span>`;
-      b.addEventListener('click', () => {
-        this.selected = r.id;
-        this.motes = [];
-        this.render();
-      });
-      this.list.appendChild(b);
-    }
-  }
-
-  private renderDetail(): void {
-    const r = this.shown();
-    const box = el('#st-detail');
-    box.hidden = !r;
-    if (!r) return;
-    el('#st-reaction').textContent = r.process.reaction;
-    el('#st-note').textContent = r.process.note;
-    // ingredientes: quanto tem (ou que já estão na estação), e por que pesam no tempo (calor, peso, raridade)
-    const inJob = this.crafting.job(this.station)?.recipe.id === r.id;
-    const needs = (Object.entries(r.inputs) as [ItemId, number][])
-      .map(([item, n]) => {
-        const have = this.crafting.has(item);
-        const tr = ITEMS[item].traits;
-        const bars = (v: number, k: 'heat' | 'mass' | 'rarity'): string =>
-          `<span class="st-trait" title="${t(`craft.trait.${k}`)}"><b>${t(`craft.traitShort.${k}`)}</b>${'<i class="on"></i>'.repeat(v)}${'<i></i>'.repeat(3 - v)}</span>`;
-        return (
-          `<div class="st-need ${inJob ? 'used' : have >= n ? 'ok' : 'miss'}" title="${ITEMS[item].about}">` +
-          `<img alt="" src="${this.icons.items[item]}"><span class="st-nname">${ITEMS[item].name}</span>` +
-          `<span class="st-ncount">${inJob ? t('craft.inStation', { n }) : `${Math.min(have, n)}/${n}`}</span>` +
-          `<span class="st-traits">${bars(tr.heat, 'heat')}${bars(tr.mass, 'mass')}${bars(tr.rarity, 'rarity')}</span>` +
-          `<span class="st-nwork">+${Math.round(n * itemWork(item) * STATIONS[r.station].perWork * (r.effort ?? 1))} s</span></div>`
-        );
-      })
-      .join('');
-    const outs = r.outputs
-      .map((o) => `<span class="st-out"><img alt="" src="${this.iconFor(o)}">${o.kind === 'item' ? o.n + '× ' : ''}${outName(o)}</span>`)
-      .join('');
-    el('#st-needs').innerHTML = needs;
-    el('#st-outs').innerHTML = `<span class="st-k">${t('craft.makes')}</span>${outs}`;
-    const secs = recipeSeconds(r);
-    el('#st-time').innerHTML =
-      `<span class="st-k">${t('craft.timeWhy')}</span> ${t('craft.timeBase', { s: STATIONS[r.station].base })}` +
-      (r.effort && r.effort !== 1 ? ` · ${t('craft.effort', { k: r.effort.toFixed(1).replace('.', ',') })}` : '') +
-      ` · <b>~${mmss(secs)}</b> (±${Math.round(secs * JITTER)} s)`;
-    el('#st-steps').innerHTML = r.process.steps.map((s, i) => `<li data-i="${i}"><i></i><span>${s}</span></li>`).join('');
-  }
-
-  /** partes que mudam enquanto a tela está aberta: estado, medidores, etapa, botão */
-  private renderLive(): void {
-    const r = this.shown();
-    const st = STATIONS[this.station];
-    const job = this.crafting.job(this.station);
-    const jobHere = !!job && !!r && job.recipe.id === r.id;
-    const status = !this.crafting.isBuilt(this.station) ? 'locked' : job ? (job.ready ? 'ready' : 'work') : 'idle';
-    this.card.dataset.status = status;
-    el('#st-status').textContent = t(`craft.status.${status}`);
-    // medidores: valor parado → trabalhando, com oscilação
-    const work = r?.process.gauges;
-    const g = st.gauges.map((gg, i) => {
-      const target = work?.[i] ?? gg.work;
-      const wob = 1 + (Math.sin(this.time * (3.1 + i)) * 0.6 + Math.sin(this.time * 11.7 + i * 2) * 0.4) * gg.wobble * this.heat;
-      const v = (gg.idle + (target - gg.idle) * this.heat) * wob;
-      return `<div class="st-gauge"><span class="st-k">${gg.label}</span><b>${v.toFixed(gg.digits ?? 0).replace('.', ',')}</b><small>${gg.unit}</small></div>`;
-    });
-    let timeLabel: string, timeValue: string;
-    if (jobHere && job) {
-      timeLabel = job.ready ? t('craft.ready.k') : t('craft.remaining');
-      timeValue = job.ready ? '✓' : mmss(job.remaining);
+    this.background(st.accent);
+    const top = this.topBar(st.name, st.tagline, st.accent);
+    this.energyChip(st, top);
+    const pad = 12;
+    const L = this.safe.l + pad, R = this.W - this.safe.r - pad, B = this.H - this.safe.b - pad;
+    const landscape = this.W >= this.H * 1.05;
+    let list: Rect, machine: Rect, control: Rect;
+    if (landscape) {
+      const lw = Math.max(190, Math.min(290, this.W * 0.28));
+      list = { x: L, y: top + 2, w: lw, h: B - top - 2 };
+      const rx = L + lw + pad, rw = R - rx, rh = B - top - 2;
+      machine = { x: rx, y: top + 2, w: rw, h: Math.round(rh * 0.5) };
+      control = { x: rx, y: machine.y + machine.h + 8, w: rw, h: rh - machine.h - 8 };
     } else {
-      timeLabel = t('craft.estimate');
-      timeValue = r ? `~${mmss(recipeSeconds(r))}` : '—';
+      list = { x: L, y: top + 2, w: R - L, h: 78 };
+      const ry = list.y + list.h + 8, rh = B - ry;
+      machine = { x: L, y: ry, w: R - L, h: Math.round(rh * 0.52) };
+      control = { x: L, y: machine.y + machine.h + 8, w: R - L, h: rh - machine.h - 8 };
     }
-    g.push(`<div class="st-gauge st-clock"><span class="st-k">${timeLabel}</span><b>${timeValue}</b></div>`);
-    el('#st-gauges').innerHTML = g.join('');
-    // etapas e barra de progresso
-    const p = jobHere && job ? job.progress : 0;
-    el<HTMLElement>('#st-bar i').style.width = `${(p * 100).toFixed(1)}%`;
-    const steps = el('#st-steps').children;
-    for (let i = 0; i < steps.length; i++) {
-      const li = steps[i] as HTMLElement;
-      li.classList.toggle('done', jobHere && !!job && (job.ready || i < job.step));
-      li.classList.toggle('now', jobHere && !!job && !job.ready && i === job.step);
-    }
-    // botão
-    const a = this.action;
-    let label: string, enabled = false;
-    if (status === 'locked') label = t('craft.buildAtBench');
-    else if (jobHere && job?.ready) {
-      label = t('craft.take');
-      enabled = true;
-    } else if (jobHere) label = t('craft.working');
-    else if (job) label = t('craft.busy');
-    else if (!r) label = '—';
-    else {
-      const c = this.crafting.check(r);
-      label = c.owned ? (r.outputs[0].kind === 'station' ? t('craft.installedTag') : t('craft.owned')) : c.ok ? t('craft.make') : t('craft.missing');
-      enabled = c.ok;
-    }
-    if (a.textContent !== label) a.textContent = label;
-    a.disabled = !enabled;
-    a.dataset.kind = jobHere && job?.ready ? 'take' : 'make';
+    this.drawList(list, !landscape);
+    this.drawMachine(machine, st, dt);
+    this.drawControl(control, st);
   }
 
-  private act(): void {
-    const job = this.crafting.job(this.station);
-    if (job?.ready) {
-      this.onTake?.(this.station);
+  /** selo da energia no canto de cima: de onde vem e se está cheia, com barra e palavras */
+  private energyChip(st: StationData, top: number): void {
+    const g = this.g;
+    const sp = this.energy.speed(this.station);
+    const w = Math.min(230, this.W * 0.3), h = 36;
+    const r = { x: this.W - this.safe.r - 12 - w, y: top - h - 10, w, h };
+    g.fillStyle = 'rgba(255,255,255,0.06)';
+    roundRect(g, r, 18);
+    g.fill();
+    const cx = r.x + 20, cy = r.y + h / 2;
+    if (st.energy === 'sun') sunIcon(g, cx, cy, 7, this.time);
+    else boltIcon(g, cx, cy, 9, sp > 0.99 ? '#ffd84a' : COLORS.warn);
+    g.fillStyle = COLORS.ink;
+    g.font = `500 12px ${FONT_UI}`;
+    g.textAlign = 'left';
+    const word = sp > 0.99 ? t('energy.full') : sp > 0.5 ? t('energy.weak') : sp > 0.01 ? t('energy.low') : t('energy.none');
+    g.fillText(fitText(g, `${st.energyName} · ${word}`, w - 48), r.x + 36, r.y + 15);
+    const bar = { x: r.x + 36, y: r.y + 22, w: w - 50, h: 5 };
+    g.fillStyle = 'rgba(255,255,255,0.12)';
+    roundRect(g, bar, 2.5);
+    g.fill();
+    g.fillStyle = sp > 0.99 ? COLORS.ok : sp > 0.5 ? COLORS.work : COLORS.warn;
+    roundRect(g, { ...bar, w: bar.w * Math.max(0.03, sp) }, 2.5);
+    g.fill();
+  }
+
+  // ---------- lista de receitas ----------
+
+  private drawList(area: Rect, horizontal: boolean): void {
+    const g = this.g;
+    const built = this.crafting.isBuilt(this.station);
+    g.fillStyle = COLORS.panel;
+    roundRect(g, area, 14);
+    g.fill();
+    if (!built) {
+      g.fillStyle = COLORS.dim;
+      g.font = `400 13px ${FONT_UI}`;
+      g.textAlign = 'left';
+      wrapText(g, t('craft.locked', { name: STATIONS[this.station].name }), area.w - 28).forEach((line, i) =>
+        g.fillText(line, area.x + 14, area.y + 26 + i * 18),
+      );
       return;
     }
-    const r = this.shown();
-    if (!r || !this.crafting.check(r).ok) return;
-    this.selected = r.id;
-    this.onCraft?.(r);
+    const recipes = this.crafting.recipes(this.station);
+    const shown = this.shown();
+    const cardH = horizontal ? area.h - 12 : 60;
+    const cardW = horizontal ? 168 : area.w - 12;
+    const gap = 6;
+    const content = recipes.length * ((horizontal ? cardW : cardH) + gap) + gap;
+    this.scrolls.push({ id: 'list', ...area, content, horizontal });
+    const off = this.scrollOf('list');
+    g.save();
+    roundRect(g, area, 14);
+    g.clip();
+    recipes.forEach((r, i) => {
+      const k = gap + i * ((horizontal ? cardW : cardH) + gap) - off;
+      const card = horizontal ? { x: area.x + k, y: area.y + 6, w: cardW, h: cardH } : { x: area.x + 6, y: area.y + k, w: cardW, h: cardH };
+      if (horizontal ? card.x + card.w < area.x || card.x > area.x + area.w : card.y + card.h < area.y || card.y > area.y + area.h) return;
+      this.recipeCard(card, r, shown?.id === r.id);
+      this.hit(`r:${r.id}`, card, () => {
+        if (this.selected !== r.id) this.batch = 1;
+        this.selected = r.id;
+        this.info = false;
+      });
+    });
+    g.restore();
   }
 
-  // ---------- diagrama ao vivo ----------
-
-  private readonly frame = (now: number): void => {
-    if (!this.open) return;
-    const dt = Math.min(0.1, (now - this.last) / 1000);
-    this.last = now;
-    this.time += dt;
-    const r = this.shown();
-    const job = this.crafting.job(this.station);
-    const jobHere = !!job && !!r && job.recipe.id === r.id;
-    const want = jobHere && !job.ready ? 1 : 0;
-    this.heat += (want - this.heat) * (1 - Math.exp(-dt * (want ? 1.6 : 0.8)));
-    this.domT -= dt;
-    if (this.domT <= 0) {
-      this.domT = 0.12;
-      this.renderLive();
-    }
-    if (r) this.draw(r, dt, jobHere ? job.progress : 0, jobHere && job.ready, jobHere);
-    this.raf = requestAnimationFrame(this.frame);
-  };
-
-  private draw(r: Recipe, dt: number, progress: number, ready: boolean, active: boolean): void {
-    const c = this.canvas, x = this.ctx;
-    if (!x) return;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const W = c.clientWidth, H = c.clientHeight;
-    if (W === 0 || H === 0) return;
-    if (c.width !== Math.round(W * dpr) || c.height !== Math.round(H * dpr)) {
-      c.width = Math.round(W * dpr);
-      c.height = Math.round(H * dpr);
-    }
-    x.setTransform(dpr, 0, 0, dpr, 0, 0);
-    x.clearRect(0, 0, W, H);
+  private recipeCard(c: Rect, r: Recipe, on: boolean): void {
+    const g = this.g;
     const st = STATIONS[r.station];
-    const accent = st.accent;
-
-    const ins: Node[] = (Object.entries(r.inputs) as [ItemId, number][]).map(([item, n]) => ({
-      img: this.img(this.icons.items[item]), tint: ITEMS[item].tint, n, label: ITEMS[item].name,
-    }));
-    const outs: Node[] = r.outputs.map((o) => ({
-      img: this.img(this.iconFor(o)), tint: o.kind === 'item' ? ITEMS[o.item].tint : accent, n: o.kind === 'item' ? o.n : 1, label: outName(o),
-    }));
-
-    // grade técnica ao fundo
-    x.strokeStyle = 'rgba(127,231,255,0.07)';
-    x.lineWidth = 1;
-    for (let gx = 0; gx < W; gx += 16) {
-      x.beginPath();
-      x.moveTo(gx + 0.5, 0);
-      x.lineTo(gx + 0.5, H);
-      x.stroke();
+    const check = this.crafting.check(r);
+    g.fillStyle = on ? hexA(st.accent, 0.16) : 'rgba(255,255,255,0.035)';
+    roundRect(g, c, 10);
+    g.fill();
+    if (on) {
+      g.strokeStyle = st.accent;
+      g.lineWidth = 1.5;
+      g.stroke();
     }
-    for (let gy = 0; gy < H; gy += 16) {
-      x.beginPath();
-      x.moveTo(0, gy + 0.5);
-      x.lineTo(W, gy + 0.5);
-      x.stroke();
+    const out = r.outputs[0];
+    const s = c.h - 16;
+    const dim = check.owned ? 0.45 : 1;
+    g.globalAlpha = dim;
+    const ic = this.img(this.iconFor(out));
+    if (ic) g.drawImage(ic, c.x + 6, c.y + 8, s, s);
+    g.fillStyle = COLORS.ink;
+    g.font = `500 13px ${FONT_UI}`;
+    g.textAlign = 'left';
+    g.fillText(fitText(g, outName(out), c.w - s - 42), c.x + s + 14, c.y + 22);
+    // ingredientes em miniatura (de uma vez)
+    let x = c.x + s + 14;
+    for (const [item, n] of Object.entries(r.inputs) as [ItemId, number][]) {
+      const have = this.crafting.has(item) >= n;
+      if (x + 34 > c.x + c.w - 6) break;
+      g.globalAlpha = dim * (have ? 1 : 0.4);
+      const mi = this.img(this.icons.items[item]);
+      if (mi) g.drawImage(mi, x, c.y + c.h - 30, 20, 20);
+      g.fillStyle = have ? COLORS.dim : COLORS.warn;
+      g.font = `500 10px ${FONT_UI}`;
+      g.fillText(`${n}`, x + 23, c.y + c.h - 13);
+      x += 34;
     }
-
-    // a faixa de cima fica para a fórmula química
-    const top = 24;
-    const icon = Math.min(32, (H - top - 10) / Math.max(3, ins.length) - 8);
-    const colX = 10, outX = W - 10 - icon;
-    const ch = { x: W * 0.32, y: top, w: W * 0.36, h: H - top - 8 };
-    const midY = top + (H - top) / 2;
-    const slotY = (i: number, n: number): number => midY + (i - (n - 1) / 2) * (icon + 12) - icon / 2;
-    const pipes: { ax: number; ay: number; bx: number; by: number; tint: string; out: boolean }[] = [];
-    ins.forEach((n, i) => {
-      const y = slotY(i, ins.length) + icon / 2;
-      pipes.push({ ax: colX + icon + 4, ay: y, bx: ch.x, by: ch.y + ch.h * (0.3 + 0.4 * ((i + 0.5) / ins.length)), tint: n.tint, out: false });
-    });
-    outs.forEach((n, i) => {
-      const y = slotY(i, outs.length) + icon / 2;
-      pipes.push({ ax: ch.x + ch.w, ay: ch.y + ch.h * (0.3 + 0.4 * ((i + 0.5) / outs.length)), bx: outX - 4, by: y, tint: n.tint, out: true });
-    });
-
-    // canos
-    for (const p of pipes) {
-      x.strokeStyle = 'rgba(160,190,220,0.25)';
-      x.lineWidth = 5;
-      x.beginPath();
-      const mx = (p.ax + p.bx) / 2;
-      x.moveTo(p.ax, p.ay);
-      x.bezierCurveTo(mx, p.ay, mx, p.by, p.bx, p.by);
-      x.stroke();
-      x.strokeStyle = 'rgba(10,16,34,0.9)';
-      x.lineWidth = 2.5;
-      x.stroke();
-    }
-    // material correndo: entra enquanto trabalha (e devagar na prévia), sai perto do fim
-    const flowing = active && !ready;
-    this.moteT -= dt;
-    if (this.moteT <= 0) {
-      this.moteT = flowing ? 0.05 : 0.35;
-      const inPipes = pipes.map((p, i) => (p.out ? -1 : i)).filter((i) => i >= 0);
-      const outPipes = pipes.map((p, i) => (p.out ? i : -1)).filter((i) => i >= 0);
-      if (inPipes.length && (flowing || !active)) {
-        const i = inPipes[Math.floor(Math.random() * inPipes.length)];
-        this.motes.push({ pipe: i, f: 0, speed: flowing ? 0.9 + Math.random() * 0.5 : 0.25, out: false });
-      }
-      if (outPipes.length && flowing && progress > 0.15) {
-        const i = outPipes[Math.floor(Math.random() * outPipes.length)];
-        this.motes.push({ pipe: i, f: 0, speed: 0.6 + Math.random() * 0.4, out: true });
-      }
-    }
-    this.motes = this.motes.filter((m) => m.f < 1 && m.pipe < pipes.length);
-    for (const m of this.motes) {
-      m.f += dt * m.speed;
-      const p = pipes[m.pipe];
-      const mx = (p.ax + p.bx) / 2;
-      const u = m.f, v = 1 - u;
-      const px = v * v * v * p.ax + 3 * v * v * u * mx + 3 * v * u * u * mx + u * u * u * p.bx;
-      const py = v * v * v * p.ay + 3 * v * v * u * p.ay + 3 * v * u * u * p.by + u * u * u * p.by;
-      x.fillStyle = p.tint;
-      x.globalAlpha = (flowing ? 0.95 : 0.4) * Math.sin(Math.PI * u);
-      x.fillRect(px - 2, py - 2, 4, 4);
-    }
-    x.globalAlpha = 1;
-
-    // ícones: ingredientes esvaziam e produtos enchem com o progresso
-    const drawNode = (n: Node, nx: number, ny: number, fill: number, glow: boolean): void => {
-      x.fillStyle = 'rgba(12,20,44,0.92)';
-      x.strokeStyle = glow ? accent : 'rgba(127,231,255,0.35)';
-      x.lineWidth = glow ? 2 : 1;
-      roundRect(x, nx - 3, ny - 3, icon + 6, icon + 6, 6);
-      x.fill();
-      x.stroke();
-      if (n.img?.complete) {
-        x.globalAlpha = 0.3 + 0.7 * fill;
-        x.drawImage(n.img, nx, ny, icon, icon);
-        x.globalAlpha = 1;
-      }
-      // barra do nível
-      x.fillStyle = 'rgba(255,255,255,0.12)';
-      x.fillRect(nx - 3, ny + icon + 5, icon + 6, 3);
-      x.fillStyle = n.tint;
-      x.fillRect(nx - 3, ny + icon + 5, (icon + 6) * fill, 3);
-      x.font = '600 10px Rubik, system-ui, sans-serif';
-      x.fillStyle = '#f4f0e8';
-      x.textAlign = 'right';
-      x.fillText(`×${n.n}`, nx + icon + 2, ny + icon - 1);
-    };
-    ins.forEach((n, i) => drawNode(n, colX, slotY(i, ins.length), active ? 1 - progress : 1, false));
-    outs.forEach((n, i) => drawNode(n, outX, slotY(i, outs.length), active ? progress : 0.25, ready && Math.sin(this.time * 6) > 0));
-
-    // câmara
-    x.save();
-    roundRect(x, ch.x, ch.y, ch.w, ch.h, 10);
-    x.fillStyle = 'rgba(6,10,24,0.95)';
-    x.fill();
-    x.clip();
-    if (st.chamber === 'heat') this.drawHeat(x, ch, progress, active);
-    else if (st.chamber === 'cell') this.drawCell(x, ch, r, active);
-    else this.drawLaser(x, ch, outs[0], progress, active, ready);
-    x.restore();
-    x.strokeStyle = accent;
-    x.globalAlpha = 0.55 + 0.45 * this.heat;
-    x.lineWidth = 1.5;
-    roundRect(x, ch.x, ch.y, ch.w, ch.h, 10);
-    x.stroke();
-    x.globalAlpha = 1;
-    if (ready) {
-      x.font = '700 12px Rubik, system-ui, sans-serif';
-      x.textAlign = 'center';
-      x.fillStyle = '#7dffa8';
-      x.fillText(t('craft.status.ready'), ch.x + ch.w / 2, ch.y + 18);
+    g.globalAlpha = 1;
+    // quantas dá para fazer agora, ou já tem
+    const badge = check.owned ? '✓' : check.max > 0 ? (batchable(r) ? `×${check.max}` : '●') : '';
+    if (badge) {
+      g.font = `600 11px ${FONT_UI}`;
+      g.textAlign = 'right';
+      g.fillStyle = check.owned ? COLORS.dim : COLORS.ok;
+      g.fillText(badge, c.x + c.w - 8, c.y + 18);
     }
   }
 
-  private drawHeat(x: CanvasRenderingContext2D, ch: Box, progress: number, active: boolean): void {
-    const h = this.heat;
-    // brilho do calor: de vermelho escuro a amarelo quase branco
-    const gr = x.createRadialGradient(ch.x + ch.w / 2, ch.y + ch.h * 0.7, 4, ch.x + ch.w / 2, ch.y + ch.h * 0.7, ch.w * 0.75);
-    gr.addColorStop(0, `rgba(255,${Math.round(150 + 90 * h)},${Math.round(60 * h)},${0.15 + 0.8 * h})`);
-    gr.addColorStop(0.5, `rgba(255,90,20,${0.08 + 0.45 * h})`);
-    gr.addColorStop(1, 'rgba(60,10,0,0)');
-    x.fillStyle = gr;
-    x.fillRect(ch.x, ch.y, ch.w, ch.h);
-    // ondas de calor subindo
-    x.strokeStyle = `rgba(255,200,120,${0.12 + 0.3 * h})`;
-    x.lineWidth = 1.2;
-    for (let k = 0; k < 5; k++) {
-      x.beginPath();
-      const bx = ch.x + ch.w * (0.15 + k * 0.17);
-      for (let y = ch.y + ch.h; y > ch.y; y -= 4) {
-        const w = Math.sin(y * 0.12 + this.time * 5 + k) * (2 + 3 * h);
-        if (y === ch.y + ch.h) x.moveTo(bx + w, y);
-        else x.lineTo(bx + w, y);
+  // ---------- a máquina, com as vagas ----------
+
+  private drawMachine(area: Rect, st: StationData, dt: number): void {
+    const g = this.g;
+    g.fillStyle = 'rgba(4,8,22,0.55)';
+    roundRect(g, area, 14);
+    g.fill();
+    g.strokeStyle = hexA(st.accent, 0.25);
+    g.lineWidth = 1;
+    g.stroke();
+    const built = this.crafting.isBuilt(this.station);
+    const slots = this.crafting.slots(this.station);
+    const speed = this.energy.speed(this.station);
+    // fonte de energia no alto
+    const src = { x: area.x + area.w / 2, y: area.y + 20 };
+    if (st.energy === 'sun') sunIcon(g, src.x, src.y, 9, this.time);
+    else boltIcon(g, src.x, src.y, 11, speed > 0.99 ? '#ffd84a' : COLORS.warn);
+    // vagas
+    const n = slots.length;
+    const gap = 14;
+    const sw = Math.min(170, (area.w - 28 - gap * (n - 1)) / n);
+    const sh = Math.max(70, area.h - 50);
+    const x0 = area.x + (area.w - (sw * n + gap * (n - 1))) / 2;
+    const rects: Rect[] = slots.map((_, i) => ({ x: x0 + i * (sw + gap), y: area.y + 42, w: sw, h: sh }));
+    const working = slots.map((j) => !!j && !j.ready);
+    // fios da fonte até as vagas (por onde passa a energia)
+    rects.forEach((r, i) => {
+      g.strokeStyle = working[i] ? hexA(st.accent, 0.4) : 'rgba(255,255,255,0.07)';
+      g.lineWidth = working[i] ? 2 : 1;
+      g.beginPath();
+      g.moveTo(src.x, src.y + 12);
+      g.quadraticCurveTo(r.x + r.w / 2, src.y + 12, r.x + r.w / 2, r.y);
+      g.stroke();
+    });
+    // pacotes de energia: saem na velocidade que a estação recebe e se dividem entre as vagas que trabalham
+    const active = working.map((w, i) => (w ? i : -1)).filter((i) => i >= 0);
+    this.sparkT -= dt;
+    if (built && active.length && speed > 0.01 && this.sparkT <= 0) {
+      this.sparkT = 1 / (12 * speed);
+      this.sparks.push({ slot: active[this.sparkRR++ % active.length], t: 0, dur: 0.7 });
+    }
+    this.sparks = this.sparks.filter((s) => (s.t += dt) < s.dur && working[s.slot]);
+    for (const s of this.sparks) {
+      const r = rects[s.slot];
+      const u = s.t / s.dur, v = 1 - u;
+      const tx = r.x + r.w / 2;
+      const px = v * v * src.x + 2 * v * u * tx + u * u * tx;
+      const py = v * v * (src.y + 12) + 2 * v * u * (src.y + 12) + u * u * r.y;
+      g.fillStyle = st.energy === 'sun' ? '#ffd27a' : '#9fe8ff';
+      g.globalAlpha = Math.sin(Math.PI * u);
+      g.beginPath();
+      g.arc(px, py, 2.4, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.globalAlpha = 1;
+    slots.forEach((j, i) => this.drawSlot(rects[i], st, j, speed, i));
+    // minérios e produtos voando
+    this.tokens = this.tokens.filter((k) => (k.t += dt) < k.dur);
+    for (const k of this.tokens) {
+      const u = k.t / k.dur, e = u * u * (3 - 2 * u);
+      const x = k.x0 + (k.x1 - k.x0) * e, y = k.y0 + (k.y1 - k.y0) * e - Math.sin(Math.PI * u) * k.arc;
+      if (k.img) g.drawImage(k.img, x - k.size / 2, y - k.size / 2, k.size, k.size);
+      else {
+        g.fillStyle = k.tint;
+        g.fillRect(x - 3, y - 3, 6, 6);
       }
-      x.stroke();
     }
-    // banho fundido no fundo, subindo com o progresso
-    const pool = ch.h * (0.08 + 0.32 * (active ? progress : 0));
-    const pg = x.createLinearGradient(0, ch.y + ch.h - pool, 0, ch.y + ch.h);
-    pg.addColorStop(0, `rgba(255,${Math.round(180 + 60 * h)},90,${0.4 + 0.6 * h})`);
-    pg.addColorStop(1, `rgba(200,50,10,${0.5 + 0.5 * h})`);
-    x.fillStyle = pg;
-    x.beginPath();
-    x.moveTo(ch.x, ch.y + ch.h);
-    for (let px = ch.x; px <= ch.x + ch.w; px += 6) x.lineTo(px, ch.y + ch.h - pool + Math.sin(px * 0.1 + this.time * 3) * 2);
-    x.lineTo(ch.x + ch.w, ch.y + ch.h);
-    x.fill();
-    // brasas
-    for (let k = 0; k < 14; k++) {
-      const f = (this.time * (0.25 + (k % 5) * 0.06) + k * 0.137) % 1;
-      x.fillStyle = `rgba(255,${180 + (k % 3) * 25},80,${(1 - f) * h})`;
-      x.fillRect(ch.x + ((k * 53) % 100) / 100 * ch.w + Math.sin(f * 9 + k) * 4, ch.y + ch.h - pool - f * ch.h * 0.8, 2, 2);
+    // pegar tudo
+    if (this.crafting.hasReady(this.station)) {
+      const b = { x: area.x + area.w - 132, y: area.y + 6, w: 122, h: 32 };
+      this.button('take', b, t('craft.takeAll'), { color: COLORS.ok }, () => this.onTake?.(this.station));
     }
-    // temperatura grande no meio
-    const temp = Math.round(22 + (this.shownTemp() - 22) * h);
-    x.font = '700 18px Rubik, system-ui, sans-serif';
-    x.textAlign = 'center';
-    x.fillStyle = `rgba(255,240,220,${0.5 + 0.5 * h})`;
-    x.fillText(`${temp} °C`, ch.x + ch.w / 2, ch.y + ch.h * 0.42);
+    if (!built) {
+      g.fillStyle = COLORS.dim;
+      g.font = `500 13px ${FONT_UI}`;
+      g.textAlign = 'center';
+      g.fillText(t('craft.status.locked'), area.x + area.w / 2, area.y + area.h / 2);
+    }
   }
 
-  private shownTemp(): number {
+  private drawSlot(r: Rect, st: StationData, j: JobView | null, speed: number, i: number): void {
+    const g = this.g;
+    const built = this.crafting.isBuilt(this.station);
+    if (!j) {
+      g.setLineDash([5, 5]);
+      g.strokeStyle = built ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)';
+      g.lineWidth = 1.5;
+      roundRect(g, r, 12);
+      g.stroke();
+      g.setLineDash([]);
+      if (built) {
+        g.fillStyle = COLORS.faint;
+        g.font = `500 12px ${FONT_UI}`;
+        g.textAlign = 'center';
+        g.fillText(t('craft.slotFree'), r.x + r.w / 2, r.y + r.h / 2 + 4);
+      }
+      return;
+    }
+    const heat = j.ready ? 0.15 : Math.min(1, speed * (0.4 + 0.6 * j.share));
+    this.chamber(r, st, j, heat);
+    g.strokeStyle = j.ready ? COLORS.ok : hexA(st.accent, 0.7);
+    g.lineWidth = j.ready ? 2.5 : 1.5;
+    g.globalAlpha = j.ready ? 0.6 + 0.4 * Math.sin(this.time * 5) : 1;
+    roundRect(g, r, 12);
+    g.stroke();
+    g.globalAlpha = 1;
+    const seq = inputSequence(j.recipe, j.batch);
+    const outs = outputSequence(j.recipe, j.batch);
+    const key = `${j.station}:${j.slot}:${j.recipe.id}:${j.batch}`;
+    const usedNow = Math.min(seq.length, Math.floor(j.progress * seq.length + 1e-6));
+    const madeNow = j.ready ? outs.length : Math.min(outs.length, Math.floor(j.progress * outs.length + 1e-6));
+    let seen = this.seen.get(key);
+    if (!seen || seen.inn > usedNow) {
+      seen = { inn: usedNow, out: madeNow };
+      this.seen.set(key, seen);
+    }
+    const hop = { x: r.x + 8, y: r.y + 8, s: 28 };
+    const tray = { x: r.x + r.w / 2, y: r.y + r.h - 22 };
+    const mouth = { x: r.x + r.w / 2, y: r.y + r.h * 0.45 };
+    // cada minério que a máquina gastou vira um pontinho do funil para dentro
+    while (seen.inn < usedNow) {
+      const item = seq[seen.inn++];
+      this.tokens.push({
+        img: this.img(this.icons.items[item]), tint: ITEMS[item].tint, x0: hop.x + hop.s / 2, y0: hop.y + hop.s / 2, x1: mouth.x, y1: mouth.y,
+        t: 0, dur: 0.6, size: 18, arc: 16,
+      });
+    }
+    // cada produto que ficou pronto sai para a bandeja
+    while (seen.out < madeNow) {
+      const o = outs[seen.out++];
+      this.tokens.push({
+        img: this.img(this.iconFor(o)), tint: st.accent, x0: mouth.x, y0: mouth.y, x1: tray.x - 16, y1: tray.y, t: 0, dur: 0.7, size: 22, arc: 20,
+      });
+    }
+    // funil: o que ainda vai entrar
+    const left = seq.length - usedNow;
+    if (left > 0) {
+      const hi = this.img(this.icons.items[seq[usedNow]]);
+      g.fillStyle = 'rgba(4,8,22,0.85)';
+      roundRect(g, { x: hop.x - 2, y: hop.y - 2, w: hop.s + 4, h: hop.s + 4 }, 8);
+      g.fill();
+      if (hi) g.drawImage(hi, hop.x, hop.y, hop.s, hop.s);
+      g.fillStyle = COLORS.ink;
+      g.font = `600 11px ${FONT_UI}`;
+      g.textAlign = 'left';
+      g.fillText(`${left}`, hop.x + hop.s + 4, hop.y + hop.s - 2);
+    }
+    // bandeja: o que já saiu
+    const made = Math.min(seen.out, outs.length);
+    const oi = this.img(this.iconFor(j.recipe.outputs[0]));
+    g.fillStyle = 'rgba(4,8,22,0.8)';
+    roundRect(g, { x: tray.x - 34, y: tray.y - 13, w: 68, h: 26 }, 8);
+    g.fill();
+    if (oi) {
+      g.globalAlpha = made ? 1 : 0.35;
+      g.drawImage(oi, tray.x - 30, tray.y - 12, 24, 24);
+      g.globalAlpha = 1;
+    }
+    g.fillStyle = made ? COLORS.ink : COLORS.faint;
+    g.font = `600 12px ${FONT_UI}`;
+    g.textAlign = 'left';
+    g.fillText(`${made}/${outs.length}`, tray.x - 2, tray.y + 4);
+    // progresso e tempo
+    const bar = { x: r.x + 10, y: r.y + r.h - 5, w: r.w - 20, h: 3 };
+    g.fillStyle = 'rgba(255,255,255,0.12)';
+    roundRect(g, bar, 2);
+    g.fill();
+    g.fillStyle = j.ready ? COLORS.ok : st.accent;
+    roundRect(g, { ...bar, w: bar.w * j.progress }, 2);
+    g.fill();
+    g.font = `600 13px ${FONT_UI}`;
+    g.textAlign = 'right';
+    g.fillStyle = j.ready ? COLORS.ok : COLORS.ink;
+    g.fillText(j.ready ? t('craft.status.ready') : clock(j.remaining), r.x + r.w - 8, r.y + 20);
+    if (!j.ready && r.h > 110) {
+      g.fillStyle = COLORS.dim;
+      g.font = `500 10px ${FONT_UI}`;
+      g.textAlign = 'center';
+      g.fillText(fitText(g, j.recipe.process.steps[j.step], r.w - 16), r.x + r.w / 2, r.y + 44);
+    }
+    if (j.ready) this.hit(`slot:${i}`, r, () => this.onTake?.(this.station));
+    else this.hit(`slot:${i}`, r, () => (this.selected = j.recipe.id));
+  }
+
+  /** dentro da vaga: cadinho com metal fundido, célula com bolhas, ou mesa da impressora */
+  private chamber(r: Rect, st: StationData, j: JobView, heat: number): void {
+    const g = this.g;
+    g.save();
+    roundRect(g, r, 12);
+    g.clip();
+    g.fillStyle = 'rgba(6,10,24,0.95)';
+    g.fillRect(r.x, r.y, r.w, r.h);
+    const cx = r.x + r.w / 2;
+    if (st.chamber === 'heat') {
+      // brilho do calor (cor pela temperatura da receita), banho fundido subindo com o progresso
+      const temp = j.recipe.process.temp ?? 1200;
+      const hot = Math.min(1, temp / 1600) * heat;
+      const gr = g.createRadialGradient(cx, r.y + r.h * 0.75, 4, cx, r.y + r.h * 0.75, r.w);
+      gr.addColorStop(0, `rgba(255,${Math.round(120 + 120 * hot)},${Math.round(40 + 80 * hot * hot)},${0.2 + 0.7 * heat})`);
+      gr.addColorStop(1, 'rgba(60,10,0,0)');
+      g.fillStyle = gr;
+      g.fillRect(r.x, r.y, r.w, r.h);
+      const cw = r.w * 0.56, ch = r.h * 0.42, cy = r.y + r.h * 0.4;
+      g.fillStyle = '#3a3340';
+      g.beginPath();
+      g.moveTo(cx - cw / 2, cy);
+      g.lineTo(cx + cw / 2, cy);
+      g.lineTo(cx + cw * 0.38, cy + ch);
+      g.lineTo(cx - cw * 0.38, cy + ch);
+      g.closePath();
+      g.fill();
+      const lvl = ch * (0.15 + 0.75 * j.progress);
+      const top = cy + ch - lvl;
+      const k = (ch - lvl) / ch;
+      g.fillStyle = `rgba(255,${Math.round(150 + 90 * hot)},${Math.round(60 + 60 * hot)},${0.5 + 0.5 * heat})`;
+      g.beginPath();
+      g.moveTo(cx - cw * (0.38 + 0.12 * (1 - k)), top + Math.sin(this.time * 3) * 1.5);
+      g.lineTo(cx + cw * (0.38 + 0.12 * (1 - k)), top - Math.sin(this.time * 3) * 1.5);
+      g.lineTo(cx + cw * 0.38, cy + ch);
+      g.lineTo(cx - cw * 0.38, cy + ch);
+      g.closePath();
+      g.fill();
+      for (let k2 = 0; k2 < 10; k2++) {
+        const f = (this.time * (0.3 + (k2 % 4) * 0.08) + k2 * 0.17) % 1;
+        g.fillStyle = `rgba(255,${190 + (k2 % 3) * 20},90,${(1 - f) * heat})`;
+        g.fillRect(cx - cw / 2 + (((k2 * 37) % 100) / 100) * cw, top - f * r.h * 0.4, 2, 2);
+      }
+    } else if (st.chamber === 'cell') {
+      const lt = r.y + r.h * 0.3;
+      g.fillStyle = `rgba(40,${Math.round(120 + 70 * heat)},${Math.round(200 + 40 * heat)},0.5)`;
+      g.fillRect(r.x, lt, r.w, r.h);
+      const ex = [r.x + r.w * 0.33, r.x + r.w * 0.67];
+      g.fillStyle = '#8c90a0';
+      for (const e of ex) g.fillRect(e - 2.5, r.y + 30, 5, r.h - 48);
+      // bolhas: cada lado na cor do gás que sai nele (a água solta o dobro de H₂)
+      const tints = j.recipe.outputs.map((o) => (o.kind === 'item' ? ITEMS[o.item].tint : '#ffffff'));
+      const counts = [j.recipe.id === 'water' ? 12 : 8, 6];
+      for (let side = 0; side < 2; side++)
+        for (let k2 = 0; k2 < counts[side]; k2++) {
+          const f = (this.time * (0.35 + (k2 % 4) * 0.08) + k2 * 0.173) % 1;
+          g.fillStyle = tints[side] ?? '#ffffff';
+          g.globalAlpha = heat * 0.9;
+          g.beginPath();
+          g.arc(ex[side] + (side ? 7 : -7) + Math.sin(f * 10 + k2) * 3, r.y + r.h - 22 - f * (r.h - 22 - lt), 1.5 + (k2 % 3) * 0.6, 0, Math.PI * 2);
+          g.fill();
+        }
+      g.globalAlpha = 1;
+    } else {
+      // impressora: a peça aparece de baixo para cima, com a linha da camada
+      const oi = this.img(this.iconFor(j.recipe.outputs[0]));
+      const s = Math.min(r.w, r.h) * 0.6;
+      const px = cx - s / 2, py = r.y + (r.h - s) / 2;
+      if (oi) {
+        g.globalAlpha = 0.2;
+        g.drawImage(oi, px, py, s, s);
+        g.globalAlpha = 1;
+        const done = j.progress;
+        g.save();
+        g.beginPath();
+        g.rect(px, py + s * (1 - done), s, s * done + 1);
+        g.clip();
+        g.drawImage(oi, px, py, s, s);
+        g.restore();
+        if (!j.ready) {
+          const ly = py + s * (1 - done);
+          g.strokeStyle = `rgba(160,240,255,${0.5 + 0.5 * heat})`;
+          g.lineWidth = 1.5;
+          g.beginPath();
+          g.moveTo(px - 6, ly);
+          g.lineTo(px + s + 6, ly);
+          g.stroke();
+          const tx = px + s * (0.5 + 0.45 * Math.sin(this.time * 6));
+          g.strokeStyle = `rgba(255,255,255,${0.7 * heat})`;
+          g.beginPath();
+          g.moveTo(cx, r.y);
+          g.lineTo(tx, ly);
+          g.stroke();
+        }
+      }
+    }
+    g.restore();
+  }
+
+  // ---------- receita escolhida e botão ----------
+
+  private drawControl(area: Rect, st: StationData): void {
+    const g = this.g;
+    g.fillStyle = COLORS.panel;
+    roundRect(g, area, 14);
+    g.fill();
     const r = this.shown();
-    return r?.process.gauges?.[0] ?? STATIONS[this.station].gauges[0].work;
+    if (!r) return;
+    const built = this.crafting.isBuilt(this.station);
+    const can = batchable(r);
+    const max0 = this.crafting.maxBatch(r);
+    if (this.batch > Math.max(1, max0)) this.batch = Math.max(1, Math.min(max0, MAX_BATCH));
+    const check = this.crafting.check(r, this.batch);
+    const pad = 14;
+    // linha: ingredientes → produtos, na quantidade do lote
+    const icon = Math.max(28, Math.min(40, (area.h - 120) * 0.9));
+    let x = area.x + pad;
+    const y = area.y + pad;
+    for (const [item, n] of Object.entries(r.inputs) as [ItemId, number][]) {
+      const need = n * this.batch, have = this.crafting.has(item);
+      this.stack(x, y, icon, this.icons.items[item], `${need}`, have >= need ? COLORS.ink : COLORS.warn, have < need);
+      x += icon + 18;
+    }
+    g.strokeStyle = COLORS.dim;
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(x, y + icon / 2);
+    g.lineTo(x + 22, y + icon / 2);
+    g.moveTo(x + 16, y + icon / 2 - 5);
+    g.lineTo(x + 22, y + icon / 2);
+    g.lineTo(x + 16, y + icon / 2 + 5);
+    g.stroke();
+    x += 36;
+    for (const o of r.outputs) {
+      this.stack(x, y, icon, this.iconFor(o), o.kind === 'item' ? `${o.n * this.batch}` : '', COLORS.ok, false);
+      x += icon + 18;
+    }
+    // nome e quanto tempo leva
+    const name = r.outputs.map(outName).join(' + ');
+    g.fillStyle = COLORS.ink;
+    g.font = `600 15px ${FONT_TITLE}`;
+    g.textAlign = 'left';
+    const ty = y + icon + 20;
+    g.fillText(fitText(g, name, area.w - pad * 2 - 44), area.x + pad, ty);
+    // se começar agora, divide a energia com os que já trabalham (só se houver vaga)
+    const others = this.crafting.freeSlot(this.station) >= 0 ? this.crafting.slots(this.station).filter((j) => j && !j.ready).length : 0;
+    const speed = this.energy.speed(this.station);
+    const est = (recipeSeconds(r, this.batch) * (others + 1)) / Math.max(0.0001, speed);
+    let hint = t('craft.takes', { time: humanTime(speed > 0.001 ? est : Infinity) });
+    if (others > 0) hint += ' · ' + t('craft.sharing', { n: others + 1 });
+    if (speed < 0.99) hint += ' · ' + t('craft.slowEnergy');
+    g.fillStyle = COLORS.dim;
+    g.font = `400 12px ${FONT_UI}`;
+    g.fillText(fitText(g, hint, area.w - pad * 2), area.x + pad, ty + 17);
+    // "?" abre a ciência da receita
+    const qb = { x: area.x + area.w - 40, y: area.y + 10, w: 30, h: 30 };
+    g.fillStyle = this.info ? st.accent : 'rgba(255,255,255,0.1)';
+    roundRect(g, qb, 15);
+    g.fill();
+    g.fillStyle = this.info ? '#120f26' : COLORS.ink;
+    g.font = `700 15px ${FONT_UI}`;
+    g.textAlign = 'center';
+    g.fillText('?', qb.x + 15, qb.y + 20);
+    this.hit('info', { x: qb.x - 6, y: qb.y - 6, w: qb.w + 12, h: qb.h + 12 }, () => (this.info = !this.info));
+    // quantidade e botão, embaixo
+    const bh = 40;
+    const by = Math.max(ty + 26, area.y + area.h - 12 - bh);
+    let bx = area.x + pad;
+    if (can && built) {
+      const top = Math.max(1, Math.min(max0, MAX_BATCH));
+      const ghost = { color: 'rgba(255,255,255,0.12)', ink: COLORS.ink };
+      this.button('minus', { x: bx, y: by, w: bh, h: bh }, '−', { ...ghost, enabled: this.batch > 1 }, () => (this.batch = Math.max(1, this.batch - 1)));
+      g.fillStyle = COLORS.ink;
+      g.font = `600 18px ${FONT_TITLE}`;
+      g.textAlign = 'center';
+      g.fillText(`${this.batch}×`, bx + bh + 25, by + 27);
+      this.button('plus', { x: bx + bh + 50, y: by, w: bh, h: bh }, '+', { ...ghost, enabled: this.batch < top }, () => (this.batch = Math.min(top, this.batch + 1)));
+      this.button('max', { x: bx + bh * 2 + 58, y: by, w: 62, h: bh }, t('craft.all'), { ...ghost, enabled: top > 1 && this.batch < top }, () => (this.batch = top));
+      bx += bh * 2 + 128;
+    }
+    let label: string;
+    if (!built) label = t('craft.buildAtBench');
+    else if (check.owned) label = r.outputs[0].kind === 'station' ? t('craft.installedTag') : t('craft.owned');
+    else if (check.pending) label = t('craft.working');
+    else if (check.full) label = t('craft.slotsFull');
+    else if (check.missing.length) label = t('craft.missing');
+    else label = this.batch > 1 ? t('craft.makeN', { n: this.batch }) : t('craft.make');
+    const bw = Math.max(120, Math.min(260, area.x + area.w - pad - bx));
+    this.button('make', { x: area.x + area.w - pad - bw, y: by, w: bw, h: bh }, label, { color: st.accent, enabled: check.ok }, () => {
+      if (this.crafting.check(r, this.batch).ok) this.onCraft?.(r, this.batch);
+    });
+    if (this.info) this.drawInfo(area, r, st);
   }
 
-  private drawCell(x: CanvasRenderingContext2D, ch: Box, r: Recipe, active: boolean): void {
-    const h = this.heat;
-    // líquido
-    const top = ch.y + ch.h * 0.28;
-    x.fillStyle = `rgba(40,${Math.round(120 + 60 * h)},${Math.round(200 + 40 * h)},0.55)`;
-    x.fillRect(ch.x, top, ch.w, ch.h);
-    x.strokeStyle = 'rgba(180,240,255,0.5)';
-    x.beginPath();
-    for (let px = ch.x; px <= ch.x + ch.w; px += 5) x.lineTo(px, top + Math.sin(px * 0.15 + this.time * 2) * 1.5);
-    x.stroke();
-    // eletrodos: − à esquerda (H₂, metais), + à direita (O₂)
-    const ex = [ch.x + ch.w * 0.3, ch.x + ch.w * 0.7];
-    x.fillStyle = '#8c90a0';
-    for (const e of ex) x.fillRect(e - 3, ch.y + 6, 6, ch.h - 14);
-    x.font = '700 11px Rubik, system-ui, sans-serif';
-    x.textAlign = 'center';
-    x.fillStyle = '#f4f0e8';
-    x.fillText('−', ex[0], ch.y + 16);
-    x.fillText('+', ex[1], ch.y + 16);
-    // faísca de corrente no alto
-    if (h > 0.05) {
-      x.strokeStyle = `rgba(160,230,255,${h * (0.5 + 0.5 * Math.abs(Math.sin(this.time * 40)))})`;
-      x.lineWidth = 1.5;
-      x.beginPath();
-      x.moveTo(ex[0], ch.y + 22);
-      for (let k = 1; k < 8; k++) x.lineTo(ex[0] + ((ex[1] - ex[0]) * k) / 8, ch.y + 22 + (Math.random() - 0.5) * 6);
-      x.lineTo(ex[1], ch.y + 22);
-      x.stroke();
-    }
-    // bolhas: as cores dos produtos; a receita da água solta o dobro de H₂
-    const gasOut = r.outputs.filter((o) => o.kind === 'item');
-    const leftTint = gasOut[0]?.kind === 'item' ? ITEMS[gasOut[0].item].tint : '#ffffff';
-    const rightTint = gasOut[1]?.kind === 'item' ? ITEMS[gasOut[1].item].tint : '#8fd6ff';
-    const counts = [r.id === 'water' ? 16 : 10, 8];
-    for (let side = 0; side < 2; side++) {
-      for (let k = 0; k < counts[side]; k++) {
-        const f = (this.time * (0.35 + (k % 4) * 0.08) + k * 0.173) % 1;
-        const y = ch.y + ch.h - 8 - f * (ch.h - 8 - top);
-        const bx = ex[side] + (side ? 8 : -8) + Math.sin(f * 10 + k) * 4;
-        x.fillStyle = side ? rightTint : leftTint;
-        x.globalAlpha = (active ? 0.9 : 0.25) * h + (active ? 0 : 0.15);
-        x.beginPath();
-        x.arc(bx, y, 1.6 + (k % 3) * 0.7, 0, Math.PI * 2);
-        x.fill();
-      }
-    }
-    x.globalAlpha = 1;
+  /** ícone com a quantidade embaixo à direita */
+  private stack(x: number, y: number, s: number, src: string | undefined, n: string, color: string, dim: boolean): void {
+    const g = this.g;
+    g.fillStyle = 'rgba(255,255,255,0.06)';
+    roundRect(g, { x: x - 3, y: y - 3, w: s + 6, h: s + 6 }, 8);
+    g.fill();
+    const i = this.img(src);
+    g.globalAlpha = dim ? 0.45 : 1;
+    if (i) g.drawImage(i, x, y, s, s);
+    g.globalAlpha = 1;
+    if (!n) return;
+    g.font = `700 12px ${FONT_UI}`;
+    g.textAlign = 'right';
+    g.lineWidth = 3;
+    g.strokeStyle = 'rgba(4,8,22,0.9)';
+    g.strokeText(n, x + s + 6, y + s + 4);
+    g.fillStyle = color;
+    g.fillText(n, x + s + 6, y + s + 4);
   }
 
-  private drawLaser(x: CanvasRenderingContext2D, ch: Box, out: Node | undefined, progress: number, active: boolean, ready: boolean): void {
-    const h = this.heat;
-    const s = Math.min(ch.w, ch.h) * 0.62;
-    const px = ch.x + (ch.w - s) / 2, py = ch.y + (ch.h - s) / 2 + 4;
-    // mesa em grade
-    x.strokeStyle = 'rgba(127,231,255,0.35)';
-    x.lineWidth = 1;
-    for (let k = 0; k <= 6; k++) {
-      x.beginPath();
-      x.moveTo(px - 10 + (k * (s + 20)) / 6, py + s + 6);
-      x.lineTo(px + s / 2 + (k - 3) * 4, py + s - 4);
-      x.stroke();
+  /** a ciência da receita, por cima da parte de baixo */
+  private drawInfo(area: Rect, r: Recipe, st: StationData): void {
+    const g = this.g;
+    const box = { x: area.x + 6, y: area.y + 46, w: area.w - 12, h: area.h - 52 };
+    g.fillStyle = 'rgba(8,12,30,0.98)';
+    roundRect(g, box, 12);
+    g.fill();
+    g.strokeStyle = hexA(st.accent, 0.5);
+    g.lineWidth = 1;
+    g.stroke();
+    this.hit('info-box', box, () => (this.info = false));
+    const x = box.x + 14;
+    let y = box.y + 22;
+    g.textAlign = 'left';
+    g.fillStyle = st.accent;
+    g.font = `500 13px ui-monospace, Menlo, monospace`;
+    g.fillText(fitText(g, r.process.reaction, box.w - 28), x, y);
+    y += 22;
+    g.font = `500 11px ${FONT_UI}`;
+    let sx = x;
+    r.process.steps.forEach((s, i) => {
+      const label = `${i + 1}. ${s}`;
+      const w = g.measureText(label).width + 14;
+      if (sx + w > box.x + box.w - 10) return;
+      g.fillStyle = 'rgba(255,255,255,0.08)';
+      roundRect(g, { x: sx, y: y - 13, w, h: 20 }, 10);
+      g.fill();
+      g.fillStyle = COLORS.ink;
+      g.fillText(label, sx + 7, y + 1);
+      sx += w + 6;
+    });
+    y += 24;
+    g.fillStyle = COLORS.dim;
+    g.font = `400 12px ${FONT_UI}`;
+    for (const line of wrapText(g, r.process.note, box.w - 28).slice(0, 3)) {
+      if (y > box.y + box.h - 6) break;
+      g.fillText(line, x, y);
+      y += 16;
     }
-    if (!out?.img?.complete) return;
-    // holograma da peça inteira e a parte já impressa (de baixo para cima)
-    x.globalAlpha = 0.18 + 0.1 * Math.sin(this.time * 8);
-    x.drawImage(out.img, px, py, s, s);
-    x.globalAlpha = 1;
-    const done = ready ? 1 : active ? progress : 0;
-    const layer = py + s * (1 - done);
-    if (done > 0) {
-      x.save();
-      x.beginPath();
-      x.rect(px, layer, s, s * done + 1);
-      x.clip();
-      x.drawImage(out.img, px, py, s, s);
-      x.restore();
-    }
-    if (active && !ready) {
-      // linha da camada e os dois lasers
-      x.strokeStyle = `rgba(160,240,255,${0.6 + 0.4 * Math.sin(this.time * 30)})`;
-      x.lineWidth = 1.5;
-      x.beginPath();
-      x.moveTo(px - 6, layer);
-      x.lineTo(px + s + 6, layer);
-      x.stroke();
-      for (let k = 0; k < 2; k++) {
-        const tx = px + s * (0.5 + 0.42 * Math.sin(this.time * (5 + k * 1.7) + k * 2));
-        x.strokeStyle = `rgba(255,255,255,${0.7 * h})`;
-        x.lineWidth = 1;
-        x.beginPath();
-        x.moveTo(ch.x + ch.w * (0.3 + k * 0.4), ch.y);
-        x.lineTo(tx, layer);
-        x.stroke();
-        x.fillStyle = `rgba(255,${200 + k * 30},120,${h})`;
-        for (let j = 0; j < 3; j++) x.fillRect(tx + (Math.random() - 0.5) * 8, layer - Math.random() * 6, 2, 2);
-      }
-      x.font = '600 10px Rubik, system-ui, sans-serif';
-      x.textAlign = 'left';
-      x.fillStyle = 'rgba(200,240,255,0.85)';
-      x.fillText(t('craft.layer', { n: Math.max(1, Math.round(progress * 240)), total: 240 }), ch.x + 8, ch.y + ch.h - 8);
+    // por que demora: em palavras
+    const why = (Object.keys(r.inputs) as ItemId[])
+      .map((item) => {
+        const tr = ITEMS[item].traits;
+        const w: string[] = [];
+        if (tr.heat >= 2) w.push(t('craft.why.heat'));
+        if (tr.mass >= 2) w.push(t('craft.why.mass'));
+        if (tr.rarity >= 2) w.push(t('craft.why.rare'));
+        return w.length ? `${ITEMS[item].name}: ${w.join(', ')}` : '';
+      })
+      .filter(Boolean);
+    if (why.length && y < box.y + box.h - 6) {
+      g.fillStyle = COLORS.faint;
+      g.fillText(fitText(g, `${t('craft.whyTime')} ${why.join(' · ')}`, box.w - 28), x, y + 2);
     }
   }
 }
 
-interface Box {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+/** sequência dos minérios na ordem em que entram (cada pontinho é um minério de verdade) */
+export function inputSequence(r: Recipe, batch: number): ItemId[] {
+  const out: ItemId[] = [];
+  for (let b = 0; b < batch; b++) for (const [item, n] of Object.entries(r.inputs) as [ItemId, number][]) for (let k = 0; k < n; k++) out.push(item);
+  return out;
 }
 
-function roundRect(x: CanvasRenderingContext2D, rx: number, ry: number, w: number, h: number, r: number): void {
-  x.beginPath();
-  x.moveTo(rx + r, ry);
-  x.arcTo(rx + w, ry, rx + w, ry + h, r);
-  x.arcTo(rx + w, ry + h, rx, ry + h, r);
-  x.arcTo(rx, ry + h, rx, ry, r);
-  x.arcTo(rx, ry, rx + w, ry, r);
-  x.closePath();
+export function outputSequence(r: Recipe, batch: number): RecipeOutput[] {
+  const out: RecipeOutput[] = [];
+  for (let b = 0; b < batch; b++) for (const o of r.outputs) for (let k = 0; k < (o.kind === 'item' ? o.n : 1); k++) out.push(o);
+  return out;
 }

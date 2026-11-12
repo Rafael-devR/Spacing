@@ -278,6 +278,8 @@ export class World {
       scale: e.scale || 1,
       key: 'x' + e.wx + ',' + e.wz + ',' + e.type,
     };
+    // o mesmo lugar pode ter tido um objeto que foi tirado (ex.: painel desmontado e colocado de novo)
+    this.extraProps = this.extraProps.filter((x) => x.key !== save.key);
     this.extraProps.push(save);
     this.removedProps.delete(save.key);
     const c = this.chunks.get(this.key(Math.floor(save.wx / CS), Math.floor(save.wz / CS)));
@@ -285,6 +287,21 @@ export class World {
     const p: PropInstance = { ...save, y: 0 };
     c.props.push(p);
     return c.mesh ? this.spawnProp(c, p) : null;
+  }
+
+  /** objetos de um tipo colocados durante o jogo e ainda no mundo (estejam ou não carregados) */
+  placedProps(type: PropType): { key: string; x: number; z: number }[] {
+    return this.extraProps.filter((e) => e.type === type && !this.removedProps.has(e.key)).map((e) => ({ key: e.key, x: e.wx, z: e.wz }));
+  }
+
+  /**
+   * 0 ou 1: um objeto no chão em (x, z) vê o sol na direção `sun`? null se o chunk não está carregado (não dá para
+   * saber sem gerar o terreno).
+   */
+  sunExposure(x: number, z: number, sun: THREE.Vector3): number | null {
+    if (!this.chunks.get(this.key(Math.floor(x / CS), Math.floor(z / CS)))?.mesh) return null;
+    const o = new THREE.Vector3(x + 0.5, this.topY(x, z) + 1.6, z + 0.5);
+    return this.raycast(o, sun.clone().normalize(), 120) ? 0 : 1;
   }
 
   findProp(type: PropType): PropMesh | null {
