@@ -30,6 +30,8 @@ import { ItemModels } from '../render/itemModels';
 import { Lights } from '../render/lights';
 import { U, createMaterials } from '../render/materials';
 import { setCut, skip as cutSkip } from '../render/cutaway';
+import { ResolutionScaler } from '../render/scaler';
+import { createChunkWorkers } from '../world/workerPool';
 import { PropFactory, createLander, createWaypoint, setDrillLook, type Lander, type Waypoint } from '../render/models';
 import { Particles, createMotes, type Motes } from '../render/particles';
 import { Post, QUALITY, type QualityName, type QualityPreset } from '../render/post';
@@ -187,6 +189,8 @@ export class Game {
   private worldRenewed = false;
   /** campo de visão ao ar livre (depende da tela); dentro de caverna abre mais */
   private baseFov = 30;
+  /** resolução dinâmica (render/scaler.ts): só age com a resolução em automático e fora do teste de desempenho */
+  private readonly scaler = new ResolutionScaler();
   private readonly underside: THREE.Mesh;
   private readonly terrainMaterial: THREE.Material;
   private readonly cutMaterial: THREE.Material;
@@ -489,6 +493,11 @@ export class Game {
     const { world, player, lander } = this;
     world.radius = 3;
     world.update(0, 0, 999, 0);
+    // daqui em diante os chunks novos são gerados e malhados em workers (ADR 0012); `?semWorker` volta ao modo antigo, para comparar
+    if (!new URLSearchParams(location.search).has('semWorker')) {
+      const workers = createChunkWorkers();
+      if (workers.length) world.enableWorkers(workers, PLANET.id, this.seed);
+    }
     // o material do corte da caverna é compilado já (um triângulo fora da vista), para não engasgar ao entrar na primeira
     const warm = new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3)), this.cutMaterial);
     warm.receiveShadow = true;
@@ -1045,6 +1054,7 @@ export class Game {
     this.qualityName = name;
     const [w, h] = this.size();
     const q = (this.gfxQ = resolveQuality(QUALITY[name], this.prefs.gfx));
+    this.scaler.reset();
     this.post.build(q, w, h);
     this.lights.extent = 0; // força atualizar o tamanho do mapa de sombras
     this.lights.sun.castShadow = q.shadow > 0;
@@ -1075,7 +1085,7 @@ export class Game {
     return {
       quality: this.qualityName,
       auto: !this.prefs.quality,
-      size: drawSize(w, h, this.gfxQ.pixelRatio, window.devicePixelRatio || 1, max),
+      size: drawSize(w, h, this.gfxQ.pixelRatio, window.devicePixelRatio || 1, max, this.scaler.scale),
       capped: this.gfxQ.pixelRatio < NATIVE_PIXEL_RATIO && this.gfxQ.pixelRatio > (window.devicePixelRatio || 1),
     };
   }
@@ -1174,6 +1184,17 @@ export class Game {
       this.hud.toast(t('quality.lowered', { quality: t(`quality.${this.qualityName}`), fps: Math.round(fps) }));
       perf.frames = perf.time = 0;
       perf.checked = false;
+    }
+  }
+
+  /** Resolução dinâmica: um quadro mais lento por causa da GPU baixa a resolução; muita folga por muito tempo sobe de novo. */
+  private tuneResolution(periodMs: number, cpuMs: number): void {
+    if (this.prefs.gfx?.resolution !== undefined || this.state !== 'playing') return;
+    const budget = this.capMs > 0 ? this.capMs : 1000 / 60;
+    const next = this.scaler.frame(periodMs, cpuMs, budget);
+    if (next !== null) {
+      this.post.setScale(next);
+      this.graphicsMenu.render(this.prefs, this.graphicsInfo());
     }
   }
 
@@ -1366,6 +1387,7 @@ export class Game {
     if (playing || dead) hud.drawWaypoint(this.camera, this.renderer.domElement.getBoundingClientRect(), player.pos);
     p?.end(SUB.hud);
     if (playing) this.perfTick(realDt);
+    if (playing && !this.bench) this.tuneResolution(rawMs, performance.now() - t0);
     p?.begin(SUB.map);
     this.map.render();
     p?.end(SUB.map);

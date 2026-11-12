@@ -101,6 +101,8 @@ export class ScenarioDriver {
     this.center.copy(this.pos);
     d.player.facing = Math.atan2(this.dir.x, this.dir.y);
     d.rig.snap(this.v.set(d.player.pos.x, d.player.pos.y + 0.8, d.player.pos.z));
+    // a área de partida já carregada, sempre igual (com chunks em worker o chão levaria alguns quadros para aparecer)
+    d.world.update(d.player.pos.x, d.player.pos.z, 999, 0);
   }
 
   /** Desfaz o que o cenário ligou (mapa aberto, cena da base, mineração). */

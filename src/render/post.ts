@@ -171,6 +171,8 @@ export class Post {
   bloom: UnrealBloomPass | null = null;
   /** última construção pedida pelo jogo (o teste de desempenho refaz a partir dela e depois volta a ela) */
   private base: { q: QualityPreset; w: number; h: number } | null = null;
+  /** escala da resolução dinâmica (1 = a que o jogador escolheu) */
+  private dyn = 1;
   /** só no teste de desempenho: o que sobrepor ao preset e a escala da resolução (1 = a do jogo) */
   private bench: { over: Partial<QualityPreset> | null; scale: number } = { over: null, scale: 1 };
 
@@ -182,6 +184,7 @@ export class Post {
 
   build(q: QualityPreset, w: number, h: number): void {
     this.base = { q, w, h };
+    this.dyn = 1; // a resolução dinâmica recomeça do máximo (quem chama zera o ResolutionScaler junto)
     this.construct();
   }
 
@@ -189,9 +192,7 @@ export class Post {
     const { w, h } = this.base as { q: QualityPreset; w: number; h: number };
     const q = { ...(this.base as { q: QualityPreset }).q, ...this.bench.over };
     const r = this.renderer;
-    // a resolução nunca passa da densidade real da tela nem do que a placa aceita numa textura
-    const maxPr = r.capabilities.maxTextureSize / Math.max(w, h);
-    const pr = Math.min(Math.min(window.devicePixelRatio || 1, q.pixelRatio) * this.bench.scale, maxPr);
+    const pr = this.ratio(q.pixelRatio, w, h);
     r.setPixelRatio(pr);
     r.setSize(w, h, false);
     if (this.composer) {
@@ -223,6 +224,27 @@ export class Post {
     this.setGradeDefine('FX_NOISE', q.noise);
     c.addPass(this.grade);
     this.composer = c;
+    this.resize(w, h, pr);
+  }
+
+  /** A resolução nunca passa da densidade real da tela nem do que a placa aceita numa textura. */
+  private ratio(preset: number, w: number, h: number): number {
+    const maxPr = this.renderer.capabilities.maxTextureSize / Math.max(w, h);
+    return Math.min(Math.min(window.devicePixelRatio || 1, preset) * this.bench.scale * this.dyn, maxPr);
+  }
+
+  /**
+   * Resolução dinâmica (render/scaler.ts): multiplica a resolução por `k` (0,6 a 1) sem refazer os passes. Redimensiona só
+   * os alvos de desenho, o que custa um quadro mais lento uma vez por degrau.
+   */
+  setScale(k: number): void {
+    if (k === this.dyn) return;
+    this.dyn = k;
+    if (!this.base || !this.composer) return;
+    const { q, w, h } = this.base;
+    const pr = this.ratio({ ...q, ...this.bench.over }.pixelRatio, w, h);
+    this.renderer.setPixelRatio(pr);
+    this.composer.setPixelRatio(pr);
     this.resize(w, h, pr);
   }
 

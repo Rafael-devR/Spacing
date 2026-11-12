@@ -5,7 +5,7 @@ import { BLOCK_DATA, REGOLITH } from './blocks';
 import { DRILLS, mineSeconds } from './drills';
 
 /** versão do conjunto de cenários */
-export const BENCH_VERSION = 2;
+export const BENCH_VERSION = 3;
 
 export type BenchMode = 'quick' | 'full';
 

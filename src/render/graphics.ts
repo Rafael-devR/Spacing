@@ -81,8 +81,8 @@ export function gfxCount(g: GfxOverrides | undefined): number {
 }
 
 /** tamanho do desenho em pixels, para mostrar no menu (limitado pela densidade da tela e pela textura máxima) */
-export function drawSize(cssW: number, cssH: number, pixelRatio: number, devicePixelRatio: number, maxTexture: number): [number, number] {
-  let pr = Math.min(devicePixelRatio, pixelRatio);
+export function drawSize(cssW: number, cssH: number, pixelRatio: number, devicePixelRatio: number, maxTexture: number, scale = 1): [number, number] {
+  let pr = Math.min(devicePixelRatio, pixelRatio) * scale;
   pr = Math.min(pr, maxTexture / Math.max(cssW, cssH));
   return [Math.round(cssW * pr), Math.round(cssH * pr)];
 }

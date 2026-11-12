@@ -6,19 +6,14 @@ import { AIR, type BlockId } from '../data/blocks';
 import type { PropType } from '../data/props';
 import type { Structure } from './Structure';
 import type { PropFactory } from '../render/models';
-import { meshPadded } from './mesher';
+import type { MeshArrays } from './mesher';
 import { PLANET } from '../core/planet';
 import { MarsTerrain } from './marsTerrain';
-import { CH, CS, Terrain, idx, type PropSpawn, type TerrainGen } from './terrain';
+import { CH, CS, Terrain, idx, type GeneratedChunk, type PropSpawn, type TerrainGen } from './terrain';
 
-const PW = CS + 2;
-const PL = PW * PW;
-/** luz do céu: nível de quem vê o céu direto; cada bloco de distância por dentro da rocha tira 1 (docs/design/MUNDO.md) */
-export const SKY_MAX = 12;
-/** margem em volta do chunk onde a luz é calculada (a luz de um vizinho alcança até SKY_MAX blocos) */
-const LM = SKY_MAX;
-const LW = CS + 2 * LM;
-const LL = LW * LW;
+import { ChunkMesher, SKY_MAX } from './chunkMesher';
+import type { ChunkTransport, JobResponse } from './chunkJobs';
+export { SKY_MAX };
 
 export type V3 = [number, number, number];
 
@@ -44,6 +39,8 @@ export interface Chunk {
   maxY: number;
   /** luz do céu de cada bloco (0..SKY_MAX), da última vez que a malha foi feita; null antes disso */
   light: Uint8Array | null;
+  /** contador de edições no momento da última edição de um bloco deste chunk (0 = nunca editado) */
+  editedAt: number;
   mesh: THREE.Mesh | null;
   propMeshes: PropMesh[];
   dirty: boolean;
@@ -59,6 +56,14 @@ export interface VoxelHit {
   t: number;
 }
 
+/** `update` com um orçamento a partir disto faz tudo na hora, na thread principal (carregamento inicial, teletransporte) */
+export const SYNC_BUDGET = 100;
+/** pedidos em andamento por tipo: o suficiente para os workers não ficarem parados, sem encher a fila de chunks que já saíram de perto */
+const MAX_GEN = 8;
+const MAX_MESH_PER_WORKER = 2;
+/** malhas prontas aplicadas por quadro (criar a geometria e os objetos do chunk custa na thread principal) */
+const APPLY_PER_FRAME = 2;
+
 export type BlockEdit = [x: number, y: number, z: number, id: BlockId];
 
 export class World {
@@ -70,13 +75,18 @@ export class World {
   private extraProps: ExtraPropSave[] = [];
   /** todas as malhas de objetos carregadas (para o raio de mira) */
   readonly propMeshes: PropMesh[] = [];
-  private readonly pad = new Uint8Array(PL * CH);
-  private readonly padLight = new Uint8Array(PL * CH);
-  // região do chunk com a margem da luz: blocos, luz, topo de cada coluna e fila da propagação
-  private readonly reg = new Uint8Array(LL * CH);
-  private readonly regLight = new Uint8Array(LL * CH);
-  private readonly regTop = new Int16Array(LL);
-  private readonly queue: number[] = [];
+  private readonly mesher = new ChunkMesher();
+  /** workers dos chunks (ADR 0012); vazio = tudo na thread principal */
+  private workers: { t: ChunkTransport; load: number }[] = [];
+  private nextJob = 1;
+  private editStamp = 0;
+  /** chunks pedidos e ainda não chegados */
+  private readonly pendingGen = new Map<string, number>();
+  /** malhas pedidas: chave do chunk -> contador de edições no pedido (para descartar a que ficou velha) */
+  private readonly pendingMesh = new Map<string, { stamp: number; worker: number }>();
+  private readonly arrived: JobResponse[] = [];
+  /** último chunk onde o jogador esteve (para descartar o que chega depois de ficar longe) */
+  private lastP = { cx: 0, cz: 0 };
   /** estruturas construídas (a base); mandam nas células que ocupam */
   readonly structures: Structure[] = [];
   /** raio de chunks carregados ao redor do jogador */
@@ -103,25 +113,30 @@ export class World {
 
   chunk(cx: number, cz: number): Chunk {
     const k = this.key(cx, cz);
-    let c = this.chunks.get(k);
-    if (!c) {
-      const t0 = this.perf ? performance.now() : 0;
-      const g = this.terrain.generate(cx, cz);
-      this.perf?.onGenerate(performance.now() - t0);
-      c = { cx, cz, key: k, data: g.data, props: g.props, maxY: g.maxY, light: null, mesh: null, propMeshes: [], dirty: true };
-      for (const e of this.extraProps) {
-        if (Math.floor(e.wx / CS) === cx && Math.floor(e.wz / CS) === cz) c.props.push({ ...e, y: 0 });
-      }
-      const ed = this.edits.get(k);
-      if (ed) {
-        for (const [i, id] of ed) {
-          c.data[i] = id;
-          const y = Math.floor(i / (CS * CS));
-          if (id && y > c.maxY) c.maxY = y;
-        }
-      }
-      this.chunks.set(k, c);
+    const c = this.chunks.get(k);
+    if (c) return c;
+    const t0 = this.perf ? performance.now() : 0;
+    const g = this.terrain.generate(cx, cz);
+    this.perf?.onGenerate(performance.now() - t0);
+    return this.install(cx, cz, g);
+  }
+
+  /** Põe um chunk gerado no mundo: objetos criados no jogo e edições do jogador por cima do terreno. */
+  private install(cx: number, cz: number, g: GeneratedChunk): Chunk {
+    const k = this.key(cx, cz);
+    const c: Chunk = { cx, cz, key: k, data: g.data, props: g.props, maxY: g.maxY, light: null, editedAt: 0, mesh: null, propMeshes: [], dirty: true };
+    for (const e of this.extraProps) {
+      if (Math.floor(e.wx / CS) === cx && Math.floor(e.wz / CS) === cz) c.props.push({ ...e, y: 0 });
     }
+    const ed = this.edits.get(k);
+    if (ed) {
+      for (const [i, id] of ed) {
+        c.data[i] = id;
+        const y = Math.floor(i / (CS * CS));
+        if (id && y > c.maxY) c.maxY = y;
+      }
+    }
+    this.chunks.set(k, c);
     return c;
   }
 
@@ -208,6 +223,7 @@ export class World {
       // a luz muda mais longe que a borda quando a edição abre ou fecha um caminho para o céu
       const reach = Math.max(1, this.lightReach(x, y, z, id));
       c.data[i] = id;
+      c.editedAt = ++this.editStamp;
       if (id && y > c.maxY) c.maxY = y;
       let ed = this.edits.get(c.key);
       if (!ed) this.edits.set(c.key, (ed = new Map()));
@@ -235,44 +251,17 @@ export class World {
 
   /** `edit`: a malha é refeita por uma edição de blocos (e não por um chunk novo); só serve para a medição */
   rebuild(c: Chunk, edit = false): void {
-    const ox = c.cx * CS, oz = c.cz * CS;
-    const pad = this.pad, padLight = this.padLight;
     // vizinhos (garante que existam)
     const nb: Chunk[] = [];
-    let top = 0;
-    for (let dz = -1; dz <= 1; dz++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        const n = this.chunk(c.cx + dx, c.cz + dz);
-        nb.push(n);
-        if (n.maxY > top) top = n.maxY;
-      }
-    }
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) nb.push(this.chunk(c.cx + dx, c.cz + dz));
     const t0 = this.perf ? performance.now() : 0;
-    // a luz precisa da altura dos vizinhos (um morro ao lado faz sombra de céu); a malha, só da do chunk
-    const hh = Math.min(CH, top + 2);
-    const h = Math.min(CH, c.maxY + 2);
-    this.skyLight(nb, hh);
     const light = c.light ?? (c.light = new Uint8Array(CS * CS * CH));
-    const { reg, regLight } = this;
-    for (let y = 0; y < h; y++) {
-      for (let z = -1; z <= CS; z++) {
-        const r = LM + z, o = (z + 1) * PW + y * PL + 1;
-        for (let x = -1; x <= CS; x++) {
-          const i = LM + x + r * LW + y * LL;
-          pad[o + x] = reg[i];
-          padLight[o + x] = regLight[i];
-        }
-      }
-    }
-    for (let y = 0; y < hh; y++)
-      for (let z = 0; z < CS; z++) {
-        const i = LM + (LM + z) * LW + y * LL;
-        light.set(regLight.subarray(i, i + CS), idx(0, y, z));
-      }
-    light.fill(SKY_MAX, hh * CS * CS);
-    pad.fill(0, h * PL);
-    padLight.fill(SKY_MAX, h * PL);
-    const m = meshPadded(pad, CS, CS, CH, c.maxY, ox, oz, true, padLight);
+    this.applyMesh(c, this.mesher.build(nb, c.cx * CS, c.cz * CS, light));
+    this.perf?.onMesh(performance.now() - t0, edit);
+  }
+
+  /** Põe a malha pronta no chunk (nova ou refeita). */
+  private applyMesh(c: Chunk, m: MeshArrays): void {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(m.position, 3));
     geo.setAttribute('normal', new THREE.BufferAttribute(m.normal, 3));
@@ -285,67 +274,13 @@ export class World {
       c.mesh.geometry = geo;
     } else {
       c.mesh = new THREE.Mesh(geo, this.material);
-      c.mesh.position.set(ox, 0, oz);
+      c.mesh.position.set(c.cx * CS, 0, c.cz * CS);
       c.mesh.castShadow = true;
       c.mesh.receiveShadow = true;
       this.scene.add(c.mesh);
       this.spawnProps(c);
     }
     c.dirty = false;
-    this.perf?.onMesh(performance.now() - t0, edit);
-  }
-
-  /**
-   * Luz do céu na região do chunk do meio de `nb` (os 9 chunks, em ordem de z e x) com a margem: quem está acima do
-   * topo da coluna vê o céu (SKY_MAX); dali a luz entra pelas aberturas perdendo 1 por bloco. Preenche `reg` e `regLight`.
-   */
-  private skyLight(nb: Chunk[], hh: number): void {
-    const { reg, regLight, regTop, queue } = this;
-    for (let z = 0; z < LW; z++) {
-      const wz = z - LM, dz = wz < 0 ? 0 : wz >= CS ? 2 : 1, lz = wz - (dz - 1) * CS;
-      for (let x = 0; x < LW; x++) {
-        const wx = x - LM, dx = wx < 0 ? 0 : wx >= CS ? 2 : 1, lx = wx - (dx - 1) * CS;
-        const n = nb[dx + dz * 3];
-        const data = n.data, col = lx + lz * CS, o = x + z * LW;
-        let t = Math.min(n.maxY, hh - 1);
-        while (t > 0 && !data[col + t * CS * CS]) t--;
-        regTop[o] = t;
-        for (let y = 0; y < hh; y++) {
-          reg[o + y * LL] = data[col + y * CS * CS];
-          regLight[o + y * LL] = y > t ? SKY_MAX : 0;
-        }
-      }
-    }
-    // sementes: blocos de céu ao lado de uma coluna mais alta (podem iluminar uma abertura nela)
-    queue.length = 0;
-    for (let z = 0; z < LW; z++)
-      for (let x = 0; x < LW; x++) {
-        const o = x + z * LW, t = regTop[o];
-        let m = t;
-        if (x > 0 && regTop[o - 1] > m) m = regTop[o - 1];
-        if (x < LW - 1 && regTop[o + 1] > m) m = regTop[o + 1];
-        if (z > 0 && regTop[o - LW] > m) m = regTop[o - LW];
-        if (z < LW - 1 && regTop[o + LW] > m) m = regTop[o + LW];
-        for (let y = t + 1; y <= m; y++) queue.push(o + y * LL);
-      }
-    for (let q = 0; q < queue.length; q++) {
-      const i = queue[q];
-      const v = regLight[i] - 1;
-      if (v <= 0) continue;
-      const y = Math.floor(i / LL), r = i - y * LL, z = Math.floor(r / LW), x = r - z * LW;
-      if (x > 0) this.spread(i - 1, v);
-      if (x < LW - 1) this.spread(i + 1, v);
-      if (z > 0) this.spread(i - LW, v);
-      if (z < LW - 1) this.spread(i + LW, v);
-      if (y > 0) this.spread(i - LL, v);
-      if (y < hh - 1) this.spread(i + LL, v);
-    }
-  }
-
-  private spread(i: number, v: number): void {
-    if (this.reg[i] || this.regLight[i] >= v) return;
-    this.regLight[i] = v;
-    this.queue.push(i);
   }
 
   /** luz do céu guardada de um bloco (0..SKY_MAX); -1 se o chunk ainda não foi malhado */
@@ -490,9 +425,36 @@ export class World {
     this.chunks.delete(c.key);
   }
 
+  /**
+   * Liga os workers (ADR 0012): daí em diante, `update` pede a geração e a malha dos chunks novos a eles, em vez de fazer na
+   * thread principal. Editar um bloco continua refazendo a malha na hora, aqui. Precisa de `seed` e `planet` iguais aos do mundo.
+   */
+  enableWorkers(transports: ChunkTransport[], planet: 'lua' | 'marte', seed: number): void {
+    this.workers = transports.map((t) => ({ t, load: 0 }));
+    this.workers.forEach((w, i) => {
+      w.t.onResponse = (res) => this.arrived.push(res);
+      w.t.onFailure = () => this.disableWorkers(i);
+      w.t.post({ type: 'init', planet, seed });
+    });
+  }
+
+  /** O worker falhou: volta a gerar e malhar tudo na thread principal (o que estava pedido é refeito por `update`). */
+  private disableWorkers(_failed: number): void {
+    this.workers = [];
+    this.pendingGen.clear();
+    this.pendingMesh.clear();
+    this.arrived.length = 0;
+  }
+
+  get usesWorkers(): boolean {
+    return this.workers.length > 0;
+  }
+
   /** Carrega e malha chunks perto de (px, pz), descarrega os distantes. Retorna quantos faltam. */
   update(px: number, pz: number, budget = 2, dt = 0): number {
     const pcx = Math.floor(px / CS), pcz = Math.floor(pz / CS);
+    this.lastP.cx = pcx;
+    this.lastP.cz = pcz;
     const R = this.radius;
     const todo: [number, number, number][] = [];
     for (let dz = -R; dz <= R; dz++) {
@@ -503,7 +465,8 @@ export class World {
       }
     }
     todo.sort((a, b) => a[0] - b[0]);
-    for (let i = 0; i < Math.min(budget, todo.length); i++) this.rebuild(this.chunk(todo[i][1], todo[i][2]));
+    if (this.workers.length && budget < SYNC_BUDGET) this.serve(todo);
+    else for (let i = 0; i < Math.min(budget, todo.length); i++) this.rebuild(this.chunk(todo[i][1], todo[i][2]));
 
     // descarrega os distantes
     const far = (R + 2) * (R + 2) + R;
@@ -520,6 +483,96 @@ export class World {
       if (m.position.y <= to) delete m.userData.fallTo;
     }
     return todo.length;
+  }
+
+  /** Com workers: pede o que falta (do mais perto para o mais longe) e aplica o que chegou. */
+  private serve(todo: [number, number, number][]): void {
+    let gens = this.pendingGen.size;
+    const maxMesh = this.workers.length * MAX_MESH_PER_WORKER;
+    for (const [, cx, cz] of todo) {
+      // a malha precisa dos dados dos 8 vizinhos
+      let ready = true;
+      for (let dz = -1; dz <= 1; dz++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const k = this.key(cx + dx, cz + dz);
+          if (this.chunks.has(k)) continue;
+          ready = false;
+          if (gens < MAX_GEN && !this.pendingGen.has(k)) {
+            const w = this.pick();
+            this.pendingGen.set(k, w);
+            this.workers[w].load++;
+            this.workers[w].t.post({ type: 'gen', id: this.nextJob++, cx: cx + dx, cz: cz + dz });
+            gens++;
+          }
+        }
+      }
+      const k = this.key(cx, cz);
+      const c = this.chunks.get(k);
+      if (!ready || !c || c.mesh || this.pendingMesh.size >= maxMesh || this.pendingMesh.has(k)) continue;
+      const nb: Chunk[] = [];
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) nb.push(this.chunks.get(this.key(cx + dx, cz + dz)) as Chunk);
+      const w = this.pick();
+      this.pendingMesh.set(k, { stamp: this.editStamp, worker: w });
+      this.workers[w].load++;
+      this.workers[w].t.post({ type: 'mesh', id: this.nextJob++, cx, cz, blocks: nb.map((n) => n.data), maxY: nb.map((n) => n.maxY) });
+    }
+    this.drain();
+  }
+
+  private pick(): number {
+    let best = 0;
+    for (let i = 1; i < this.workers.length; i++) if (this.workers[i].load < this.workers[best].load) best = i;
+    return best;
+  }
+
+  /** Aplica no mundo o que os workers entregaram: os dados na hora, as malhas poucas por quadro. */
+  private drain(): void {
+    const { pcx, pcz } = { pcx: this.lastP.cx, pcz: this.lastP.cz };
+    const far = (this.radius + 2) * (this.radius + 2) + this.radius;
+    let meshes = 0;
+    for (let i = 0; i < this.arrived.length; ) {
+      const res = this.arrived[i];
+      const k = this.key(res.cx, res.cz);
+      if (res.type === 'mesh' && meshes >= APPLY_PER_FRAME) {
+        i++;
+        continue;
+      }
+      this.arrived.splice(i, 1);
+      if (res.type === 'gen') {
+        this.release(this.pendingGen.get(k));
+        this.pendingGen.delete(k);
+        const dx = res.cx - pcx, dz = res.cz - pcz;
+        if (this.chunks.has(k) || dx * dx + dz * dz > far) continue; // já feito na hora, ou o jogador já se afastou
+        this.perf?.onGenerate(res.ms);
+        this.install(res.cx, res.cz, { data: res.data, props: res.props, maxY: res.maxY });
+      } else {
+        const job = this.pendingMesh.get(k);
+        this.pendingMesh.delete(k);
+        this.release(job?.worker);
+        const c = this.chunks.get(k);
+        if (!c || c.mesh || !job || this.stale(res.cx, res.cz, job.stamp)) continue;
+        c.light = res.light;
+        this.applyMesh(c, res.mesh);
+        this.perf?.onMesh(res.ms, false);
+        meshes++;
+      }
+    }
+  }
+
+  /** um pedido voltou: o worker que o atendeu fica mais livre */
+  private release(worker: number | undefined): void {
+    const w = worker === undefined ? undefined : this.workers[worker];
+    if (w) w.load = Math.max(0, w.load - 1);
+  }
+
+  /** algum dos 9 chunks da malha foi editado depois do pedido? */
+  private stale(cx: number, cz: number, stamp: number): boolean {
+    for (let dz = -1; dz <= 1; dz++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const n = this.chunks.get(this.key(cx + dx, cz + dz));
+        if (!n || n.editedAt > stamp) return true;
+      }
+    return false;
   }
 
   /** Raio por voxels (DDA). Retorna o bloco atingido e a normal da face. */
