@@ -5,6 +5,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Não lançado]
 
+### Adicionado
+
+- **Gráficos avançados** ([design/GRAFICOS.md](docs/design/GRAFICOS.md)): no menu de pausa, **Gráficos avançados…** deixa
+  trocar por cima da qualidade a **resolução** (0,5× a 2× ou **nativa** da tela, com o tamanho do desenho em pixels), o
+  **MSAA** (desligado, 2×, 4×), as **sombras** (sem sombra, 1024, 2048, 4096), o **bloom**, a aberração de cor, a vinheta,
+  o ruído de filme, o brilho dos cristais, o **limite de FPS** (30, 60, 90, 120) e um **contador de FPS**. As trocas ficam
+  nas preferências; "Voltar ao padrão da qualidade" apaga todas. Teste `tools/visual-check/gfx.mjs`.
+
 ### Corrigido
 
 - **Teste de desempenho completo medindo com sobras da etapa anterior:** o cenário "pior caso" deixava mais de mil itens e
@@ -14,8 +22,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Alterado
 
-- **Qualidade Alta com MSAA 2× (era 4×):** no teste de desempenho o MSAA era o efeito mais caro (~5 ms por quadro). Com a
-  resolução 2× as bordas continuam lisas; a diferença, se aparecer, é nas bordas finas. As outras qualidades não mudam.
+- **Qualidade Média e Alta com MSAA 2× (era 4×):** no teste de desempenho o MSAA era o efeito mais caro (~5 ms por quadro). Com a
+  resolução 2× as bordas continuam lisas; a diferença, se aparecer, é nas bordas finas. A Baixa não usa MSAA.
   O teste de desempenho liga o MSAA com o valor que o jogo usa.
 - **Sombra mais barata, mesma imagem:** o terreno, os objetos e o mapa só leem a sombra do sol nas faces voltadas para
   ele (nas outras a luz direta já é zero, e cada leitura custava 16 consultas ao mapa de sombra por pixel). O mapa do

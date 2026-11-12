@@ -339,6 +339,34 @@ body.touch .actions.controls { display: block !important; }
   .bag-grid .slot img { width: 30px; height: 30px; margin: 3px; }
 }
 
+/* gráficos avançados */
+#gfx {
+  position: fixed; inset: 0; z-index: 9; display: grid; place-items: center; padding: 12px;
+  background: rgba(10, 8, 26, 0.72); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+}
+.gfx-card {
+  width: 100%; max-width: 560px; max-height: 100%; overflow-y: auto; display: grid; gap: 12px; padding: 16px 18px; border-radius: 14px;
+  background: var(--panel-strong); border: 1px solid var(--line); overscroll-behavior: contain;
+}
+.gfx-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.gfx-head h2 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 22px; }
+.gfx-card .setting { align-content: start; }
+.gfx-card .settings { align-items: start; }
+.gfx-info { margin: 0; font-size: 12px; line-height: 1.4; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.gfx-group { margin: 8px 0 0; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--suit); font-weight: 500; }
+.setting-hint { font-size: 11px; line-height: 1.35; color: var(--ink-dim); }
+.gfx-open { width: 100%; }
+#fps-meter {
+  position: fixed; z-index: 7; right: calc(8px + env(safe-area-inset-right, 0px)); bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  padding: 2px 7px; border-radius: 6px; background: rgba(10, 8, 26, 0.6); color: var(--ink); font-size: 11px;
+  font-variant-numeric: tabular-nums; pointer-events: none;
+}
+@media (min-width: 600px) and (max-height: 520px) {
+  .gfx-card { max-width: 760px; }
+  .gfx-card .settings { grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+  .gfx-card .gfx-group { grid-column: 1 / -1; }
+}
+
 /* ajuda */
 #help {
   position: fixed; inset: 0; display: grid; place-items: center;

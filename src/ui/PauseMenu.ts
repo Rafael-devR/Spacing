@@ -17,6 +17,8 @@ export interface PauseMenuHandlers {
   onFullscreen(on: boolean): void;
   onOrientation(o: OrientationPref): void;
   onControls(): void;
+  /** abrir os gráficos avançados */
+  onGraphics(): void;
   onNewGame(): void;
   /** abrir o teste de desempenho (escolha do modo, resultados guardados) */
   onBenchmark(): void;
@@ -33,6 +35,8 @@ export class PauseMenu {
     el('#pause-version').textContent = t('pause.version', { version });
     el('#pause-resume').addEventListener('click', () => h.onResume());
     el('#pause-controls').addEventListener('click', () => h.onControls());
+    el('#pause-gfx').textContent = t('gfx.open');
+    el('#pause-gfx').addEventListener('click', () => h.onGraphics());
     el('#pause-bench-hint').textContent = t('pause.benchHint');
     el('#pause-bench').textContent = t('pause.bench');
     el('#pause-bench').addEventListener('click', () => h.onBenchmark());

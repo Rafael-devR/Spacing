@@ -69,6 +69,12 @@ export class EffectToggles {
       case 'bloom':
       case 'msaa':
         return presetHas(id, q) as boolean;
+      case 'chromatic':
+        return q.chromatic;
+      case 'vignette':
+        return q.vignette;
+      case 'noise':
+        return q.noise;
       case 'shadow':
         return this.shadowLights.length > 0;
       case 'fog':

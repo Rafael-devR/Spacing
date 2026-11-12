@@ -59,6 +59,8 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). Leia o [README]
   120 Hz (principal) e 60 Hz. Meça antes de otimizar e compare com o resultado guardado. A sonda do jogo (`Game.probe`) é nula
   fora do teste: ao medir uma parte nova do laço, use `probe?.begin(SUB.x)` / `probe?.end(SUB.x)`. Mudou um cenário? Suba
   `BENCH_VERSION`.
+- Gráficos avançados: `src/render/graphics.ts` (trocas do jogador por cima da qualidade), `src/ui/GraphicsMenu.ts` e `FpsMeter.ts`;
+  efeito novo de tela = `#ifdef` na passada final de `src/render/post.ts` + linha em `GraphicsMenu` ([design/GRAFICOS.md](docs/design/GRAFICOS.md)).
 - Sobrevivência: números em `src/data/survival.ts`, regras em `src/systems/Survival.ts`, resposta
   (avisos, sons, efeitos, morte) em `src/app/SurvivalDirector.ts`.
 - Salvamento: `localStorage`, chave `spacing.save` (com versão e migração em `src/core/save.ts`) e

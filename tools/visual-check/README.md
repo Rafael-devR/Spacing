@@ -70,6 +70,16 @@ soa mais baixo, que o zumbido do módulo some de longe e que o meteoro toca sem 
 - `mobile`: ativa toque e tela de celular (mostra joystick e botões).
 - Saída: `<prefixo>1-inicio.png` e `<prefixo>2-jogo.png`, além dos erros e avisos do console.
 
+## Teste dos gráficos avançados
+
+```bash
+node gfx.mjs http://localhost:5173/ /tmp/shots
+```
+
+Abre o menu pela pausa, muda cada ajuste (resolução, MSAA, sombra, bloom, efeitos, limite e contador de FPS), confere o
+que foi salvo, o texto do menu, o contador de FPS, o Esc/Voltar, que as trocas sobrevivem a recarregar e que "Voltar ao
+padrão" apaga tudo. Rode depois de mexer em `src/render/graphics.ts`, `post.ts` ou `src/ui/GraphicsMenu.ts`.
+
 ## Teste das brocas
 
 ```bash

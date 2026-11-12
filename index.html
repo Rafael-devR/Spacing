@@ -224,6 +224,7 @@
       </div>
     </div>
     <button class="cta" id="pause-resume" type="button">Continuar</button>
+    <button class="ghost-btn gfx-open" id="pause-gfx" type="button"></button>
     <div class="bench-box">
       <div class="bench-box-text">
         <span class="bench-box-hint" id="pause-bench-hint"></span>
@@ -284,6 +285,20 @@
     <span id="pause-version"></span>
   </div>
 </div>
+
+<div id="gfx" hidden role="dialog" aria-modal="true" aria-labelledby="gfx-title">
+  <div class="gfx-card">
+    <div class="gfx-head">
+      <h2 id="gfx-title"></h2>
+      <button class="ghost-btn" id="gfx-back" type="button"></button>
+    </div>
+    <p id="gfx-info" class="gfx-info"></p>
+    <div id="gfx-rows" class="settings"></div>
+    <div class="pause-actions"><button class="ghost-btn" id="gfx-reset" type="button"></button></div>
+  </div>
+</div>
+
+<div id="fps-meter" hidden aria-hidden="true"></div>
 
 <div id="help" hidden>
   <div class="help-card">

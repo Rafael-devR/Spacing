@@ -36,7 +36,11 @@ const GradeShader = {
     void main(){
       vec2 dir = vUv - 0.5;
       float ca = dot(dir, dir) * 0.009;
+      #ifdef FX_CHROMA
       vec3 c = vec3(scene(vUv + dir * ca).r, scene(vUv).g, scene(vUv - dir * ca).b);
+      #else
+      vec3 c = scene(vUv);
+      #endif
       // luz vazando do canto do sol
       vec2 lp = (vUv - vec2(0.0, 1.0)) * vec2(uRes.x / uRes.y, 1.0);
       float leak = smoothstep(1.2, 0.0, length(lp));
@@ -47,15 +51,19 @@ const GradeShader = {
       c += smoothstep(0.55, 1.0, l) * vec3(0.03, 0.012, -0.018);
       c = mix(c, c * c * (3.0 - 2.0 * c), 0.16);
       vec2 d = vUv - 0.5; d.x *= uRes.x / uRes.y;
+      #ifdef FX_VIGNETTE
       c *= mix(0.74, 1.0, smoothstep(1.0, 0.3, length(d)));
+      #endif
       // sobrevivência: perde a cor (asfixia), borda vermelha (dano), escurece (morte)
       float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
       c = mix(c, vec3(lum), uDesat);
       float edge = smoothstep(0.3, 0.95, length(d));
       c = mix(c, vec3(0.85, 0.07, 0.05), uHurt * edge * 0.8);
       c *= 1.0 - uDark;
+      #ifdef FX_NOISE
       float n = fract(sin(dot(vUv * uRes + fract(uTime) * 91.7, vec2(12.9898, 78.233))) * 43758.5453);
       c += (n - 0.5) * 0.022;
+      #endif
       gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
     }`,
 };
@@ -126,17 +134,22 @@ export type QualityName = 'baixo' | 'medio' | 'alto';
 
 export interface QualityPreset {
   pixelRatio: number;
+  /** tamanho do mapa de sombras; 0 = sem sombra */
   shadow: number;
   samples: number;
   bloom: boolean;
   radius: number;
+  /** efeitos da passada final (cada um custa um pouco por pixel) */
+  chromatic: boolean;
+  vignette: boolean;
+  noise: boolean;
 }
 
 export const QUALITY: Record<QualityName, QualityPreset> = {
-  baixo: { pixelRatio: 1, shadow: 1024, samples: 0, bloom: false, radius: 3 },
-  medio: { pixelRatio: 1.5, shadow: 2048, samples: 4, bloom: false, radius: 3 },
-  // MSAA 2× (era 4×): com a resolução 2× as bordas já saem finas, e o MSAA era o efeito mais caro (teste de desempenho)
-  alto: { pixelRatio: 2, shadow: 2048, samples: 2, bloom: true, radius: 4 },
+  baixo: { pixelRatio: 1, shadow: 1024, samples: 0, bloom: false, radius: 3, chromatic: true, vignette: true, noise: true },
+  // MSAA 2× (era 4×) na Média e na Alta: com a resolução alta as bordas já saem finas, e o MSAA era o efeito mais caro
+  medio: { pixelRatio: 1.5, shadow: 2048, samples: 2, bloom: false, radius: 3, chromatic: true, vignette: true, noise: true },
+  alto: { pixelRatio: 2, shadow: 2048, samples: 2, bloom: true, radius: 4, chromatic: true, vignette: true, noise: true },
 };
 
 export const QUALITY_ORDER: QualityName[] = ['baixo', 'medio', 'alto'];
@@ -176,7 +189,9 @@ export class Post {
     const { w, h } = this.base as { q: QualityPreset; w: number; h: number };
     const q = { ...(this.base as { q: QualityPreset }).q, ...this.bench.over };
     const r = this.renderer;
-    const pr = Math.min(window.devicePixelRatio || 1, q.pixelRatio) * this.bench.scale;
+    // a resolução nunca passa da densidade real da tela nem do que a placa aceita numa textura
+    const maxPr = r.capabilities.maxTextureSize / Math.max(w, h);
+    const pr = Math.min(Math.min(window.devicePixelRatio || 1, q.pixelRatio) * this.bench.scale, maxPr);
     r.setPixelRatio(pr);
     r.setSize(w, h, false);
     if (this.composer) {
@@ -202,15 +217,21 @@ export class Post {
       this.grade.uniforms.tBloom.value = bloom.bloomTexture;
     }
     // o bloom (se houver) é somado dentro da passada final, junto com o mapeamento de tons e a correção de cor
-    const defines = this.gradeMaterial.defines as Record<string, string>;
-    if (q.bloom !== ('USE_BLOOM' in defines)) {
-      if (q.bloom) defines.USE_BLOOM = '';
-      else delete defines.USE_BLOOM;
-      this.gradeMaterial.needsUpdate = true;
-    }
+    this.setGradeDefine('USE_BLOOM', q.bloom);
+    this.setGradeDefine('FX_CHROMA', q.chromatic);
+    this.setGradeDefine('FX_VIGNETTE', q.vignette);
+    this.setGradeDefine('FX_NOISE', q.noise);
     c.addPass(this.grade);
     this.composer = c;
     this.resize(w, h, pr);
+  }
+
+  private setGradeDefine(name: string, on: boolean): void {
+    const defines = this.gradeMaterial.defines as Record<string, string>;
+    if (on === (name in defines)) return;
+    if (on) defines[name] = '';
+    else delete defines[name];
+    this.gradeMaterial.needsUpdate = true;
   }
 
   resize(w: number, h: number, pr = this.renderer.getPixelRatio()): void {

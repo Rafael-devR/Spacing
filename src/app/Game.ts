@@ -24,7 +24,8 @@ import { Lights } from '../render/lights';
 import { U, createMaterials } from '../render/materials';
 import { PropFactory, createLander, createWaypoint, setDrillLook, type Lander, type Waypoint } from '../render/models';
 import { Particles, createMotes, type Motes } from '../render/particles';
-import { Post, QUALITY, type QualityName } from '../render/post';
+import { Post, QUALITY, type QualityName, type QualityPreset } from '../render/post';
+import { NATIVE_PIXEL_RATIO, drawSize, resolveQuality, type GfxOverrides } from '../render/graphics';
 import { createBackdrop } from '../render/sky';
 import { Interaction } from '../systems/Interaction';
 import { Inventory } from '../systems/Inventory';
@@ -33,6 +34,8 @@ import { Survival } from '../systems/Survival';
 import { el, maybeEl } from '../ui/dom';
 import { Bag } from '../ui/Bag';
 import { Hud } from '../ui/Hud';
+import { FpsMeter } from '../ui/FpsMeter';
+import { GraphicsMenu } from '../ui/GraphicsMenu';
 import { PauseMenu } from '../ui/PauseMenu';
 import { LANDER, SPAWN } from '../world/terrain';
 import { World } from '../world/World';
@@ -86,6 +89,12 @@ export class Game {
   private readonly lights: Lights;
   private readonly post: Post;
   private qualityName: QualityName;
+  /** a qualidade em uso: o preset com as trocas manuais do jogador */
+  private gfxQ: QualityPreset = QUALITY.medio;
+  /** limite de quadros por segundo em ms por quadro; 0 = sem limite */
+  private capMs = 0;
+  private lastCapAt = 0;
+  private readonly fpsMeter = new FpsMeter();
 
   readonly world: World;
   readonly inventory: Inventory;
@@ -111,6 +120,7 @@ export class Game {
 
   private readonly hud = new Hud();
   private readonly pauseMenu: PauseMenu;
+  private readonly graphicsMenu: GraphicsMenu;
   private readonly bag: Bag;
   readonly equipment: Equipment;
   /** o que o mapa do tablet já mostra (systems/Exploration.ts) */
@@ -299,11 +309,22 @@ export class Game {
           this.changedPrefs();
         },
         onControls: () => (el('#help').hidden = false),
+        onGraphics: () => {
+          this.pauseMenu.hide();
+          this.graphicsMenu.show(this.prefs, this.graphicsInfo());
+        },
         onNewGame: () => this.newGame(),
         onBenchmark: () => this.openBenchmark(),
       },
       VERSION,
     );
+    this.graphicsMenu = new GraphicsMenu({
+      onChange: (next) => this.setGfx(next),
+      onBack: () => {
+        this.graphicsMenu.hide();
+        this.pauseMenu.show(this.prefs);
+      },
+    });
 
     this.director = new SurvivalDirector({
       events, hud: this.hud, sfx: this.sfx, haptics: this.haptics, rig: this.rig, post: this.post,
@@ -465,6 +486,7 @@ export class Game {
   resume(): void {
     if (this.state !== 'paused') return;
     this.pauseMenu.hide();
+    this.graphicsMenu.hide();
     el('#help').hidden = true;
     this.sfx.setPaused(false);
     this.fixed.reset();
@@ -476,6 +498,11 @@ export class Game {
     const help = el('#help');
     if (!help.hidden) {
       help.hidden = true;
+      return;
+    }
+    if (this.graphicsMenu.open) {
+      this.graphicsMenu.hide();
+      this.pauseMenu.show(this.prefs);
       return;
     }
     if (this.benchUi.open) {
@@ -521,7 +548,7 @@ export class Game {
         renderer: this.renderer, scene: this.scene, camera: this.camera, post: this.post, world: this.world, player: this.player,
         rig: this.rig, interaction: this.interaction, meteors: this.meteors, debris: this.debris, particles: this.particles,
         drops: this.drops, loot: this.loot, base: this.base, map: this.map, glowMaterials: this.glowMaterials,
-        quality: () => ({ name: this.qualityName, auto: !this.prefs.quality, preset: QUALITY[this.qualityName] }),
+        quality: () => ({ name: this.qualityName, auto: !this.prefs.quality, preset: this.gfxQ }),
         muted: () => this.prefs.muted,
         saveBytes: () => {
           try {
@@ -890,8 +917,40 @@ export class Game {
   private applyQuality(name: QualityName): void {
     this.qualityName = name;
     const [w, h] = this.size();
-    this.post.build(QUALITY[name], w, h);
+    const q = (this.gfxQ = resolveQuality(QUALITY[name], this.prefs.gfx));
+    this.post.build(q, w, h);
     this.lights.extent = 0; // força atualizar o tamanho do mapa de sombras
+    this.lights.sun.castShadow = q.shadow > 0;
+    const g = this.prefs.gfx;
+    this.capMs = g.fpsCap ? 1000 / g.fpsCap : 0;
+    for (const m of this.glowMaterials) {
+      const defs = (m.defines ??= {}) as Record<string, string>;
+      if (g.glow === false) delete defs.USE_GLOW;
+      else defs.USE_GLOW = '';
+      m.needsUpdate = true;
+    }
+    this.fpsMeter.setVisible(!!g.showFps);
+  }
+
+  /** Aplica as trocas manuais (menu de gráficos): salva e refaz o desenho. */
+  private setGfx(g: GfxOverrides): void {
+    this.prefs.gfx = g;
+    this.applyQuality(this.qualityName);
+    this.changedPrefs();
+    this.graphicsMenu.render(this.prefs, this.graphicsInfo());
+    if (this.state === 'paused') this.post.render(this.time); // o jogo parado também mostra o resultado
+  }
+
+  /** o que o menu de gráficos mostra sobre o desenho de agora */
+  private graphicsInfo(): { quality: QualityName; auto: boolean; size: [number, number]; capped: boolean } {
+    const [w, h] = this.size();
+    const max = this.renderer.capabilities.maxTextureSize;
+    return {
+      quality: this.qualityName,
+      auto: !this.prefs.quality,
+      size: drawSize(w, h, this.gfxQ.pixelRatio, window.devicePixelRatio || 1, max),
+      capped: this.gfxQ.pixelRatio < NATIVE_PIXEL_RATIO && this.gfxQ.pixelRatio > (window.devicePixelRatio || 1),
+    };
   }
 
   private changedPrefs(): void {
@@ -969,6 +1028,12 @@ export class Game {
 
   private readonly frame = (now: number): void => {
     requestAnimationFrame(this.frame);
+    // limite de FPS: numa tela de 120 Hz, pular quadros em ritmo fixo deixa o movimento uniforme (sem limite durante o teste)
+    if (this.capMs > 0 && !this.bench) {
+      if (now - this.lastCapAt < this.capMs - 1.5) return;
+      this.lastCapAt = now;
+    }
+    this.fpsMeter.frame(now);
     const t0 = performance.now();
     const rawMs = now - this.last;
     const realDt = Math.min(0.05, rawMs / 1000);
@@ -1108,7 +1173,7 @@ export class Game {
     p?.end(SUB.entities);
 
     const extent = Math.max(14, rig.dist * 0.8);
-    if (Math.abs(this.lights.extent - extent) > 2) this.lights.setShadowSize(QUALITY[this.qualityName].shadow, extent);
+    if (this.gfxQ.shadow > 0 && Math.abs(this.lights.extent - extent) > 2) this.lights.setShadowSize(this.gfxQ.shadow, extent);
     this.lights.follow(rig.target);
     // dentro da base não há neblina (desligar recompilaria os shaders: só fica longe)
     this.fog.near = this.indoors.on ? 1e4 : rig.dist * 1.15;

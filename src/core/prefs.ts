@@ -1,4 +1,5 @@
 // Preferências do jogador (gráficos, som, tremor, vibração, toque e tela), salvas separadas do jogo.
+import { parseGfx, type GfxOverrides } from '../render/graphics';
 import { isQualityName, type QualityName } from '../render/post';
 import { PREFS_KEY, readJSON, writeJSON, type KeyValueStore } from './save';
 
@@ -11,6 +12,8 @@ export type OrientationPref = 'landscape' | 'free';
 export interface Prefs {
   /** ausente = automático (o jogo escolhe e pode reduzir sozinho) */
   quality?: QualityName;
+  /** trocas manuais por cima da qualidade (resolução, MSAA, sombra, efeitos, limite de FPS…); vazio = segue o preset */
+  gfx: GfxOverrides;
   muted: boolean;
   shake: ShakeLevel;
   vibration: boolean;
@@ -24,7 +27,7 @@ export const SHAKE_SCALE: Record<ShakeLevel, number> = { off: 0, low: 0.45, norm
 
 export function defaultPrefs(): Prefs {
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  return { muted: false, shake: reduced ? 'low' : 'normal', vibration: true, touchAim: 'offset', fullscreen: true, orientation: 'landscape' };
+  return { gfx: {}, muted: false, shake: reduced ? 'low' : 'normal', vibration: true, touchAim: 'offset', fullscreen: true, orientation: 'landscape' };
 }
 
 export function loadPrefs(store: KeyValueStore | null): Prefs {
@@ -33,6 +36,7 @@ export function loadPrefs(store: KeyValueStore | null): Prefs {
   if (typeof raw !== 'object' || raw === null) return p;
   const r = raw as Record<string, unknown>;
   if (isQualityName(r.quality)) p.quality = r.quality;
+  p.gfx = parseGfx(r.gfx);
   if (typeof r.muted === 'boolean') p.muted = r.muted;
   if (r.shake === 'off' || r.shake === 'low' || r.shake === 'normal') p.shake = r.shake;
   if (typeof r.vibration === 'boolean') p.vibration = r.vibration;
