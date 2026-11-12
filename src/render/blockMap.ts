@@ -4,6 +4,7 @@
 // própria de mapa por tipo de chão, sem minérios, sem pedras soltas, sem cavernas. As bordas do que foi descoberto
 // descem numa saia que some no escuro. Desenhado numa textura do tamanho da tela, com antisserrilhado e sombras.
 import * as THREE from 'three';
+import { litOnlyShadows } from './materials';
 import { BASALT, BEDROCK, CRYSTAL, HULL, ICE, IRON, REGOLITH, ROCK, type BlockId } from '../data/blocks';
 
 /** blocos por lado de um chunk do mapa */
@@ -139,6 +140,7 @@ function blockMaterial(): THREE.MeshLambertMaterial {
         float keep = 1.0 - smoothstep(0.2, 0.42, gw);
         diffuseColor.rgb *= 1.0 - 0.26 * edge * keep;`,
       );
+    sh.fragmentShader = litOnlyShadows(sh.fragmentShader);
   };
   return m;
 }
@@ -191,6 +193,11 @@ export class BlockMap {
   private readonly ring: THREE.Mesh;
   private markers: MapMarker[] = [];
   private readonly v = new THREE.Vector3();
+  /**
+   * A sombra do mapa só muda quando os blocos ou o sol mudam (marcadores e seta não fazem sombra). Ela é refeita só
+   * nesses casos, e não a cada quadro: com o mapa parado, poupa um desenho de 2048×2048 por quadro.
+   */
+  private shadowKey = '';
 
   constructor(
     private readonly surfaceAt: (x: number, z: number) => SurfaceCell,
@@ -208,6 +215,8 @@ export class BlockMap {
     this.sun.shadow.mapSize.set(2048, 2048);
     this.sun.shadow.bias = -0.0006;
     this.sun.shadow.normalBias = 0.06;
+    this.sun.shadow.autoUpdate = false;
+    this.sun.shadow.needsUpdate = true;
     this.scene.add(this.sun, this.sun.target);
     this.grid = groundGrid(refY - SKIRT - 1);
     this.scene.add(this.world, this.markerGroup, this.grid);
@@ -297,6 +306,7 @@ export class BlockMap {
           this.world.remove(m);
           m.geometry.dispose();
           this.chunkMeshes.delete(kk);
+          this.sun.shadow.needsUpdate = true;
         }
       }
     }
@@ -324,6 +334,7 @@ export class BlockMap {
       mesh.receiveShadow = true;
       this.chunkMeshes.set(cx + ',' + cz, mesh);
       this.world.add(mesh);
+      this.sun.shadow.needsUpdate = true;
     }
     return todo.length - built;
   }
@@ -457,6 +468,11 @@ export class BlockMap {
     const sx = Math.round(this.view.x / texel) * texel, sz = Math.round(this.view.y / texel) * texel, sy = Math.round(this.viewY / texel) * texel;
     this.sun.target.position.set(sx, sy, sz);
     this.sun.position.set(sx - ext * 0.6, sy + ext * 1.6, sz + ext * 0.4);
+    const key = `${sx},${sy},${sz},${ext}`;
+    if (key !== this.shadowKey) {
+      this.shadowKey = key;
+      this.sun.shadow.needsUpdate = true;
+    }
     // a grade do chão acompanha a vista (de 8 em 8 blocos, para não escorregar)
     this.grid.position.x = Math.round(this.view.x / 8) * 8;
     this.grid.position.z = Math.round(this.view.y / 8) * 8;

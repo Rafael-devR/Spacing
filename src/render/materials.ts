@@ -20,6 +20,25 @@ export const U = {
   uMistColor: { value: new THREE.Color('#8b8fd8') },
 };
 
+/** linha do Three.js 0.160.0 (lights_fragment_begin) que aplica a sombra do sol a cada pixel */
+export const SHADOW_LINE =
+  'directLight.color *= ( directLight.visible && receiveShadow ) ? getShadow( directionalShadowMap[ i ], directionalLightShadow.shadowMapSize, directionalLightShadow.shadowBias, directionalLightShadow.shadowRadius, vDirectionalShadowCoord[ i ] ) : 1.0;';
+
+/**
+ * Só consulta a sombra do sol nas faces voltadas para ele. Numa face de costas a luz direta já é zero (Lambert:
+ * dot(normal, sol) ≤ 0), então a sombra não muda nada ali, mas custava 16 leituras do mapa de sombra por pixel.
+ * A imagem fica idêntica. Troque `#include <lights_fragment_begin>` pelo texto devolvido.
+ */
+export function litOnlyShadows(fragmentShader: string): string {
+  const chunk = THREE.ShaderChunk.lights_fragment_begin;
+  if (!chunk.includes(SHADOW_LINE)) throw new Error('sombra: o trecho do Three.js mudou (ver src/render/materials.ts)');
+  const fast = chunk.replace(
+    SHADOW_LINE,
+    SHADOW_LINE.replace('directLight.color *= ( directLight.visible && receiveShadow ) ? ', 'if ( directLight.visible && receiveShadow && dot( geometryNormal, directLight.direction ) > 0.0 ) directLight.color *= ').replace(' : 1.0;', ';'),
+  );
+  return fragmentShader.replace('#include <lights_fragment_begin>', fast);
+}
+
 export interface PatchOptions {
   /** brilho nas bordas dos blocos (precisa do atributo aEdge) */
   edge?: boolean;
@@ -105,6 +124,7 @@ export function patchMaterial<M extends THREE.Material>(mat: M, { edge = false, 
           gl_FragColor.rgb = mix(gl_FragColor.rgb, bgc, fogFactor);
 #endif`,
         );
+    shader.fragmentShader = litOnlyShadows(shader.fragmentShader);
   };
   return mat;
 }

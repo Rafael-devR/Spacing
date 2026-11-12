@@ -14,6 +14,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Alterado
 
+- **Sombra mais barata, mesma imagem:** o terreno, os objetos e o mapa só leem a sombra do sol nas faces voltadas para
+  ele (nas outras a luz direta já é zero, e cada leitura custava 16 consultas ao mapa de sombra por pixel). O mapa do
+  tablet só refaz a própria sombra quando os blocos ou o sol dele mudam, e com o mapa em tela cheia a sombra do mundo
+  (escondido atrás) para de ser refeita até ele fechar.
 - **Pós-processamento mais leve** (qualidade Alta e Média; `src/render/post.ts`): o bloom já começava na metade da resolução
   do desenho (e cai pela metade a cada faixa), então isso ficou como estava. O que mudou: o bloom não é mais somado por cima da
   imagem numa passada própria, e o mapeamento de tons e a conversão para sRGB (antes numa passada separada) foram para dentro

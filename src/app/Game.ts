@@ -1075,6 +1075,9 @@ export class Game {
     if (this.map.full !== this.tabletOnly) {
       this.tabletOnly = this.map.full;
       this.camera.layers.set(this.tabletOnly ? TABLET_LAYER : this.indoors.on ? INTERIOR_LAYER : 0);
+      // com o mapa em tela cheia o mundo não aparece: a sombra dele não precisa ser refeita (volta ao fechar)
+      this.lights.sun.shadow.autoUpdate = !this.tabletOnly;
+      this.lights.sun.shadow.needsUpdate = true;
     }
     this.sfx.setListener(player.model.root.position, rig.forward());
     p?.begin(SUB.entities);
