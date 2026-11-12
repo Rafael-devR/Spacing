@@ -162,6 +162,13 @@ JavaScript para mandar desenhar, não o tempo da GPU.
 - **Latência do toque** até o primeiro quadro (Event Timing API). Sem Event Timing, o teste estima por `pointerdown` até
   o próximo quadro. Só há amostras se você tocar na tela durante o teste.
 
+## Chunks em worker (a partir da versão 3)
+
+Desde o [ADR 0012](../adr/0012-chunks-em-worker-e-resolucao-dinamica.md) os chunks novos são gerados e malhados em Web
+Workers. Os tempos "gerar" e "malhar" do resultado são **os do worker** (não travam o jogo); o que pesa na thread principal
+(aplicar a malha pronta, no máximo 2 por quadro) aparece no subsistema **chunks**. A malha refeita depois de editar um bloco
+continua na thread principal. A resolução dinâmica fica desligada durante o teste.
+
 ## Como ler o resultado
 
 1. **Veredictos de 120 e de 60 Hz** no alto: "Sustenta" ou "Não sustenta", com o FPS efetivo, o FPS apresentado, o 99% e

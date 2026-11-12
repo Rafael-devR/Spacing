@@ -81,7 +81,13 @@ Em ordem de execução, tudo com testes e documentação:
    câmera que aproxima e corta a rocha dentro da caverna. Salvamento v10 (mundo antigo é refeito, progresso fica).
    [design/MUNDO.md](design/MUNDO.md), ADR 0011. **Marte ainda não tem cavernas.**
 
+10. **Chunks em worker e resolução dinâmica** (ADR 0012), feitos a partir do teste de desempenho do dono depois do mundo novo
+   (~40 FPS efetivos na Alta; quadros de 50 a 100 ms ao andar). Terreno e malha dos chunks novos em Web Workers; a resolução
+   baixa um degrau sozinha quando a GPU não acompanha. A sombra ainda é mais da metade dos triângulos (próximo alvo).
+
 ## O que o dono ainda **não viu** no celular
+
+- **O desempenho depois do worker e da resolução dinâmica:** rodar o teste de novo e comparar (BENCH_VERSION 3).
 
 - **O mundo novo**: cavernas, câmera com corte, escuro e lanterna, montanhas, e principalmente o **desempenho** (gerar
   chunk ficou ~2,5× mais caro; o material do corte desenha os dois lados das faces).

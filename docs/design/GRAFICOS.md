@@ -25,6 +25,14 @@ trocar cada item por cima dela. O que fica em "Padrão" segue a qualidade. Tudo 
   `FX_NOISE`): desligar tira o custo de verdade. O bloom é `USE_BLOOM`.
 - Sombra "sem sombra" desliga o `castShadow` do sol (o Three.js recompila os shaders uma vez, no momento da troca).
 
+## Resolução dinâmica
+
+Com a resolução em automático (sem escolha manual) e fora do teste de desempenho, o jogo baixa a resolução um degrau
+(1 → 0,85 → 0,72 → 0,6 da escolhida) quando a **GPU** não acompanha a tela, e sobe de volta quando sobra folga por vários
+segundos. Quadro lento por causa da CPU (gerar chunk) não conta. O tamanho mostrado no menu é o real de agora. Escolher uma
+resolução no menu desliga a dinâmica. Detalhes e números: [ADR 0012](../adr/0012-chunks-em-worker-e-resolucao-dinamica.md),
+`src/render/scaler.ts`.
+
 ## Onde está no código
 
 - `src/render/graphics.ts`: tipos, `resolveQuality` (preset + trocas), leitura segura (`parseGfx`), tamanho do desenho.

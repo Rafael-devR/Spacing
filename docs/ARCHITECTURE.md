@@ -28,7 +28,8 @@ src/
                      cenários do teste de desempenho
   bench/             teste de desempenho: estatísticas puras, sondas de CPU, observadores, GPU, efeitos só na
                      memória, condutor dos cenários, resultado, histórico, gráfico e telas (ADR 0007)
-  world/             terreno, chunks (World), mesher, registro de blocos, estruturas da base (ADR 0005)
+  world/             terreno, cavernas, chunks (World), mesher e luz do céu (chunkMesher), worker dos chunks (chunkJobs,
+                     workerPool), registro de blocos, estruturas da base (ADR 0005, 0011, 0012)
   entities/          jogador, destroços, meteoros, itens soltos, itens caídos na morte (LootPiles)
   systems/           interação (minerar/construir), inventário, missões, sobrevivência, fabricação, energia, equipamento
   render/            materiais e shaders, céu, luzes, pós-processamento, partículas, modelos, câmera, ícones,

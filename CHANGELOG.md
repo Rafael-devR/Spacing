@@ -7,6 +7,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Adicionado
 
+- **Desempenho no celular: chunks em worker e resolução dinâmica** ([ADR 0012](docs/adr/0012-chunks-em-worker-e-resolucao-dinamica.md)).
+  O teste do dono mostrou quadros de 50 a 100 ms ao andar (gerar e malhar chunks na thread principal) e o limite de pixels
+  da GPU. Agora o terreno e a malha dos chunks novos são feitos em **Web Workers** (1 ou 2), e a **resolução cai sozinha**
+  um degrau quando a GPU não acompanha (e sobe de volta quando sobra folga). Editar um bloco continua refazendo a malha na
+  hora. `?semWorker` no endereço volta ao modo antigo, para comparar. `BENCH_VERSION` 3.
+
 - **Mundo novo a cada jogo, maior e com cavernas** ([design/MUNDO.md](docs/design/MUNDO.md),
   [ADR 0011](docs/adr/0011-semente-por-jogo-cavernas-e-luz-do-ceu.md)). A **semente é sorteada** em cada jogo novo
   (`?semente=` escolhe). O mundo foi de 48 para **96 blocos de altura**, com terras altas de anortosito e crateras
