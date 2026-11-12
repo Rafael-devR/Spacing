@@ -7,3 +7,6 @@ coverage/
 .env.*
 !.env.example
 .vite/
+
+# Python (scripts do Blender)
+__pycache__/
