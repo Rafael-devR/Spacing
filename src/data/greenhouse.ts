@@ -12,6 +12,8 @@ export const GH = {
   tolerance: 1,
   /** folga mínima até a base (blocos) */
   baseGap: 4,
+  /** folga mínima do centro do módulo de pouso até a borda da estufa (blocos) */
+  landerGap: 7,
   /** alcance, em blocos além da borda, para entregar material */
   reach: 3.2,
   /** a porta: coluna ao longo do lado sul */
@@ -44,14 +46,67 @@ export function partDef(id: PartId): PartDef {
   return PARTS.find((p) => p.id === id) as PartDef;
 }
 
-/** o que vem no baú da base (a história decide de onde isso vem; por ora o baú já traz) */
-export const CHEST: { item: 'greenhouse_plan' | 'iron_bar' | 'brick' | 'basalt_fiber' | 'glass'; n: number }[] = [
-  { item: 'greenhouse_plan', n: 1 },
-  { item: 'brick', n: 20 },
-  { item: 'iron_bar', n: 24 },
-  { item: 'basalt_fiber', n: 4 },
-  { item: 'glass', n: 10 },
-];
+export type ChestItem = 'greenhouse_plan' | 'iron_bar' | 'brick' | 'basalt_fiber' | 'glass' | 'potato' | 'soil' | 'planter';
+export type ChestLot = 'estufa' | 'cultivo';
+
+/**
+ * O que vem no baú da base, em lotes (a história decide de onde isso vem; por ora o baú já traz). Abrir o baú entrega os lotes
+ * que ainda não foram pegos: quem abriu antes de o cultivo existir encontra só o lote novo.
+ */
+export const CHEST_LOTS: Record<ChestLot, { item: ChestItem; n: number }[]> = {
+  estufa: [
+    { item: 'greenhouse_plan', n: 1 },
+    { item: 'brick', n: 20 },
+    { item: 'iron_bar', n: 24 },
+    { item: 'basalt_fiber', n: 4 },
+    { item: 'glass', n: 10 },
+  ],
+  cultivo: [
+    { item: 'planter', n: 2 },
+    { item: 'soil', n: 4 },
+    { item: 'potato', n: 4 },
+  ],
+};
+export const CHEST_LOT_IDS: ChestLot[] = ['estufa', 'cultivo'];
+/** tudo o que o baú tem, somado */
+export const CHEST: { item: ChestItem; n: number }[] = CHEST_LOT_IDS.flatMap((l) => CHEST_LOTS[l]);
+
+/**
+ * Cultivo (docs/design/ESTUFA.md). Os canteiros só ficam dentro da estufa pronta (o vidro deixa a luz entrar e segura a
+ * radiação). A batata precisa de solo fértil e de água; sem água ela para de crescer e murcha, mas não morre. Cresce só com
+ * o jogo aberto.
+ */
+export const FARM = {
+  /** segundos da semente à batata madura, com água, na luz da Lua (Marte é mais escuro: mais devagar) */
+  growSeconds: 180,
+  /** quanto tempo um enchimento de água dura enquanto a planta cresce (segundos) */
+  waterSeconds: 110,
+  /** abaixo disso o canteiro pede água (0..1) */
+  thirsty: 0.35,
+  /** batatas na colheita (uma pode voltar para a terra como semente) */
+  harvest: 3,
+  /** distância (blocos) até o canteiro para o botão de ação */
+  reach: 1.35,
+  /** estágios visíveis: semente, broto, folhas, moita, madura */
+  stages: 5,
+} as const;
+
+/** estágio visível (0 = semente ... 4 = madura) do crescimento 0..1 */
+export function growthStage(growth: number): number {
+  return growth >= 1 ? FARM.stages - 1 : Math.min(FARM.stages - 2, Math.floor(growth * (FARM.stages - 1)));
+}
+
+export interface BedSave {
+  /** a célula do canteiro (dentro da estufa) */
+  x: number;
+  z: number;
+  /** tem solo fértil */
+  soil: boolean;
+  /** água, 0..1 */
+  water: number;
+  /** a planta: crescimento 0..1 (1 = madura); null = vazio */
+  crop: { growth: number } | null;
+}
 
 /** soma do custo de todas as peças */
 export function totalCost(): ItemCounts {
@@ -62,7 +117,8 @@ export function totalCost(): ItemCounts {
 
 /** o que está no salvamento: o baú foi aberto? e a obra, se existir */
 export interface GreenhouseSave {
-  chestOpened: boolean;
+  /** lotes do baú já pegos */
+  chest: ChestLot[];
   site: SiteSave | null;
 }
 
@@ -75,4 +131,6 @@ export interface SiteSave {
   parts: PartId[];
   /** finalizada: tudo em alta qualidade */
   done: boolean;
+  /** canteiros (só na estufa pronta) */
+  beds: BedSave[];
 }

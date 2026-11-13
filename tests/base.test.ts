@@ -4,7 +4,6 @@ import { createBus } from '../src/app/events';
 import { HULL, AIR } from '../src/data/blocks';
 import { HAB_MODULE } from '../src/data/base';
 import { RECIPES } from '../src/data/recipes';
-import { ITEMS } from '../src/data/items';
 import { NEEDS } from '../src/data/survival';
 import { createMaterials } from '../src/render/materials';
 import { PropFactory } from '../src/render/models';
@@ -183,13 +182,28 @@ describe('sobrevivência na base', () => {
     expect([s.o2, s.battery, s.integrity]).toEqual([100, 100, 100]);
   });
 
-  it('energia e fome ainda desligadas: nada gasta e nada é comida', () => {
-    expect(NEEDS.energy.enabled).toBe(false);
-    const { s } = survival(false);
-    for (let i = 0; i < 600; i++) s.step(1 / 60);
-    expect(s.energy).toBe(NEEDS.energy.max);
-    expect(Object.values(ITEMS).some((d) => d.food)).toBe(false);
+  it('fome ligada: a energia cai, a batata devolve, sem energia o traje falha devagar e o renascer dá a ração', () => {
+    expect(NEEDS.energy.enabled).toBe(true);
+    const { s, events } = survival(true);
+    const warns: number[] = [];
+    events.on('suit:warning', ({ meter, level }) => meter === 'energy' && warns.push(level));
+    for (let i = 0; i < 600; i++) s.step(1 / 10); // 60 s
+    expect(s.energy).toBeCloseTo(NEEDS.energy.max - NEEDS.energy.hungerPerMinute, 1);
     expect(s.eat('regolith')).toBe(false);
-    expect(s.serialize().energy).toBeUndefined();
+    s.energy = 50;
+    expect(s.eat('potato')).toBe(true);
+    expect(s.energy).toBe(75);
+    expect(s.serialize().energy).toBe(75);
+    s.energy = 31;
+    for (let i = 0; i < 100; i++) s.step(1);
+    expect(warns).toContain(1);
+    s.energy = 0;
+    const hp = s.integrity;
+    s.step(10);
+    expect(s.starving).toBe(true);
+    expect(s.integrity).toBeLessThan(hp);
+    expect(hp - s.integrity).toBeLessThan(5); // devagar: dá tempo de comer
+    s.respawn();
+    expect(s.energy).toBe(NEEDS.energy.respawn);
   });
 });

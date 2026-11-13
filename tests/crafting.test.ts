@@ -50,7 +50,7 @@ describe('receitas como dados', () => {
   it('todo item da Lua tem propósito: entra em alguma receita, é colocado no mundo ou é a reserva do traje (O₂)', () => {
     const used = new Set<string>(RECIPES.flatMap((x) => Object.keys(x.inputs)));
     for (const id of ITEM_ORDER) {
-      if (MARS.includes(id) || id === 'o2' || ITEMS[id].place || ITEMS[id].site) continue;
+      if (MARS.includes(id) || id === 'o2' || ITEMS[id].place || ITEMS[id].site || ITEMS[id].food || ITEMS[id].farm) continue;
       expect(used.has(id), id).toBe(true);
     }
     for (const id of ITEM_ORDER) expect(ITEMS[id].about.length, id).toBeGreaterThan(10);
@@ -78,7 +78,9 @@ describe('receitas como dados', () => {
         }
       }
     }
-    expect([...made].sort()).toEqual(RECIPES.map((x) => x.id).sort());
+    // receitas de Marte (ex.: solo de poeira marciana) ficam de fora: não se faz com o que há na Lua
+    const lunar = RECIPES.filter((x) => !Object.keys(x.inputs).some((k) => MARS.includes(k as ItemId)));
+    expect([...made].sort()).toEqual(lunar.map((x) => x.id).sort());
   });
 
   it('rápido como o dono pediu: uma unidade em poucos segundos; material quente, pesado e raro demora mais', () => {

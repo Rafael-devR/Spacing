@@ -3,6 +3,7 @@
 // Tudo é geometria simples, sem arquivo do Blender. Coordenadas locais: x e z de 0 a 7, y = 0 é a base da célula do piso.
 import * as THREE from 'three';
 import { GH, PART_IDS, type PartId } from '../data/greenhouse';
+import { modelPart } from './gltfModels';
 
 const N = GH.size;
 const WALL_TOP = 1 + GH.wallHeight;
@@ -39,7 +40,9 @@ function materials(ground: string): Mats {
     rawGlass: new THREE.MeshLambertMaterial({ color: '#cdd3d0', transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false }),
     metal: new THREE.MeshLambertMaterial({ color: '#e2e6ee', flatShading: true }),
     trim: new THREE.MeshLambertMaterial({ color: '#3f9bb8', emissive: '#0e4a5e', flatShading: true }),
-    glass: new THREE.MeshPhongMaterial({ color: '#9fe4f2', specular: '#ffffff', shininess: 90, transparent: true, opacity: 0.26, side: THREE.DoubleSide, depthWrite: false }),
+    glass: new THREE.MeshPhongMaterial({
+      color: '#8fdcef', specular: '#ffffff', shininess: 90, emissive: '#0d3a48', transparent: true, opacity: 0.34, side: THREE.DoubleSide, depthWrite: false,
+    }),
     list: [],
   };
   m.list = [holoFill, holoLine, m.ground, m.raw, m.rawDark, m.rawGlass, m.metal, m.trim, m.glass];
@@ -102,6 +105,29 @@ function holoOf(meshes: THREE.Mesh[], m: Mats, edge = 25): THREE.Group {
     lines.renderOrder = 6;
     g.add(fill, lines);
   }
+  return g;
+}
+
+/** holograma de uma peça do Blender: cada malha vira preenchimento ciano e contorno, no mesmo lugar */
+function holoOfPart(root: THREE.Object3D, m: Mats, edge = 30): THREE.Group {
+  const g = new THREE.Group();
+  root.updateMatrixWorld(true);
+  const inv = root.matrixWorld.clone().invert();
+  root.traverse((o) => {
+    const src = o as THREE.Mesh;
+    if (!src.isMesh) return;
+    const local = inv.clone().multiply(src.matrixWorld);
+    const fill = new THREE.Mesh(src.geometry, m.holoFill);
+    const lines = new THREE.LineSegments(new THREE.EdgesGeometry(src.geometry, edge), m.holoLine);
+    for (const x of [fill, lines]) {
+      x.matrixAutoUpdate = false;
+      x.matrix.copy(local);
+    }
+    fill.renderOrder = 5;
+    lines.renderOrder = 6;
+    fill.userData.shared = true; // a geometria é do modelo carregado: não descartar
+    g.add(fill, lines);
+  });
   return g;
 }
 
@@ -176,9 +202,18 @@ export class GreenhouseModel {
     high.glass.push(...vault(m.glass));
 
     for (const id of PART_IDS) {
-      const holo = holoOf(raw[id], m, id === 'glass' ? 40 : 25);
-      this.looks.set(id, { holo, low: group(...raw[id]), high: group(...high[id]) });
-      this.group.add(holo, this.looks.get(id)!.low, this.looks.get(id)!.high);
+      // os modelos do Blender (tools/models/greenhouse.py), se carregaram; senão, as caixas feitas aqui
+      const lowGlb = modelPart('greenhouse', `${id}_low`), highGlb = modelPart('greenhouse', `${id}_high`);
+      const look: Look = lowGlb && highGlb
+        ? { holo: holoOfPart(lowGlb, m, id === 'glass' ? 40 : 30), low: group(lowGlb), high: group(highGlb) }
+        : { holo: holoOf(raw[id], m, id === 'glass' ? 40 : 25), low: group(...raw[id]), high: group(...high[id]) };
+      for (const r of [lowGlb, highGlb]) r?.traverse((o) => (o.userData.shared = true));
+      // o vidro da estufa tem brilho próprio (o vidro comum dos modelos some sobre o chão claro)
+      highGlb?.traverse((o) => {
+        if ((o as THREE.Mesh).isMesh && /^glass/.test(o.name)) (o as THREE.Mesh).material = m.glass;
+      });
+      this.looks.set(id, look);
+      this.group.add(look.holo, look.low, look.high);
     }
     // o chão nivelado, sempre lá (o piso é a placa por cima dele)
     this.slab = box(N, 0.93, N, 0, 0, 0, m.ground);
@@ -284,6 +319,7 @@ export class GreenhouseModel {
 
   dispose(): void {
     this.group.traverse((o) => {
+      if (o.userData.shared) return;
       const g = (o as THREE.Mesh).geometry as THREE.BufferGeometry | undefined;
       g?.dispose();
     });

@@ -251,7 +251,7 @@ export class Hud {
    * Medidores do traje (0..100). `state` de cada um: '' normal, 'warn', 'crit' ou 'charging'.
    * Só mexe no DOM quando algo muda.
    */
-  setMeter(id: 'o2' | 'battery' | 'integrity', value: number, state: '' | 'warn' | 'crit' | 'charging'): void {
+  setMeter(id: 'o2' | 'battery' | 'integrity' | 'energy', value: number, state: '' | 'warn' | 'crit' | 'charging'): void {
     const v = Math.round(value);
     const key = v + '|' + state;
     if (this.meterCache.get(id) === key) return;
@@ -266,7 +266,7 @@ export class Hud {
     if (val) val.textContent = String(v);
   }
 
-  bumpMeter(id: 'o2' | 'battery' | 'integrity'): void {
+  bumpMeter(id: 'o2' | 'battery' | 'integrity' | 'energy'): void {
     const m = el('#meter-' + id);
     m.classList.remove('bump');
     void m.offsetWidth;

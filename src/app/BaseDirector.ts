@@ -65,9 +65,11 @@ export interface BaseDirectorDeps {
   greenhouse: { useOption(): { label: string; dist: number } | null; use(): void };
   /** o baú de suprimentos da base: abre uma vez e dá o kit da estufa */
   chest: { open(): void; opened(): boolean };
+  /** comer o item da barra (comida): o texto do botão, ou null se não dá para comer agora */
+  eat: { label(): string | null; run(): void };
 }
 
-type UseKind = 'enter' | 'exit' | 'bed' | 'console' | 'chest' | 'site' | StationId;
+type UseKind = 'enter' | 'exit' | 'bed' | 'console' | 'chest' | 'site' | 'eat' | StationId;
 
 const isStationUse = (k: UseKind): k is StationId => k in STATIONS;
 
@@ -253,6 +255,7 @@ export class BaseDirector {
     else if (kind === 'console') this.d.powerPanel.show();
     else if (kind === 'chest') this.d.chest.open();
     else if (kind === 'site') this.d.greenhouse.use();
+    else if (kind === 'eat') this.d.eat.run();
     else if (isStationUse(kind)) this.d.craftPanel.show(kind);
   }
 
@@ -587,6 +590,9 @@ export class BaseDirector {
           if (f.def.kind === 'crates' && !d.chest.opened()) options.push(['chest', near(f.use)]);
         }
       }
+      // comer: só quando nada mais está ao alcance (o resto tem distância de até ~3 blocos)
+      const eatLabel = d.eat.label();
+      if (eatLabel) options.push(['eat', 50]);
       const best = options.filter(([, dd]) => dd < Infinity).sort((a, b) => a[1] - b[1])[0];
       if (best) {
         kind = best[0];
@@ -598,6 +604,7 @@ export class BaseDirector {
               ? t('base.stationReady', { name })
               : t('base.station', { name });
         } else if (kind === 'site') label = siteLabel;
+        else if (kind === 'eat') label = eatLabel;
         else label = t(kind === 'enter' ? 'base.enter' : kind === 'exit' ? 'base.exit' : kind === 'console' ? 'base.console' : kind === 'chest' ? 'gh.chest' : 'base.bed');
       }
       // primeira vez perto da base: a IA explica

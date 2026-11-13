@@ -68,7 +68,8 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). **Sessão nova?
   Acrescente ao catálogo, quando fizer sentido testá-la na hora.
 - Estufa ([design/ESTUFA.md](docs/design/ESTUFA.md), ADR 0016): dados em `src/data/greenhouse.ts`, regras em `src/systems/Greenhouse.ts`, colisão em
   `src/world/greenhouseLayout.ts` (uma `Structure`), desenho em `src/render/greenhouseModel.ts`, experiência em `src/app/GreenhouseDirector.ts`
-  (o botão de ação vem do `BaseDirector`); teste `tools/visual-check/greenhouse.mjs`. Plantio e fome ainda não existem.
+  (o botão de ação vem do `BaseDirector`); canteiros em `src/render/farmModel.ts`; modelos `tools/models/greenhouse.py` e `farm.py`;
+  teste `tools/visual-check/greenhouse.mjs`. A fome está ligada (`NEEDS.energy` em `src/data/survival.ts`).
 - Meteoros ([design/METEOROS.md](docs/design/METEOROS.md), ADR 0014): números em `src/data/meteors.ts`; lógica em `src/entities/Meteors.ts`;
   visual em `src/render/meteorFx.ts` e `puffs.ts`; **onda de choque que entorta a imagem** em `src/render/shockwave.ts` + `FX_SHOCK` na passada
   final de `post.ts`; som, câmera, pausa e clarão em `src/app/MeteorDirector.ts`; teste `tools/visual-check/meteors.mjs`.

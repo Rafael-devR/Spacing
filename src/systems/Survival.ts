@@ -49,6 +49,9 @@ export class Survival {
   inPressure = false;
   private o2Level: 0 | 1 | 2 = 0;
   private batteryLevel: 0 | 1 = 0;
+  private energyLevel: 0 | 1 | 2 = 0;
+  /** sem energia (fome): a integridade cai devagar */
+  starving = false;
   private asphyxia = false;
 
   constructor(
@@ -63,6 +66,7 @@ export class Survival {
       if (typeof saved.energy === 'number') this.energy = clamp(saved.energy);
     }
     this.o2Level = this.levelFor(this.o2);
+    this.energyLevel = this.energyLevelFor(this.energy);
     this.batteryLevel = this.battery / 100 < SURVIVAL.batteryWarn ? 1 : 0;
     d.events.on('meteor:impact', ({ distance }) => {
       if (this.d.sheltered?.()) return;
@@ -118,6 +122,13 @@ export class Survival {
       d.events.emit('suit:asphyxia', { on: noAir });
     }
     if (noAir) this.damage(SURVIVAL.asphyxiaDps * dt, 'asphyxia', true);
+    this.starving = NEEDS.energy.enabled && this.energy <= 0;
+    if (this.starving) this.damage(NEEDS.energy.starveDps * dt, 'hunger', true);
+  }
+
+  private energyLevelFor(e: number): 0 | 1 | 2 {
+    const f = e / NEEDS.energy.max;
+    return f <= NEEDS.energy.warn[1] ? 2 : f <= NEEDS.energy.warn[0] ? 1 : 0;
   }
 
   private levelFor(o2: number): 0 | 1 | 2 {
@@ -131,6 +142,13 @@ export class Survival {
       // avisa ao piorar; ao melhorar só quando volta ao normal (evita repetir perto do limite)
       if (level > this.o2Level || level === 0) this.warn('o2', level);
       this.o2Level = level;
+    }
+    if (NEEDS.energy.enabled) {
+      const el = this.energyLevelFor(this.energy);
+      if (el !== this.energyLevel) {
+        if (el > this.energyLevel) this.warn('energy', el);
+        this.energyLevel = el;
+      }
     }
     const bl: 0 | 1 = this.battery / 100 < SURVIVAL.batteryWarn ? 1 : 0;
     if (bl !== this.batteryLevel) {
@@ -159,11 +177,12 @@ export class Survival {
     }
   }
 
-  /** Comer: devolve energia se o item for comida. Retorna false se não for (ainda nada é comida). */
+  /** Comer: devolve energia se o item for comida. Retorna false se não for comida. */
   eat(item: ItemId): boolean {
     const food = ITEMS[item].food;
     if (!food) return false;
     this.energy = clamp(this.energy + food.energy);
+    this.energyLevel = this.energyLevelFor(this.energy);
     return true;
   }
 
@@ -178,6 +197,8 @@ export class Survival {
   respawn(): void {
     this.suitId = 'emergency';
     this.o2 = this.battery = this.integrity = 100;
+    this.energy = Math.max(this.energy, NEEDS.energy.respawn);
+    this.energyLevel = this.energyLevelFor(this.energy);
     this.dead = false;
     this.invulnerable = SURVIVAL.respawnInvulnerable;
     if (this.asphyxia) {

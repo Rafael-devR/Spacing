@@ -161,7 +161,7 @@ describe('salvamento', () => {
         jobs: [{ station: 'furnace' as const, slot: 2, recipe: 'glass', batch: 4, prep: 1, unit: 2.5, done: 6, taken: { glass: 1 }, paused: true }],
       },
       power: { battery: 300 },
-      greenhouse: { chestOpened: true, site: { x: 10, z: -3, floorY: 31, parts: ['floor' as const, 'wallS' as const], done: false } },
+      greenhouse: { chest: ['estufa' as const], site: { x: 10, z: -3, floorY: 31, parts: ['floor' as const, 'wallS' as const], done: false, beds: [] } },
     };
     expect(writeSave(store, data)).toBe(true);
     const back = loadSave(store, 3);
@@ -219,7 +219,7 @@ describe('salvamento', () => {
       worldGen: 1, world: { edits: {}, removedProps: [], extraProps: [] }, inventory: slots({}), player: null,
         missions: { step: 0, count: 0 }, suit: null, loot: [], equipment: {},
         base: { inside: false, respawn: 'lander', visited: false }, explored: {}, crafting: { built: [], jobs: [] }, power: null,
-        greenhouse: { chestOpened: false, site: null },
+        greenhouse: { chest: [], site: null },
       }),
     ).toBe(false);
   });
@@ -259,11 +259,16 @@ describe('salvamento', () => {
   });
 });
 
-describe('salvamento v11: estufa', () => {
+describe('salvamento v11 e v12: estufa', () => {
   const base = { version: 10, seed: 5, worldGen: 1, world: { edits: {}, removedProps: [], extraProps: [] } };
+  const ALL = ['floor', 'wallS', 'wallW', 'wallE', 'wallN', 'frame', 'glass'];
 
   it('antes da v11: baú fechado e sem obra', () => {
-    expect(migrate(base, 5)?.greenhouse).toEqual({ chestOpened: false, site: null });
+    expect(migrate(base, 5)?.greenhouse).toEqual({ chest: [], site: null });
+  });
+
+  it('v11: baú aberto vira o lote "estufa" (o lote do cultivo continua no baú)', () => {
+    expect(migrate({ ...base, version: 11, greenhouse: { chestOpened: true, site: null } }, 5)?.greenhouse.chest).toEqual(['estufa']);
   });
 
   it('limpa a obra: peças desconhecidas somem, a ordem é a de entrega e "pronta" só com todas as peças', () => {
@@ -271,21 +276,35 @@ describe('salvamento v11: estufa', () => {
       { ...base, version: 11, greenhouse: { chestOpened: true, site: { x: 1.7, z: 2, floorY: 30, parts: ['wallS', 'glass', 'floor', 'xxx'], done: true } } },
       5,
     )?.greenhouse;
-    expect(g?.chestOpened).toBe(true);
-    expect(g?.site).toEqual({ x: 1, z: 2, floorY: 30, parts: ['floor', 'wallS', 'glass'], done: false });
+    expect(g?.site).toEqual({ x: 1, z: 2, floorY: 30, parts: ['floor', 'wallS', 'glass'], done: false, beds: [] });
     expect(migrate({ ...base, version: 11, greenhouse: { site: { x: 'a' } } }, 5)?.greenhouse.site).toBeNull();
   });
 
-  it('mundo refeito: o projeto e o material entregue voltam para a mochila', () => {
-    const save = migrate(
-      { ...base, version: 11, greenhouse: { chestOpened: true, site: { x: 0, z: 0, floorY: 30, parts: ['floor', 'wallS'], done: false } } },
-      5,
-    ) as SaveData;
+  it('v12: canteiros só dentro das paredes e sem repetir; planta só com solo', () => {
+    const beds = [
+      { x: 2, z: 2, soil: true, water: 0.5, crop: { growth: 0.4 } },
+      { x: 2, z: 2, soil: true, water: 1, crop: null }, // repetido
+      { x: 0, z: 3, soil: false, water: 0, crop: null }, // na parede
+      { x: 3, z: 3, soil: false, water: 2, crop: { growth: 0.2 } }, // sem solo: sem planta; água até 1
+    ];
+    const g = migrate({ ...base, version: 12, greenhouse: { chest: ['estufa', 'cultivo', 'x'], site: { x: 0, z: 0, floorY: 30, parts: ALL, done: true, beds } } }, 5)?.greenhouse;
+    expect(g?.chest).toEqual(['estufa', 'cultivo']);
+    expect(g?.site?.beds).toEqual([
+      { x: 2, z: 2, soil: true, water: 0.5, crop: { growth: 0.4 } },
+      { x: 3, z: 3, soil: false, water: 1, crop: null },
+    ]);
+  });
+
+  it('mundo refeito: o projeto, o material entregue e os canteiros voltam para a mochila', () => {
+    const beds = [{ x: 2, z: 2, soil: true, water: 0.5, crop: { growth: 1 } }, { x: 3, z: 2, soil: false, water: 0, crop: null }];
+    const save = migrate({ ...base, version: 12, greenhouse: { chest: ['estufa'], site: { x: 0, z: 0, floorY: 30, parts: ALL, done: true, beds } } }, 5) as SaveData;
     const renewed = renewWorld(save, 9, 4);
-    expect(renewed.greenhouse).toEqual({ chestOpened: true, site: null });
+    expect(renewed.greenhouse).toEqual({ chest: ['estufa'], site: null });
     const inv = new Inventory(undefined, renewed.inventory);
     expect(inv.count('greenhouse_plan')).toBe(1);
-    expect(inv.count('brick')).toBe(10); // piso 8 + parede sul 2
-    expect(inv.count('iron_bar')).toBe(3);
+    expect(inv.count('brick')).toBe(16);
+    expect(inv.count('planter')).toBe(2);
+    expect(inv.count('soil')).toBe(1);
+    expect(inv.count('potato')).toBe(3);
   });
 });

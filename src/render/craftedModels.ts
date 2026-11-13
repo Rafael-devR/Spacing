@@ -115,8 +115,47 @@ function plan(color: string): THREE.BufferGeometry[] {
   ];
 }
 
+/** batata: dois tubérculos irregulares com olhos escuros */
+function tuber(color: string): THREE.BufferGeometry[] {
+  const a = new THREE.IcosahedronGeometry(0.34, 0);
+  a.scale(1.3, 0.85, 0.95);
+  a.rotateZ(0.3);
+  const b = new THREE.IcosahedronGeometry(0.26, 0);
+  b.scale(1.2, 0.8, 0.9);
+  b.rotateY(1.1);
+  const eye = '#6d4b2a';
+  return [
+    part(a, color, -0.12, 0.3, 0, 0.16),
+    part(b, new THREE.Color(color).offsetHSL(0, 0, -0.05).getStyle(), 0.26, 0.22, 0.12, 0.16),
+    part(new THREE.BoxGeometry(0.05, 0.05, 0.05), eye, -0.2, 0.52, 0.12, 0),
+    part(new THREE.BoxGeometry(0.05, 0.05, 0.05), eye, 0.05, 0.42, 0.25, 0),
+  ];
+}
+
+/** saco de solo dobrado em cima, com faixa */
+function sack(color: string): THREE.BufferGeometry[] {
+  const bag = '#d9cdb5';
+  const body = new THREE.CylinderGeometry(0.34, 0.4, 0.7, 7);
+  return [
+    part(body, bag, 0, 0.35, 0, 0.1),
+    part(new THREE.CylinderGeometry(0.3, 0.34, 0.12, 7), color, 0, 0.76, 0, 0.12),
+    part(new THREE.BoxGeometry(0.5, 0.14, 0.05), '#5aa04a', 0, 0.38, 0.34, 0),
+  ];
+}
+
+/** canteiro pequeno: caixa clara com borda escura e terra */
+function planter(color: string): THREE.BufferGeometry[] {
+  return [
+    part(new THREE.BoxGeometry(0.9, 0.36, 0.6), color, 0, 0.18, 0, 0.06),
+    part(new THREE.BoxGeometry(0.94, 0.05, 0.64), '#4b4f60', 0, 0.38, 0, 0.04),
+    part(new THREE.BoxGeometry(0.78, 0.04, 0.48), '#5a3d28', 0, 0.39, 0, 0.1),
+    part(new THREE.BoxGeometry(0.06, 0.16, 0.06), '#6fbf5a', -0.2, 0.47, 0, 0),
+    part(new THREE.BoxGeometry(0.06, 0.12, 0.06), '#6fbf5a', 0.18, 0.45, 0.06, 0),
+  ];
+}
+
 const BUILDERS: Record<CraftedModel, (color: string) => THREE.BufferGeometry[]> = {
-  ingot, brick, pane, spool, tank, powder, wafer, chip, plan,
+  ingot, brick, pane, spool, tank, powder, wafer, chip, plan, tuber, sack, planter,
 };
 
 /** geometria inteira do item (centrada em x e z, apoiada em y = 0) */

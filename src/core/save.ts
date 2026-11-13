@@ -12,13 +12,15 @@ import type { ExplorationSave } from '../systems/Exploration';
 import type { CraftingSave, JobSave } from '../systems/Crafting';
 import type { PowerSave } from '../systems/Power';
 import { isStationId, STATIONS } from '../data/stations';
-import { PART_IDS, partDef, type GreenhouseSave, type PartId } from '../data/greenhouse';
+import {
+  CHEST_LOT_IDS, FARM, GH, PART_IDS, partDef, type BedSave, type ChestLot, type GreenhouseSave, type PartId,
+} from '../data/greenhouse';
 
 export const SAVE_KEY = 'spacing.save';
 /** chave usada pela v0.1, sem campo de versão */
 export const LEGACY_SAVE_KEY = 'spacing.save.v1';
 export const PREFS_KEY = 'spacing.prefs.v1';
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 
 export interface ExtraPropSave {
   wx: number;
@@ -62,7 +64,7 @@ export interface SaveData {
   crafting: CraftingSave;
   /** energia da base (v8): carga da bateria; null = cheia */
   power: PowerSave | null;
-  /** estufa (v11): baú aberto e a obra no terreno, se houver */
+  /** estufa (v11; lotes do baú e canteiros na v12): o que o baú já deu e a obra no terreno, se houver */
   greenhouse: GreenhouseSave;
 }
 
@@ -240,20 +242,35 @@ function cleanCrafting(v: unknown, version: number): CraftingSave {
   return { built: built as CraftingSave['built'], jobs };
 }
 
-/** v11: o baú e a obra da estufa; peças desconhecidas ou repetidas somem, e uma obra sem posição válida some. */
-function cleanGreenhouse(v: unknown): GreenhouseSave {
+/**
+ * v11: o baú (`chestOpened`) e a obra da estufa. v12: o baú em lotes (`chest`) e os canteiros da obra (`beds`).
+ * Peças desconhecidas ou repetidas somem; uma obra sem posição válida some; canteiros só dentro e só numa obra pronta.
+ */
+function cleanGreenhouse(v: unknown, version: number): GreenhouseSave {
   const g = isObj(v) ? v : {};
-  const out: GreenhouseSave = { chestOpened: g.chestOpened === true, site: null };
+  const chest: ChestLot[] =
+    version >= 12 ? CHEST_LOT_IDS.filter((l) => Array.isArray(g.chest) && g.chest.includes(l)) : g.chestOpened === true ? ['estufa'] : [];
+  const out: GreenhouseSave = { chest, site: null };
   const s = g.site;
   if (isObj(s) && Number.isFinite(s.x) && Number.isFinite(s.z) && Number.isFinite(s.floorY)) {
     const parts: PartId[] = [];
     // as peças valem na ordem de entrega
     const given = Array.isArray(s.parts) ? s.parts : [];
     for (const id of PART_IDS) if (given.includes(id)) parts.push(id);
-    out.site = {
-      x: Math.floor(num(s.x, 0)), z: Math.floor(num(s.z, 0)), floorY: Math.floor(num(s.floorY, 1)),
-      parts, done: s.done === true && parts.length === PART_IDS.length,
-    };
+    const x = Math.floor(num(s.x, 0)), z = Math.floor(num(s.z, 0));
+    const done = s.done === true && parts.length === PART_IDS.length;
+    const beds: BedSave[] = [];
+    if (done && version >= 12 && Array.isArray(s.beds)) {
+      for (const b of s.beds) {
+        if (!isObj(b) || !Number.isInteger(b.x) || !Number.isInteger(b.z)) continue;
+        const bx = b.x as number, bz = b.z as number;
+        if (bx <= x || bx >= x + GH.size - 1 || bz <= z || bz >= z + GH.size - 1 || beds.some((o) => o.x === bx && o.z === bz)) continue;
+        const soil = b.soil === true;
+        const crop = soil && isObj(b.crop) ? { growth: Math.min(1, Math.max(0, num(b.crop.growth, 0))) } : null;
+        beds.push({ x: bx, z: bz, soil, water: Math.min(1, Math.max(0, num(b.water, 0))), crop });
+      }
+    }
+    out.site = { x, z, floorY: Math.floor(num(s.floorY, 1)), parts, done, beds };
   }
   return out;
 }
@@ -283,6 +300,7 @@ export function withStarterCircuit(inv: InventorySave, equipment: EquipmentSave)
  * v9: trabalhos com preparo e tempo por unidade (`prep`, `unit`), o que já foi pego (`taken`), pausa e sobras de cancelamento.
  * v10: `worldGen` (versão do gerador do mundo). Antes disso, gerador 1.
  * v11: `greenhouse` (baú da base e a obra da estufa). Antes disso, baú fechado e sem obra.
+ * v12: baú da estufa em lotes (`chest`) e canteiros na obra (`beds`). O baú aberto na v11 vira o lote `estufa`.
  */
 export function migrate(raw: unknown, seed: number): SaveData | null {
   if (!isObj(raw)) return null;
@@ -308,7 +326,7 @@ export function migrate(raw: unknown, seed: number): SaveData | null {
     explored: version >= 6 ? cleanExplored(raw.explored) : {},
     crafting: version >= 7 ? cleanCrafting(raw.crafting, version) : { built: [], jobs: [] },
     power: version >= 8 && isObj(raw.power) && Number.isFinite(raw.power.battery) ? { battery: Math.max(0, num(raw.power.battery, 0)) } : null,
-    greenhouse: version >= 11 ? cleanGreenhouse(raw.greenhouse) : { chestOpened: false, site: null },
+    greenhouse: version >= 11 ? cleanGreenhouse(raw.greenhouse, version) : { chest: [], site: null },
   };
 }
 
@@ -326,6 +344,12 @@ export function renewWorld(save: SaveData, seed: number, worldGen: number): Save
   if (greenhouse.site) {
     inv.add('greenhouse_plan', 1, false);
     for (const id of greenhouse.site.parts) for (const [k, n] of Object.entries(partDef(id).cost) as [ItemId, number][]) inv.add(k, n, false);
+    // canteiros: a caixa, o solo e a batata plantada voltam
+    for (const b of greenhouse.site.beds) {
+      inv.add('planter', 1, false);
+      if (b.soil) inv.add('soil', 1, false);
+      if (b.crop) inv.add('potato', b.crop.growth >= 1 ? FARM.harvest : 1, false);
+    }
     greenhouse = { ...greenhouse, site: null };
   }
   return {

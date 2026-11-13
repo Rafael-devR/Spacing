@@ -8,8 +8,10 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import electrolyzerUrl from '../assets/models/electrolyzer.glb?url';
+import farmUrl from '../assets/models/farm.glb?url';
 import furnaceUrl from '../assets/models/furnace.glb?url';
 import furnitureUrl from '../assets/models/furniture.glb?url';
+import greenhouseUrl from '../assets/models/greenhouse.glb?url';
 import habitatUrl from '../assets/models/habitat.glb?url';
 import habitatInteriorUrl from '../assets/models/habitat_interior.glb?url';
 import landerUrl from '../assets/models/lander.glb?url';
@@ -17,11 +19,13 @@ import meteorUrl from '../assets/models/meteor.glb?url';
 import workbenchUrl from '../assets/models/workbench.glb?url';
 import { patchMaterial } from './materials';
 
-export type ModelId = 'lander' | 'habitat' | 'habitat_interior' | 'furniture' | 'workbench' | 'furnace' | 'electrolyzer' | 'meteor';
+export type ModelId =
+  | 'lander' | 'habitat' | 'habitat_interior' | 'furniture' | 'workbench' | 'furnace' | 'electrolyzer' | 'meteor' | 'greenhouse' | 'farm';
 
 const URLS: Record<ModelId, string> = {
   lander: landerUrl, habitat: habitatUrl, habitat_interior: habitatInteriorUrl, furniture: furnitureUrl,
   workbench: workbenchUrl, furnace: furnaceUrl, electrolyzer: electrolyzerUrl, meteor: meteorUrl,
+  greenhouse: greenhouseUrl, farm: farmUrl,
 };
 const loaded = new Map<ModelId, { scene: THREE.Object3D; clips: THREE.AnimationClip[] }>();
 

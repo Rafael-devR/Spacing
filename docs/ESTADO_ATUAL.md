@@ -101,9 +101,11 @@ Em ordem de execução, tudo com testes e documentação:
 
 ## Estufa (objetivo de longo prazo do jogo: a comida)
 
-Primeira parte pronta em 2026-11-13: baú na base, holograma no terreno, construção peça por peça (baixa → alta qualidade), cápsula
-sólida com porta ([design/ESTUFA.md](design/ESTUFA.md), ADR 0016). **Falta:** plantar e colher, solo, água, luz, fome ligada. O dono
-ainda não testou no celular (conferir o holograma com o dedo, a etiqueta legível, entrar pela porta, o desempenho do vidro).
+Pronta em 2026-11-13 ([design/ESTUFA.md](design/ESTUFA.md), ADR 0016): baú na base, holograma no terreno, construção peça por peça
+(baixa → alta qualidade) com modelos do Blender, cápsula sólida com porta, **canteiros, solo, rega, batata em 5 estágios, colheita** e
+**a fome ligada** (medidor de energia, comer batata). O dono aprovou a primeira parte (com as caixas provisórias); os modelos do
+Blender, o cultivo e a fome ainda não foram vistos no celular. **Atenção:** com a fome ligada, todo jogo passa a precisar de comida
+(cheia dura ~80 min).
 
 ## O que o dono ainda **não viu** no celular
 

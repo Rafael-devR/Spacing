@@ -494,6 +494,7 @@ body.touch .only-touch-row { display: grid; }
 .m-val { font-size: 11px; text-align: right; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 #meter-battery { --meter: #ffc84a; }
 #meter-integrity { --meter: #7dffa8; }
+#meter-energy { --meter: #ff9f6b; }
 .meter.warn { --meter: #ffb648; }
 .meter.warn .m-track i { animation: meter-pulse 1.2s ease-in-out infinite; }
 .meter.crit { --meter: #ff6a55; }

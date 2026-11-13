@@ -135,6 +135,39 @@ export const RECIPES: Recipe[] = [
     },
   },
   {
+    id: 'planter',
+    station: 'workbench',
+    inputs: { brick: 3, iron_bar: 1 },
+    outputs: [item('planter')],
+    process: {
+      reaction: 'tijolo (caixa) + ferro (moldura e dreno)',
+      steps: ['Moldar caixa', 'Furar dreno', 'Moldura', 'Vedar'],
+      note: 'Na ISS as plantas crescem em travesseiros de substrato com água controlada (experimento Veggie, da NASA).',
+    },
+  },
+  {
+    id: 'soil',
+    station: 'workbench',
+    inputs: { regolith: 3, ice: 1 },
+    outputs: [item('soil')],
+    process: {
+      reaction: 'regolito moído + água + nutrientes do kit',
+      steps: ['Moer', 'Peneirar', 'Molhar', 'Misturar'],
+      note: 'Em 2022 cientistas plantaram em regolito trazido pela Apollo: as plantas cresceram, mas fracas. Precisa de nutrientes e de solo solto.',
+    },
+  },
+  {
+    id: 'soil_mars',
+    station: 'workbench',
+    inputs: { marsdust: 3, ice: 1 },
+    outputs: [item('soil')],
+    process: {
+      reaction: 'poeira marciana lavada (sem perclorato) + água + nutrientes',
+      steps: ['Lavar', 'Secar', 'Peneirar', 'Misturar'],
+      note: 'O solo de Marte tem percloratos tóxicos; lavar com água tira boa parte deles antes de plantar.',
+    },
+  },
+  {
     id: 'drill_iron',
     station: 'workbench',
     inputs: { iron_bar: 4, brick: 2 },

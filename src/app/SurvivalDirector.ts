@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import type { Sfx } from '../audio/Sfx';
 import type { Haptics } from '../core/haptics';
 import type { Input } from '../core/Input';
-import { SURVIVAL } from '../data/survival';
+import { NEEDS, SURVIVAL } from '../data/survival';
 import type { LootPiles } from '../entities/LootPiles';
 import type { Player } from '../entities/Player';
 import { t } from '../i18n';
@@ -80,6 +80,10 @@ export class SurvivalDirector {
           haptics.play('medium');
         } else if (d.survival.inPressure) hud.ai(t('suit.o2Ok'));
         hud.bumpMeter('o2');
+      } else if (meter === 'energy' && level > 0) {
+        hud.ai(t(level === 2 ? 'suit.starving' : 'suit.hungry'), true);
+        sfx.play(level === 2 ? 'alarm' : 'beep');
+        hud.bumpMeter('energy');
       } else if (meter === 'battery' && level === 1) {
         hud.ai(t('suit.batteryLow'), true);
         sfx.play('powerDown');
@@ -249,6 +253,8 @@ export class SurvivalDirector {
     d.hud.setMeter('o2', o2, charging && o2 < 99.5 ? 'charging' : o2 / 100 <= SURVIVAL.o2Warn[1] ? 'crit' : o2 / 100 <= SURVIVAL.o2Warn[0] ? 'warn' : '');
     d.hud.setMeter('battery', bat, charging && bat < 99.5 ? 'charging' : bat <= 0 ? 'crit' : bat / 100 < SURVIVAL.batteryWarn ? 'warn' : '');
     d.hud.setMeter('integrity', hp, charging && hp < 99.5 ? 'charging' : hp < 25 ? 'crit' : hp < 50 ? 'warn' : '');
+    const en = s.energy / NEEDS.energy.max;
+    d.hud.setMeter('energy', s.energy, en <= NEEDS.energy.warn[1] ? 'crit' : en <= NEEDS.energy.warn[0] ? 'warn' : '');
     d.player.blinking = s.invulnerable > 0;
 
     // itens caídos: marcador e aviso quando recolheu tudo

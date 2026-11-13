@@ -5,13 +5,14 @@ import * as THREE from 'three';
 import type { Sfx } from '../audio/Sfx';
 import type { Haptics } from '../core/haptics';
 import { AIR, ICE, LAVA, MARS_DUST, REGOLITH, type BlockId } from '../data/blocks';
-import { GH, PARTS } from '../data/greenhouse';
+import { FARM, GH, PARTS, growthStage, type BedSave } from '../data/greenhouse';
 import type { ItemId } from '../data/items';
 import { PLANET } from '../core/planet';
 import { t, type MessageKey } from '../i18n';
+import { BedView } from '../render/farmModel';
 import { GreenhouseModel } from '../render/greenhouseModel';
 import type { Particles } from '../render/particles';
-import { costText, doorApron, anchorAt, missingText, type Greenhouse } from '../systems/Greenhouse';
+import { costText, doorApron, anchorAt, missingText, type BedAction, type Greenhouse } from '../systems/Greenhouse';
 import type { Interaction } from '../systems/Interaction';
 import type { Inventory } from '../systems/Inventory';
 import type { Hud } from '../ui/Hud';
@@ -51,6 +52,14 @@ export class GreenhouseDirector {
   private structure: Structure | null;
   private readonly ghost: GreenhouseModel;
   private labelDirty = true;
+  /** o desenho de cada canteiro ("x,z") */
+  private readonly beds = new Map<string, BedView>();
+  /** fantasma do canteiro na mira (verde cabe, vermelho não) */
+  private readonly bedGhost: THREE.Mesh;
+  /** o canteiro do botão de ação agora */
+  private bedTarget: BedSave | null = null;
+  /** luz do planeta para as plantas (Marte recebe menos sol) */
+  private readonly light = Math.sqrt(PLANET.solar);
   private readonly groundColor = PLANET.id === 'marte' ? '#7a4a38' : '#8f877b';
 
   constructor(private readonly d: GreenhouseDeps) {
@@ -59,7 +68,13 @@ export class GreenhouseDirector {
     this.ghost.group.visible = false;
     d.scene.add(this.ghost.group);
     if (d.state.site) this.buildModel();
-    d.interaction.onSite = (x, _y, z) => this.tryPlace(x, z);
+    d.interaction.onSite = (x, _y, z) => (d.inventory.selectedItem() === 'planter' ? this.tryBed(x, z) : this.tryPlace(x, z));
+    this.bedGhost = new THREE.Mesh(
+      new THREE.BoxGeometry(0.92, 0.5, 0.92),
+      new THREE.MeshBasicMaterial({ color: '#5bd66f', transparent: true, opacity: 0.35, depthWrite: false }),
+    );
+    this.bedGhost.visible = false;
+    d.scene.add(this.bedGhost);
     d.events.on('inventory:changed', () => (this.labelDirty = true));
   }
 
@@ -75,6 +90,38 @@ export class GreenhouseDirector {
     this.model.setState(site.parts, site.done);
     this.d.scene.add(this.model.group);
     this.labelDirty = true;
+    for (const b of site.beds) this.addBedView(b);
+  }
+
+  private addBedView(b: BedSave): void {
+    const site = this.d.state.site;
+    if (!site) return;
+    const v = new BedView(b.x, site.floorY + 1, b.z);
+    this.beds.set(`${b.x},${b.z}`, v);
+    this.d.scene.add(v.group);
+  }
+
+  /** Põe um canteiro na célula tocada (dentro da estufa pronta). */
+  private tryBed(x: number, z: number): boolean {
+    const { d } = this;
+    const why = d.state.bedSpot(x, z);
+    if (why) {
+      d.sfx.play('deny');
+      d.hud.toast(t(`farm.bad.${why}` as MessageKey), true);
+      return false;
+    }
+    d.state.placeBed(x, z);
+    d.inventory.removeSelected(1);
+    const s = d.state.site;
+    if (s && this.structure) applyParts(this.structure, s);
+    const b = d.state.bedAt(x, z);
+    if (b) this.addBedView(b);
+    d.particles.dust(x + 0.5, (s?.floorY ?? 0) + 1.2, z + 0.5, 6, 0.4);
+    d.sfx.play('place', 1, { x: x + 0.5, y: (s?.floorY ?? 0) + 1.5, z: z + 0.5 });
+    d.haptics.play('tap');
+    d.hud.ai(t('farm.placed'));
+    d.persist();
+    return true;
   }
 
   // ---------- assentar ----------
@@ -145,6 +192,11 @@ export class GreenhouseDirector {
       if (i >= 0) d.world.structures.splice(i, 1);
     }
     this.structure = null;
+    for (const v of this.beds.values()) {
+      d.scene.remove(v.group);
+      v.dispose();
+    }
+    this.beds.clear();
     if (this.model) {
       d.scene.remove(this.model.group);
       this.model.dispose();
@@ -203,6 +255,18 @@ export class GreenhouseDirector {
       this.ghost.group.visible = true;
     } else this.ghost.group.visible = false;
     this.ghost.update(dt, time);
+    // fantasma do canteiro: com o canteiro na mão, no modo construir, mirando a estufa pronta
+    const site = d.state.site;
+    if (d.inventory.selectedItem() === 'planter' && d.interaction.buildMode && tg && tg.kind === 'block' && site?.done) {
+      const ok = d.state.bedSpot(tg.x, tg.z) === null;
+      (this.bedGhost.material as THREE.MeshBasicMaterial).color.set(ok ? '#5bd66f' : '#ff6a55');
+      this.bedGhost.position.set(tg.x + 0.5, site.floorY + 1.25, tg.z + 0.5);
+      this.bedGhost.visible = d.state.insideCell(tg.x, tg.z) || ok;
+    } else this.bedGhost.visible = false;
+
+    // o tempo passa nos canteiros (só jogando)
+    if (d.getState() === 'playing' && site?.done) d.state.step(dt, this.light);
+    if (site) for (const b of site.beds) this.beds.get(`${b.x},${b.z}`)?.set(this.lookOf(b));
 
     if (this.model) {
       const p = d.player();
@@ -211,6 +275,18 @@ export class GreenhouseDirector {
       this.model.showLabel(near && !!s && !s.done);
       if (this.labelDirty && near) this.writeLabel();
     }
+  }
+
+  private lookOf(b: BedSave): Parameters<BedView['set']>[0] {
+    const stage = b.crop ? growthStage(b.crop.growth) : null;
+    const ready = !!b.crop && b.crop.growth >= 1;
+    return {
+      soil: b.soil,
+      wet: b.water > FARM.thirsty,
+      stage,
+      dry: !!b.crop && !ready && b.water <= 0,
+      led: !b.soil || !b.crop ? 'off' : ready ? 'ready' : b.water < FARM.thirsty ? 'thirsty' : 'ok',
+    };
   }
 
   private writeLabel(): void {
@@ -243,8 +319,9 @@ export class GreenhouseDirector {
     d.persist();
   }
 
+  /** o baú já não tem nada (todos os lotes foram pegos) */
   chestOpened(): boolean {
-    return this.d.state.chestOpened;
+    return !this.d.state.chestFull;
   }
 
   // ---------- botão de ação ----------
@@ -253,8 +330,16 @@ export class GreenhouseDirector {
   useOption(): UseOption | null {
     const { d } = this;
     const s = d.state.site;
-    if (!s || s.done) return null;
+    if (!s) return null;
     const p = d.player();
+    if (s.done) {
+      // na estufa pronta: o canteiro mais perto
+      this.bedTarget = Math.abs(p.y - (s.floorY + 1)) < 2 ? d.state.bedNear(p.x, p.z) : null;
+      const b = this.bedTarget;
+      if (!b) return null;
+      const dist = Math.max(0, Math.hypot(p.x - (b.x + 0.5), p.z - (b.z + 0.5)) - 0.5);
+      return { label: t(`farm.act.${d.state.bedAction(b, d.inventory)}` as MessageKey, { pct: Math.round((b.crop?.growth ?? 0) * 100) }), dist };
+    }
     const cx = s.x + GH.size / 2, cz = s.z + GH.size / 2;
     const dx = Math.max(Math.abs(p.x - cx) - GH.size / 2, 0), dz = Math.max(Math.abs(p.z - cz) - GH.size / 2, 0);
     const dist = Math.hypot(dx, dz);
@@ -267,6 +352,10 @@ export class GreenhouseDirector {
     const { d } = this;
     const s = d.state.site;
     if (!s || !this.model) return;
+    if (s.done) {
+      this.useBed();
+      return;
+    }
     const c = { x: s.x + GH.size / 2, y: s.floorY + 1.5, z: s.z + GH.size / 2 };
     if (d.state.complete) {
       if (!d.state.finish()) return;
@@ -300,5 +389,77 @@ export class GreenhouseDirector {
     d.hud.toast(t('gh.delivered', { name: r.part.name }));
     if (d.state.complete) d.hud.ai(t('gh.allParts'));
     d.persist();
+  }
+
+  /** O botão num canteiro: encher de solo, plantar, regar ou colher (o que der agora). */
+  private useBed(): void {
+    const { d } = this;
+    const s = d.state.site, b = this.bedTarget;
+    if (!s || !b) return;
+    const at = { x: b.x + 0.5, y: s.floorY + 1.6, z: b.z + 0.5 };
+    const before: BedAction = d.state.bedAction(b, d.inventory);
+    const r = d.state.useBed(b, d.inventory);
+    if (!r) {
+      d.sfx.play('deny');
+      d.hud.toast(t(`farm.hint.${before}` as MessageKey), true);
+      return;
+    }
+    if (r.action === 'harvest') {
+      d.sfx.play('pickupBig', 1, at);
+      d.haptics.play('success');
+      d.hud.toast(t('farm.harvested', { n: r.harvested ?? 0 }));
+      for (let k = 0; k < 12; k++) {
+        const a = Math.random() * Math.PI * 2;
+        d.particles.spawn(at.x, at.y - 0.6, at.z, Math.cos(a) * 1.2, 1.5 + Math.random(), Math.sin(a) * 1.2, 0.05, [0.9, 0.7, 0.35], 0.6, 6);
+      }
+    } else {
+      d.sfx.play(r.action === 'water' ? 'pressurize' : 'place', r.action === 'water' ? 1.6 : 1.1, at);
+      d.haptics.play('tap');
+      d.particles.dust(at.x, at.y - 0.9, at.z, r.action === 'soil' ? 8 : 4, 0.3);
+      if (r.action === 'water')
+        for (let k = 0; k < 10; k++) d.particles.spawn(at.x + (Math.random() - 0.5) * 0.6, at.y, at.z + (Math.random() - 0.5) * 0.6, 0, -1, 0, 0.035, [0.5, 1.2, 2.0], 0.5, 6);
+      d.hud.toast(t(`farm.done.${r.action}` as MessageKey));
+    }
+    d.persist();
+  }
+
+  // ---------- modo de teste ----------
+
+  /** Só no modo de teste: dois canteiros com solo, água e batata plantada. */
+  testFarm(): string {
+    const { d } = this;
+    const s = d.state.site;
+    if (!s?.done) return 'A estufa precisa estar pronta';
+    let n = 0;
+    for (const [dx, dz] of [[1, 1], [2, 1], [4, 1], [5, 1]]) {
+      const x = s.x + dx, z = s.z + dz;
+      if (!d.state.bedAt(x, z) && d.state.placeBed(x, z)) {
+        const b = d.state.bedAt(x, z) as BedSave;
+        this.addBedView(b);
+      }
+      const b = d.state.bedAt(x, z);
+      if (!b) continue;
+      b.soil = true;
+      b.water = 1;
+      if (!b.crop) b.crop = { growth: 0 };
+      n++;
+    }
+    if (this.structure) applyParts(this.structure, s);
+    d.persist();
+    return `${n} canteiros plantados`;
+  }
+
+  /** Só no modo de teste: avança o crescimento de todas as plantas (`f` de 0 a 1; 1 = maduras). */
+  testGrow(f: number): string {
+    const s = this.d.state.site;
+    let n = 0;
+    for (const b of s?.beds ?? []) {
+      if (!b.crop) continue;
+      b.crop.growth = Math.min(1, b.crop.growth + f);
+      b.water = Math.max(b.water, 0.6);
+      n++;
+    }
+    this.d.persist();
+    return n ? `${n} plantas cresceram` : 'Nenhuma planta';
   }
 }

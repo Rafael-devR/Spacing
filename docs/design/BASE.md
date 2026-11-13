@@ -92,18 +92,11 @@ trabalham sozinhas, a tela técnica e os tempos estão em [CRAFTING.md](CRAFTING
   aparece em "Equipamento no traje", na mochila.
 - **Uso:** libera o botão do tablet, que abre o mapa da cratera ([MAPA.md](MAPA.md)).
 
-## Comida, fome e energia (preparado, desligado)
+## Comida, fome e energia (ligada desde 2026-11-13)
 
-Ainda não existem no jogo, mas a estrutura está pronta:
-
-- `NEEDS.energy` em `src/data/survival.ts` (desligado): máximo de energia e quanto a **fome** tira por
-  minuto.
-- `food: { energy }` em `ItemData` (`src/data/items.ts`): a **energia vem da comida**. Nenhum item é comida
-  ainda.
-- `Survival.energy`, `Survival.eat(item)` e o gasto por fome só rodam com o interruptor ligado; o salvamento
-  já aceita o campo `energy` no traje.
-
-Para ligar: definir comidas e receitas, `enabled: true`, um medidor no HUD e os avisos da IA.
+A fome está ligada (`NEEDS.energy` em `src/data/survival.ts`): a energia do corpo cai com o tempo, a batata da estufa devolve energia
+e, sem energia, o traje começa a falhar devagar. Tudo em [ESTUFA.md](ESTUFA.md) ("Cultivo e fome"). Descansar no beliche não
+substitui a comida.
 
 ## Como a base cresce
 

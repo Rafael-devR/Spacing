@@ -66,6 +66,7 @@ import { FixedStep } from './FixedStep';
 import { MarsDirector } from './MarsDirector';
 import { SurvivalDirector } from './SurvivalDirector';
 import { BaseDirector } from './BaseDirector';
+import { NEEDS } from '../data/survival';
 import { GreenhouseDirector } from './GreenhouseDirector';
 import { Greenhouse } from '../systems/Greenhouse';
 import { greenhouseStructure } from '../world/greenhouseLayout';
@@ -388,6 +389,24 @@ export class Game {
         craftPanel: this.craftPanel, powerPanel: this.powerPanel, hud: this.hud, baseHud: this.baseHud, sfx: this.sfx, haptics: this.haptics,
         particles: this.particles, itemModels: this.itemModels, getState: () => this.state, persist: () => this.persist(),
         greenhouse: this.greenhouse, chest: { open: () => this.greenhouse.openChest(), opened: () => this.greenhouse.chestOpened() },
+        eat: {
+          label: () => {
+            const it = this.inventory.selectedItem();
+            const food = it ? ITEMS[it].food : undefined;
+            if (!it || !food || this.survival.energy > NEEDS.energy.max - 5) return null;
+            return t('eat.label', { name: ITEMS[it].name.toLowerCase(), n: food.energy });
+          },
+          run: () => {
+            const it = this.inventory.selectedItem();
+            if (!it || !this.survival.eat(it)) return;
+            this.inventory.removeSelected(1);
+            this.sfx.play('pop', 0.8);
+            this.haptics.play('success');
+            this.hud.bumpMeter('energy');
+            this.hud.toast(t('eat.done', { name: ITEMS[it].name, n: ITEMS[it].food?.energy ?? 0 }));
+            this.persist();
+          },
+        },
       },
       this.save?.base ?? null,
     );

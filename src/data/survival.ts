@@ -57,14 +57,20 @@ export const SURVIVAL = {
 } as const;
 
 /**
- * Necessidades do corpo, ainda **desligadas** (docs/design/BASE.md): a fome consome energia e a energia vem
- * da comida (`food` em data/items.ts). Ligar = `enabled: true`, medidor no HUD e comida no jogo.
+ * Necessidades do corpo (docs/design/ESTUFA.md): a fome consome energia e a energia vem da comida (`food` em data/items.ts,
+ * a batata da estufa). Ligada desde a estufa com cultivo (2026-11-13).
  */
 export const NEEDS = {
   energy: {
-    enabled: false,
+    enabled: true,
     max: 100,
-    /** quanto a fome tira da energia por minuto */
+    /** quanto a fome tira da energia por minuto (cheia dura ~80 min de jogo) */
     hungerPerMinute: 1.2,
+    /** avisos: fome (30%) e fome forte (10%) */
+    warn: [0.3, 0.1],
+    /** sem energia: a integridade do traje cai tanto por segundo (devagar: dá tempo de comer) */
+    starveDps: 0.35,
+    /** ao renascer, a energia sobe pelo menos até aqui (a ração do traje de emergência) */
+    respawn: 60,
   },
 } as const;

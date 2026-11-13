@@ -12,6 +12,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
   **holograma** da cápsula de vidro (verde assenta, vermelho não); a obra **nivela o terreno**, o botão de ação entrega o material
   **peça por peça** (baixa qualidade) e **finaliza** (alta qualidade); a cápsula é sólida e tem porta. Salvamento v11. Sem plantio nem
   fome ainda. Teste: `tools/visual-check/greenhouse.mjs` e a seção Estufa do modo de teste.
+- **Cultivo de batata e fome** ([design/ESTUFA.md](docs/design/ESTUFA.md)). Na estufa pronta: **canteiros** (modo construir), **solo
+  fértil**, **plantar batata**, **regar com gelo**, a planta cresce em 5 estágios (3 min, só com o jogo aberto; murcha sem água) e dá
+  **3 batatas** na colheita. Tudo pelo botão de ação, sem telas. **A fome está ligada**: medidor de energia no HUD, avisos, dano lento
+  sem energia e **Comer batata** pelo botão. Receitas novas na bancada: canteiro e solo fértil (Lua e Marte). Salvamento v12.
+- **Estufa e cultivo com modelos do Blender** (`greenhouse.glb`, `farm.glb`): cada peça da cápsula em baixa e alta qualidade, o
+  canteiro com luz de estado e os estágios da batata.
 
 ### Corrigido
 

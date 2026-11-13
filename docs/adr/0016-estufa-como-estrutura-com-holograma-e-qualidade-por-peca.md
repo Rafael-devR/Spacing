@@ -36,3 +36,11 @@ parte** (obter e construir a cápsula). Plantio e fome vêm depois.
 - O salvamento sobe para a v11. Mundo refeito devolve o projeto e o material.
 - Só uma obra, virada para o sul, 7×7: rotação, vários tamanhos e desmontar ficam para uma próxima parte.
 - O vidro e o holograma pesam pouco (poucas malhas), mas é transparência: conferir o desempenho no celular.
+
+## Atualização (2026-11-13, mesmo dia): modelos do Blender, cultivo e fome
+
+O dono aprovou a primeira parte e pediu o resto. As caixas feitas em código viraram **modelos do Blender** (`greenhouse.glb`, um nó
+`<peça>_low` e `<peça>_high` por peça; o holograma sai das malhas da baixa qualidade; o código continua como reserva se o arquivo não
+carregar). O cultivo segue a mesma linha: canteiros são células da mesma `Structure` (1 bloco), o estado (solo, água, planta) fica na
+obra salva, e o botão de ação faz a ação certa para o que o jogador tem na mão; o desenho vem de `farm.glb`. A **fome foi ligada**
+(`NEEDS.energy.enabled`), com dano lento e ração ao renascer, para a comida ter peso sem castigar cedo demais. Salvamento v12.

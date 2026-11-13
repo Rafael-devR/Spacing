@@ -130,6 +130,16 @@ peças com `tall` no nome vão até o teto e saem do ícone. O holograma de "ain
 `tools/models/meteor.py`: três rochas (`rock_a`, `rock_b`, `rock_c`), cada uma com o corpo escuro (`body_<x>`) e manchas de brasa
 acesas (`lit_<x>`). O código sorteia uma, escala pelo tamanho do meteoro e a gira em voo ([METEOROS.md](METEOROS.md)).
 
+## Estufa e cultivo
+
+`tools/models/greenhouse.py` (teto 7000 triângulos): a cápsula de vidro de 7×7 em coordenadas locais da obra (x e z de 0 a 7, piso com
+topo em y = 1, paredes até y = 4, cúpula até y = 7). Cada peça tem dois nós, `<peça>_low` (obra crua: chapas com rebites, lona fosca)
+e `<peça>_high` (pronta: saia de metal com friso aceso, vidro com montantes, porta com teclado e luz), para `floor`, `wallS` (com a
+porta), `wallN`, `wallW`, `wallE`, `frame` e `glass`. O holograma é desenhado pelo código a partir das malhas do `_low`; o vidro
+da alta qualidade usa um material próprio da estufa, mais visível que o vidro comum. `tools/models/farm.py` (teto 3000): o canteiro
+(`planter`, com a luz `fx_led` que o código pinta), o solo seco e molhado e a batata em `potato_0`..`potato_4` e `potato_dry`
+(murcha), numa célula 1×1 centrada, y = 0 no piso. Ver [ESTUFA.md](ESTUFA.md).
+
 ## Próximos candidatos
 
 Astronauta (peças separadas, que o código continua animando), painel solar, pedras e minérios soltos (variações por semente), meteorito caído. Cada um com o seu teto no teste.

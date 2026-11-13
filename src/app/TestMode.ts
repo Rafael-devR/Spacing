@@ -102,6 +102,10 @@ export class TestMode {
         case 'gh.site': return this.ghSite();
         case 'gh.step': return this.ghStep();
         case 'gh.build': return this.ghBuild();
+        case 'gh.farm': { const m = this.d.greenhouse.testFarm(); return /plantados/.test(m) ? ok(m) : no(m); }
+        case 'gh.grow': { const m = this.d.greenhouse.testGrow(0.25); return /cresceram/.test(m) ? ok(m) : no(m); }
+        case 'gh.ripe': { const m = this.d.greenhouse.testGrow(1); return /cresceram/.test(m) ? ok(m) : no(m); }
+        case 'gh.hungry': this.d.survival.energy = 20; return ok('Energia em 20');
         case 'gh.remove': return this.d.greenhouse.testRemove() ? ok('Obra desmontada') : no('Não há obra');
         case 'tp.greenhouse': return this.tpGreenhouse();
         case 'tp.lander': return this.tpLander();

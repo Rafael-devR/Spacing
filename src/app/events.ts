@@ -16,9 +16,9 @@ export interface Vec3Like {
 export type GameState = 'loading' | 'menu' | 'playing' | 'paused' | 'dead' | 'benchmark';
 
 /** `heat` = lava (Marte) */
-export type DeathCause = 'asphyxia' | 'meteor' | 'fall' | 'heat';
+export type DeathCause = 'asphyxia' | 'meteor' | 'fall' | 'heat' | 'hunger';
 
-export type Meter = 'o2' | 'battery' | 'integrity';
+export type Meter = 'o2' | 'battery' | 'integrity' | 'energy';
 
 export type DenyReason = 'notBlock' | 'noItems' | 'blocked' | 'emptySlot';
 

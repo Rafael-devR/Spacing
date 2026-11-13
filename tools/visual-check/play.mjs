@@ -62,7 +62,7 @@ check('menu de pausa visível', await page.isVisible('#pause'));
 await page.screenshot({ path: `${out}/play-2-pausa.png` });
 
 const save = await page.evaluate(() => JSON.parse(localStorage.getItem('spacing.save') || 'null'));
-check('salvou ao pausar', !!save && save.version === 11, save ? `versão ${save.version}` : 'sem salvamento');
+check('salvou ao pausar', !!save && save.version === 12, save ? `versão ${save.version}` : 'sem salvamento');
 check('inventário no salvamento', !!save && save.inventory.slots.some(Boolean));
 
 await page.click('#pause-resume');
@@ -129,7 +129,7 @@ check('traje cheio ao renascer', re.o2 === 100 && re.hp === 100, `O2 ${re.o2}, i
 check('renasce dentro da área pressurizada', re.dist < 4.5, `${re.dist.toFixed(1)} blocos do módulo`);
 check('itens continuam no chão', re.loot > 0);
 const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('spacing.save') || 'null'));
-check('itens caídos estão no salvamento', !!saved && saved.version === 11 && saved.loot.length > 0);
+check('itens caídos estão no salvamento', !!saved && saved.version === 12 && saved.loot.length > 0);
 await page.screenshot({ path: `${out}/play-4-renasceu.png` });
 
 // leva o astronauta até os itens, peça por peça (elas se espalham ao acaso e o ímã só alcança 1,2 bloco)

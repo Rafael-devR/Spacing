@@ -1,5 +1,5 @@
 // Colisão da estufa (docs/design/ESTUFA.md): uma Structure, como a base. O chão nivelado é sólido desde o início; cada peça entregue
-// fecha as células dela (paredes, telhado). O vão da porta, no meio do lado sul, fica sempre aberto.
+// fecha as células dela (paredes, telhado). O vão da porta, no meio do lado sul, fica sempre aberto. Canteiros ocupam 1 bloco.
 import { GH, type PartId, type SiteSave } from '../data/greenhouse';
 import { Cell, Structure } from './Structure';
 
@@ -9,6 +9,8 @@ export function greenhouseStructure(site: SiteSave): Structure {
     x0: site.x, y0: site.floorY, z0: site.z,
     x1: site.x + n - 1, y1: site.floorY + GH.wallHeight + 1, z1: site.z + n - 1,
   });
+  // o teto e a parte de cima das paredes são de vidro: a mira passa por eles e acerta o piso e os canteiros
+  s.cutaway = true;
   applyParts(s, site);
   return s;
 }
@@ -33,4 +35,6 @@ export function applyParts(s: Structure, site: SiteSave): void {
   if (has('wallE')) for (let z = z0 + 1; z < z1; z++) wall(x1, z);
   // telhado: a estrutura da cúpula fecha por cima (sem ele, o astronauta pularia para cima das paredes)
   if (has('frame')) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) s.set(x, fy + GH.wallHeight + 1, z, Cell.Roof);
+  // canteiros: um bloco de altura
+  for (const b of site.beds) s.set(b.x, fy + 1, b.z, Cell.Furniture);
 }

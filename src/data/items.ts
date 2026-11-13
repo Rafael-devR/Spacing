@@ -14,10 +14,10 @@ export type ItemId =
   // energia (docs/design/ENERGIA.md)
   | 'solar_panel'
   // estufa (docs/design/ESTUFA.md)
-  | 'greenhouse_plan';
+  | 'greenhouse_plan' | 'planter' | 'soil' | 'potato';
 
 /** forma do modelo de um item fabricado (render/craftedModels.ts) */
-export type CraftedModel = 'ingot' | 'brick' | 'pane' | 'spool' | 'tank' | 'powder' | 'wafer' | 'chip' | 'plan';
+export type CraftedModel = 'ingot' | 'brick' | 'pane' | 'spool' | 'tank' | 'powder' | 'wafer' | 'chip' | 'plan' | 'tuber' | 'sack' | 'planter';
 
 /**
  * Do que o item é feito, de 0 a 3. Entra na conta do tempo de fabricação (`recipeSeconds` em recipes.ts):
@@ -45,7 +45,9 @@ export interface ItemData {
   /** objeto que o item coloca no mundo no modo construir (ex.: painel solar) */
   place?: PropType;
   /** projeto que abre um holograma no terreno no modo construir (ex.: a estufa); a obra tem regras próprias (systems/Greenhouse.ts) */
-  site?: 'greenhouse';
+  site?: 'greenhouse' | 'planter';
+  /** cultivo: `soil` enche um canteiro (docs/design/ESTUFA.md) */
+  farm?: 'soil';
   /** comida (ainda sem uso: a energia vem da comida, docs/design/BASE.md) */
   food?: { energy: number };
   /** cor de destaque (partículas e linhas da tela das estações) */
@@ -178,6 +180,18 @@ export const ITEMS: Record<ItemId, ItemData> = {
     name: 'Projeto da estufa', icon: { model: 'plan', color: '#2a6f95' }, site: 'greenhouse', traits: tr(0, 0, 3), tint: '#4fd1e8', stack: 1,
     about: 'Planta de uma cápsula de vidro para plantar. Escolha no modo construir, mire o chão e veja o holograma. Verde assenta.',
   },
+  planter: {
+    name: 'Canteiro', icon: { model: 'planter', color: '#c3c7d2' }, site: 'planter', traits: tr(0, 2, 0), tint: '#9fd17a', stack: 8,
+    about: 'Caixa de cultivo. Só funciona dentro da estufa pronta: escolha no modo construir e toque no piso dela.',
+  },
+  soil: {
+    name: 'Solo fértil', icon: { model: 'sack', color: '#6b4a32' }, farm: 'soil', traits: tr(0, 1, 1), tint: '#8a6446', stack: 16,
+    about: 'Regolito moído, lavado e misturado com água e nutrientes. Enche um canteiro: o regolito puro não segura raiz.',
+  },
+  potato: {
+    name: 'Batata', icon: { model: 'tuber', color: '#c79a5b' }, food: { energy: 25 }, traits: tr(0, 1, 1), tint: '#e2b878', stack: 32,
+    about: 'Comida: devolve energia ao corpo. Também é semente: plante uma batata num canteiro com solo e água.',
+  },
 };
 
 /** ordem de referência dos itens (ícones, conversão de salvamentos antigos) */
@@ -185,7 +199,7 @@ export const ITEM_ORDER: ItemId[] = [
   'regolith', 'rock', 'basalt', 'ice', 'iron', 'ilmenite', 'gold', 'crystal', 'anorthosite',
   'marsdust', 'marsrock', 'darksand', 'sediment', 'volcanic', 'hematite', 'olivine', 'gypsum',
   'iron_bar', 'brick', 'glass', 'basalt_fiber', 'h2', 'o2', 'tio2', 'titanium', 'silicon', 'circuit',
-  'solar_panel', 'greenhouse_plan',
+  'solar_panel', 'greenhouse_plan', 'planter', 'soil', 'potato',
 ];
 
 export function isItemId(v: unknown): v is ItemId {
