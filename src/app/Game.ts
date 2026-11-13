@@ -49,6 +49,7 @@ import { el, maybeEl } from '../ui/dom';
 import { Bag } from '../ui/Bag';
 import { Hud } from '../ui/Hud';
 import { FpsMeter } from '../ui/FpsMeter';
+import { FrameCap } from '../core/framecap';
 import { TestPanel } from '../ui/TestPanel';
 import { GraphicsMenu } from '../ui/GraphicsMenu';
 import { PauseMenu } from '../ui/PauseMenu';
@@ -117,7 +118,8 @@ export class Game {
   private gfxQ: QualityPreset = QUALITY.medio;
   /** limite de quadros por segundo em ms por quadro; 0 = sem limite */
   private capMs = 0;
-  private lastCapAt = 0;
+  /** limite de FPS numa grade de tempo fixa (core/framecap.ts) */
+  private readonly frameCap = new FrameCap();
   private readonly fpsMeter = new FpsMeter();
 
   readonly world: World;
@@ -1100,6 +1102,7 @@ export class Game {
     this.lights.sun.castShadow = q.shadow > 0;
     const g = this.prefs.gfx;
     this.capMs = g.fpsCap ? 1000 / g.fpsCap : 0;
+    this.frameCap.setCap(this.capMs);
     for (const m of this.glowMaterials) {
       const defs = (m.defines ??= {}) as Record<string, string>;
       if (g.glow === false) delete defs.USE_GLOW;
@@ -1243,10 +1246,7 @@ export class Game {
   private readonly frame = (now: number): void => {
     requestAnimationFrame(this.frame);
     // limite de FPS: numa tela de 120 Hz, pular quadros em ritmo fixo deixa o movimento uniforme (sem limite durante o teste)
-    if (this.capMs > 0 && !this.bench) {
-      if (now - this.lastCapAt < this.capMs - 1.5) return;
-      this.lastCapAt = now;
-    }
+    if (!this.bench && !this.frameCap.allow(now)) return;
     this.fpsMeter.frame(now);
     const t0 = performance.now();
     const rawMs = now - this.last;
@@ -1428,6 +1428,7 @@ export class Game {
     p?.end(SUB.hud);
     if (playing) this.perfTick(realDt);
     if (playing && !this.bench) this.tuneResolution(rawMs, performance.now() - t0);
+    this.fpsMeter.endFrame(performance.now() - t0, this.capMs > 0 ? this.capMs : 1000 / 60, this.scaler.scale);
     p?.begin(SUB.map);
     this.map.render();
     p?.end(SUB.map);

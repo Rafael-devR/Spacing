@@ -65,7 +65,7 @@ let p = await prefs();
 check('guardou as trocas nas preferências', JSON.stringify(p.gfx) === JSON.stringify({ resolution: 'native', msaa: 4, shadow: 4096, bloom: true, chromatic: false, vignette: false, noise: false, glow: false, fpsCap: 60, showFps: true }), JSON.stringify(p.gfx));
 check('a qualidade escolhida não mudou', p.quality === 'medio');
 const pressed = await page.evaluate(() => [...document.querySelectorAll('#gfx button[aria-pressed="true"]')].map((b) => b.dataset.gfx + '=' + b.textContent));
-check('os botões marcados acompanham as trocas', pressed.length === 10 && pressed.includes('resolution=Nativa') && pressed.includes('chromatic=Desligado'), pressed.join(' '));
+check('os botões marcados acompanham as trocas', pressed.length === 11 && pressed.includes('resolution=Nativa') && pressed.includes('chromatic=Desligado'), pressed.join(' '));
 const info1 = await page.textContent('#gfx-info');
 check('o texto mostra as 10 trocas', /10 ajuste/.test(info1), info1);
 await page.screenshot({ path: `${out}/gfx-2-trocas.png` });
@@ -90,7 +90,7 @@ await page.click('#pause-resume');
 await page.waitForTimeout(2500);
 check('o contador de FPS aparece jogando', await page.isVisible('#fps-meter'));
 const fpsText = await page.textContent('#fps-meter');
-check('o contador mostra um número', /^\d+ FPS$/.test(fpsText), fpsText);
+check('o contador mostra FPS, quadro, 1% low, pior quadro, CPU e resolução', /FPS\s*\d+.*Quadro.*ms.*1% low.*Pior.*ms.*CPU.*Res\s*\d+%/s.test(fpsText), fpsText);
 await page.screenshot({ path: `${out}/gfx-4-jogando.png` });
 
 // continua jogável: anda um pouco
@@ -121,7 +121,7 @@ await page.waitForTimeout(1500);
 p = await prefs();
 check('"Voltar ao padrão" apaga todas as trocas', Object.keys(p.gfx || {}).length === 0, JSON.stringify(p.gfx));
 check('o contador de FPS some', !(await page.isVisible('#fps-meter')));
-check('só os 10 botões "Padrão" ficam marcados', (await page.evaluate(() => document.querySelectorAll('#gfx button[aria-pressed="true"]').length)) === 10);
+check('só os 11 botões "Padrão" ficam marcados', (await page.evaluate(() => document.querySelectorAll('#gfx button[aria-pressed="true"]').length)) === 11);
 await page.screenshot({ path: `${out}/gfx-5-padrao.png` });
 check('nenhum erro ou aviso no console', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(results.join('\n'));

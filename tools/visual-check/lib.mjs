@@ -4,25 +4,25 @@ import chromium from '@sparticuz/chromium';
 import { chromium as pw } from 'playwright-core';
 
 /**
- * @param {{ url?: string, out?: string, w?: number, h?: number, quality?: string, test?: boolean, start?: boolean, query?: string }} o
+ * @param {{ url?: string, out?: string, w?: number, h?: number, quality?: string, test?: boolean, start?: boolean, query?: string, prefs?: object }} o
  */
-export async function boot({ url = 'http://localhost:5173/', out = '/tmp', w = 844, h = 390, quality = 'baixo', test = false, start = true, query = '' } = {}) {
+export async function boot({ url = 'http://localhost:5173/', out = '/tmp', w = 844, h = 390, quality = 'baixo', test = false, start = true, query = '', prefs = {} } = {}) {
   const browser = await pw.launch({
     executablePath: await chromium.executablePath(),
     args: [...chromium.args, '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
     headless: true,
   });
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 });
-  await ctx.addInitScript((q) => {
+  await ctx.addInitScript(([q, extra]) => {
     try {
       // limpa só uma vez por aba (recarregar no meio do teste não pode apagar o que ele fez)
       if (!sessionStorage.getItem('__vc')) {
         localStorage.clear();
         sessionStorage.setItem('__vc', '1');
       }
-      localStorage.setItem('spacing.prefs.v1', JSON.stringify({ quality: q, muted: true, shake: 'off', vibration: false }));
+      localStorage.setItem('spacing.prefs.v1', JSON.stringify({ quality: q, muted: true, shake: 'off', vibration: false, ...extra }));
     } catch {}
-  }, quality);
+  }, [quality, prefs]);
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));

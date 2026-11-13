@@ -15,7 +15,7 @@ trocar cada item por cima dela. O que fica em "Padrão" segue a qualidade. Tudo 
 | Efeitos | Aberração de cor, Vinheta, Ruído de filme, Onda de choque | Ligado, Desligado | < 1 ms cada (a onda só custa enquanto há uma) |
 | Efeitos | Brilho dos cristais | Ligado, Desligado | ~1,4 ms |
 | Desempenho | Limite de FPS | Livre, 30, 60, 90, 120 | iguala o ritmo dos quadros |
-| Desempenho | Mostrar FPS | Ligado, Desligado | nenhum |
+| Desempenho | Medidor de desempenho | Ligado, Desligado | nenhum |
 
 - **Resolução nativa** = a densidade real da tela (`devicePixelRatio`), limitada pelo tamanho máximo de textura da placa
   (`Post.construct`). O menu mostra o tamanho do desenho em pixels.
@@ -45,3 +45,14 @@ resolução no menu desliga a dinâmica. Detalhes e números: [ADR 0012](../adr/
 
 Todas as otimizações de shader e de passadas (sombra só nas faces voltadas para o sol, bloom e tons na passada final)
 valem para as três qualidades. **Média e Alta usam MSAA 2×**; a Baixa não usa MSAA.
+
+## Medidor de desempenho e limite de FPS
+
+O **Medidor de desempenho** (menu Gráficos) é um overlay no estilo MSI Afterburner / RTSS, à direita da tela: **FPS**, **tempo do
+quadro**, **1% low** (o FPS dos piores 1% dos quadros dos últimos 5 s: é o número que mostra a instabilidade que a média esconde),
+**pior quadro**, **CPU** do jogo, **resolução** atual da resolução dinâmica e um **gráfico dos últimos tempos de quadro** (verde no
+ritmo, amarelo lento, vermelho travada; a linha branca é o tempo de um quadro no limite). Contas em `src/core/framestats.ts`,
+desenho em `src/ui/FpsMeter.ts`. Só trabalha enquanto está visível.
+
+O **limite de FPS** (`src/core/framecap.ts`) anda numa **grade de tempo fixa**: o jeito antigo medido "desde o último quadro"
+acumulava desvio e, em tela que não é múltiplo do limite (90 Hz com limite de 60), só entregava 45 FPS. Teste: `tests/framecap.test.ts`.

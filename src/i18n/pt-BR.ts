@@ -261,7 +261,7 @@ export const ptBR = {
   'gfx.glow': 'Brilho dos cristais',
   'gfx.fpsCap': 'Limite de FPS',
   'gfx.fpsCap.hint': 'Numa tela de 120 Hz, 60 deixa o movimento mais uniforme se o aparelho não chega a 120.',
-  'gfx.showFps': 'Mostrar FPS',
+  'gfx.showFps': 'Medidor de desempenho',
   'gfx.default': 'Padrão',
   'gfx.on': 'Ligado',
   'gfx.off': 'Desligado',

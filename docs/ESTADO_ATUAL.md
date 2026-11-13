@@ -139,6 +139,25 @@ Em ordem de execução, tudo com testes e documentação:
   `BENCH_VERSION`. Mudou o formato do salvamento? Nova versão, migração e teste.
 - O Three.js 0.160.0 está fixado: o material dos blocos injeta GLSL nos nomes internos dos shaders.
 
+## Bugs para corrigir (anotados pelo dono, 2026-11-13)
+
+Vamos um por vez. Ainda sem detalhes do dono; a investigação começa quando ele mandar.
+
+1. **Blocos transparentes atrás do personagem (cavernas e relevo).** O personagem não fica atrás dos blocos e eles aparecem
+   transparentes. Acontece dentro de cavernas e também fora delas: o relevo do chão some atrás de uma cratera. Provável ligação
+   com o corte da câmera (`src/render/cutaway.ts`) e com o material de corte dos chunks.
+2. **Escada da base.** Precisa de ajuste (o dono vai detalhar).
+
+## Desempenho: quadros que oscilam (levantado pelo dono, 2026-11-13)
+
+**Feito (precisa de teste no celular):** o limite de FPS agora anda numa grade fixa (`core/framecap.ts`) e o medidor virou um overlay
+estilo RTSS com 1% low e gráfico dos tempos de quadro. O escalonador de resolução ainda não foi mexido: ver os números primeiro.
+
+Com o limite em 30 FPS o jogo oscila entre 25 e 30. Com o limite em 60 ele fica entre 40 e 60 e parece instável. Sem limite, o
+mesmo. Hipóteses a verificar: o gate do limite (`Game.frame`) acumula desvio, pois `lastCapAt = now` em vez de avançar pela
+grade; o `ResolutionScaler` muda a resolução para cima e para baixo, o que também faz o FPS oscilar; e o jogo está perto do
+orçamento de quadro no celular. A medida certa é a distribuição dos tempos de quadro (p95 e p99), não a média.
+
 ## Testes que existem
 
 `npm test` (Vitest, ~240 testes) e, em `tools/visual-check/` (precisa de `npm run dev`; veja o README da pasta):

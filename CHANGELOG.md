@@ -5,6 +5,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Não lançado]
 
+### Corrigido
+
+- **Limite de FPS estável.** O limite passou a andar numa grade de tempo fixa (`core/framecap.ts`): antes acumulava desvio e podia
+  alternar entre 25 e 30 (ou entregar 45 FPS com limite de 60 numa tela de 90 Hz).
+
+### Alterado
+
+- **Medidor de desempenho no estilo RTSS** (antes "Mostrar FPS"): FPS, tempo do quadro, **1% low**, pior quadro, CPU, resolução e gráfico
+  dos tempos de quadro.
+
 ### Adicionado
 
 - **Modo de teste** ([design/TESTE.md](docs/design/TESTE.md), [ADR 0015](docs/adr/0015-modo-de-teste-com-salvamento-proprio.md)). `?teste`
