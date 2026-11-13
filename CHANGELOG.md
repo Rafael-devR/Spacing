@@ -7,6 +7,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Adicionado
 
+- **Estufa: câmera de segurança por dentro.** Dentro da estufa pronta, a câmera fica presa a um canto alto da cúpula, com lente aberta, e mostra o piso e os canteiros inteiros; girar troca de canto; fora dela, a câmera normal volta.
 - **Estufa, primeira parte** ([design/ESTUFA.md](docs/design/ESTUFA.md), [ADR 0016](docs/adr/0016-estufa-como-estrutura-com-holograma-e-qualidade-por-peca.md)).
   Um **baú** na base (as caixas da parede sul) entrega o projeto e o material; lá fora, o projeto no modo construir mostra um
   **holograma** da cápsula de vidro (verde assenta, vermelho não); a obra **nivela o terreno**, o botão de ação entrega o material

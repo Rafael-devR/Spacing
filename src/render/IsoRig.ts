@@ -20,6 +20,13 @@ export class IsoRig {
   readonly min = 16;
   readonly max = 46;
   readonly target = new THREE.Vector3();
+  /** câmera de segurança (estufa): posição, ponto olhado e lente fixos; `watchK` é a mistura suave com a câmera normal */
+  watch: { pos: THREE.Vector3; look: THREE.Vector3; fov: number } | null = null;
+  watchK = 0;
+  /** lente da câmera normal (o jogo ajusta ao redimensionar) */
+  baseFov = 30;
+  private readonly _p = new THREE.Vector3();
+  private readonly _l = new THREE.Vector3();
   /** a mola do soco de zoom: dureza e atrito (pouco amortecida: volta com um balanço curto, em cerca de meio segundo) */
   static readonly PUNCH_K = 120;
   static readonly PUNCH_C = 10;
@@ -71,6 +78,7 @@ export class IsoRig {
       this.target.z + Math.cos(this.yaw) * c * eye,
     );
     this.camera.lookAt(this.target);
+    this.security(dt, instant);
     // tremor (trauma ao quadrado, ruído suave)
     if (this.trauma > 0) {
       this.time += dt;
@@ -81,6 +89,32 @@ export class IsoRig {
       this.camera.position.z += Math.sin(tt * 0.9 + 4) * Math.sin(tt * 0.43) * s;
       this.camera.rotation.z += Math.sin(tt * 0.7) * s * 0.03;
       this.trauma = Math.max(0, this.trauma - dt * 1.4);
+    }
+  }
+
+  /** Mistura a câmera de segurança: a posição, o alvo e a lente vão do normal para o fixo, sem salto. */
+  private security(dt: number, instant: boolean): void {
+    const goal = this.watch ? 1 : 0;
+    this.watchK += (goal - this.watchK) * (instant ? 1 : 1 - Math.exp(-5 * dt));
+    if (this.watchK < 0.002 && !this.watch) {
+      this.watchK = 0;
+      if (this.camera.fov !== this.baseFov) {
+        this.camera.fov = this.baseFov;
+        this.camera.updateProjectionMatrix();
+      }
+      return;
+    }
+    const w = this.watch;
+    if (!w) return;
+    const k = this.watchK * this.watchK * (3 - 2 * this.watchK);
+    this.camera.position.lerp(w.pos, k);
+    this._l.copy(this.target).lerp(w.look, k);
+    this._p.copy(this._l);
+    this.camera.lookAt(this._p);
+    const fov = this.baseFov + (w.fov - this.baseFov) * k;
+    if (Math.abs(fov - this.camera.fov) > 0.01) {
+      this.camera.fov = fov;
+      this.camera.updateProjectionMatrix();
     }
   }
 

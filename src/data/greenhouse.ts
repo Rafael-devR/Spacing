@@ -5,6 +5,8 @@ import type { ItemCounts } from '../systems/Inventory';
 
 /** tamanho externo, em blocos (a porta fica no meio do lado sul) */
 export const GH = {
+  /** câmera de segurança por dentro: recuo do canto, altura, lente (paisagem e retrato) */
+  camInset: 1.25, camHeight: 3.4, camFov: 74, camFovTall: 92,
   size: 7,
   /** altura das paredes, em blocos acima do piso (a porta é um vão de 2) */
   wallHeight: 3,

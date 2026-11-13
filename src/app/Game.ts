@@ -69,6 +69,7 @@ import { BaseDirector } from './BaseDirector';
 import { NEEDS } from '../data/survival';
 import { GreenhouseDirector } from './GreenhouseDirector';
 import { Greenhouse } from '../systems/Greenhouse';
+import { GH } from '../data/greenhouse';
 import { greenhouseStructure } from '../world/greenhouseLayout';
 import { HAB_MODULE } from '../data/base';
 import { EQUIPMENT, type EquipId } from '../data/equipment';
@@ -1186,6 +1187,7 @@ export class Game {
       ? 30
       : Math.min(50, THREE.MathUtils.radToDeg(2 * Math.atan((Math.tan(THREE.MathUtils.degToRad(15)) / aspect) * 0.72)));
     camera.fov = this.baseFov;
+    this.rig.baseFov = this.baseFov;
     camera.updateProjectionMatrix();
     this.post.resize(w, h);
     this.map.resize(w, h);
@@ -1209,6 +1211,28 @@ export class Game {
   }
 
   /** Quanto teto há sobre o astronauta (0 a 1) e quão escuro está: comanda a câmera de caverna, a lanterna e a neblina. */
+  /**
+   * Dentro da estufa pronta a câmera vira uma câmera de segurança: presa a um canto alto da cúpula, lente aberta, olhando o piso
+   * inteiro (docs/design/ESTUFA.md). Os botões de girar trocam de canto. Fora dela, a câmera normal volta.
+   */
+  private greenhouseCamera(rp: THREE.Vector3): void {
+    const { rig } = this;
+    const site = this.greenhouseState.site;
+    const n = GH.size;
+    const inside = !!site && site.done && rp.x >= site.x && rp.x <= site.x + n && rp.z >= site.z && rp.z <= site.z + n && rp.y >= site.floorY && rp.y < site.floorY + GH.wallHeight;
+    if (!inside || !site) {
+      rig.watch = null;
+      return;
+    }
+    const sx = Math.sin(rig.yawTarget) > 0 ? 1 : -1, sz = Math.cos(rig.yawTarget) > 0 ? 1 : -1;
+    const cx = site.x + n / 2, cz = site.z + n / 2, off = n / 2 - GH.camInset;
+    const w = rig.watch ?? { pos: new THREE.Vector3(), look: new THREE.Vector3(), fov: 60 };
+    w.pos.set(cx + sx * off, site.floorY + GH.camHeight, cz + sz * off);
+    w.look.set(cx, site.floorY + 0.3, cz);
+    w.fov = this.camera.aspect >= 1 ? GH.camFov : GH.camFovTall;
+    rig.watch = w;
+  }
+
   private updateCover(dt: number): void {
     const { world, player, rig } = this;
     const p = player.pos;
@@ -1405,6 +1429,7 @@ export class Game {
 
     const rp = player.model.root.position;
     this.focus.set(rp.x, rp.y + 0.8, rp.z);
+    this.greenhouseCamera(rp);
     this.updateCover(dt);
     rig.update(dt, this.focus);
     this.indoors.update(this.focus);

@@ -12,8 +12,9 @@ const press = () => page.dispatchEvent('#btn-use', 'pointerdown');
 const waitLabel = (re) => page.waitForFunction((s) => { const b = document.querySelector('#btn-use'); return !b.hidden && new RegExp(s).test(document.querySelector('#btn-use .use-label').textContent); }, re.source, { timeout: 20000 });
 /** congela o jogo para a captura (o WebGL por software é lento) */
 const freeze = async (n, cam) => {
-  await g((c) => { const s = window.spacing; if (c) s.rig.snap(s.player.center()); }, cam);
   await page.waitForTimeout(1200);
+  await g((c) => { const s = window.spacing; if (c) s.rig.snap(s.player.center()); }, cam);
+  await page.waitForTimeout(300);
   await g(() => { window.spacing.state = 'paused'; });
   await page.waitForTimeout(500);
   await shot(n);
