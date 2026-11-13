@@ -186,31 +186,11 @@ pontos de um item = 1 + 0,6 × calor + 0,4 × peso + 0,8 × raridade
    voltam. O que não couber fica na vaga como sobra para pegar depois.
 5. A máquina mostra o trabalho no mundo (lasers, brilho do forno, bolhas) e o **selo no HUD** diz o tempo que falta.
 
-## Tela da estação (Canvas, tela cheia, painel técnico)
+## Tela da estação
 
-> **O forno** tem tela própria em PixiJS desde 2026-11-13 ([FORNO.md](FORNO.md), ADR 0018); o que segue vale para a bancada e o eletrolisador.
-
-Desenhada em Canvas 2D na resolução do aparelho (`ui/canvasScreen.ts` + `ui/CraftPanel.ts`). Referência visual do dono:
-o jogo **Idle CPU** (servidor montado peça por peça, com energia e dados correndo, simplificado). Letras de painel em
-**JetBrains Mono** maiúscula com espaço entre as letras; molduras finas na cor da estação.
-
-- **Cima:** voltar, nome da estação, o que ela faz e quantas vagas. À direita, selos de **Sol** (forno) ou **Rede** e
-  **Bateria** (bancada, eletrolisador) com porcentagem e barra.
-- **Direita: RECEITAS** em cartões (ícone, nome, ingredientes em miniatura, `×N` = quantas dá para fazer agora, ✓ = já
-  tem). Rola com o dedo. Fica à direita, perto do polegar; no retrato, faixa que rola de lado embaixo.
-- **Meio: a máquina.**
-  - Módulos à esquerda: **ESPELHOS** ou **REDE** (onda que cresce com a energia e os kW que chegam) e **TEMPERATURA**,
-    **CORRENTE** ou **LASER** (valor, barra, e no forno a marca do limite).
-  - **Barramento:** linha de energia que sai do módulo e desce até cada vaga; os pacotes de energia correm por ele, na
-    velocidade da energia, e se dividem entre as vagas que trabalham.
-  - **Vagas (V1, V2, V3):** cada uma é uma **grade de células, uma por unidade do lote**. Célula cinza com o minério
-    apagado = na fila; laranja enchendo de baixo para cima = sendo feita; verde com o produto = pronta para pegar;
-    apagada = já pega. Em cima, o tempo que falta (ou PAUSA, PRONTO); embaixo, `2/5` e uma barra segmentada.
-  - **Pontinhos que significam algo:** quando uma unidade fica pronta, o produto sai da célula para a bandeja e os
-    minérios da próxima unidade caem na célula dela.
-- **Embaixo:** a receita escolhida (ingredientes → produtos já no tamanho do lote, nome, tempo total e por unidade,
-  − / + / Tudo e Fazer), ou a **vaga escolhida** (o que faz, quantas prontas, falta, e Cancelar · Pausar · Pegar N).
-- **"?"**: a ciência da receita (fórmula, etapas, nota).
+Desde 2026-11-13 a tela de todas as estações é a mesma, em HTML, com o inventário ao lado e arrastar e soltar
+([ESTACOES.md](ESTACOES.md), [ADR 0019](../adr/0019-inventario-e-estacoes-em-html.md)). Ela substituiu a tela técnica em Canvas
+(estilo Idle CPU) e a do forno em PixiJS. As regras acima não mudaram.
 
 ## Onde está no código
 
@@ -225,11 +205,11 @@ o jogo **Idle CPU** (servidor montado peça por peça, com energia e dados corre
 | Experiência na base (botões, avisos, peça voando, máquina aparecendo) | `src/app/BaseDirector.ts` |
 | Modelos do forno e do eletrolisador | `src/render/stationModels.ts` |
 | Modelos dos itens fabricados | `src/render/craftedModels.ts` |
-| Tela cheia em Canvas | `src/ui/canvasScreen.ts` (base: tela cheia, toques, rolagem) e `src/ui/CraftPanel.ts` (+ `#craft` no `index.html`) |
+| Tela da estação (com o inventário) | `src/ui/station/StationScreen.ts` (+ câmara `core.ts`, calor `thermal.ts`) sobre `src/ui/inventory/screen.ts` (`#inv` no `index.html`) |
 | Energia das estações | `src/systems/Power.ts` ([ENERGIA.md](ENERGIA.md)) |
 | Selo no HUD | `src/ui/JobsChip.ts` (`#jobs`) |
 | Salvamento (v7: estações e trabalhos; v8: vagas, lotes, bateria) | `src/core/save.ts` |
-| Testes | `tests/crafting.test.ts`, `tests/power.test.ts`, `tests/base.test.ts`, `tests/save.test.ts`, `tools/visual-check/base.mjs`, `tools/visual-check/stations.mjs` |
+| Testes | `tests/crafting.test.ts`, `tests/power.test.ts`, `tests/base.test.ts`, `tests/save.test.ts`, `tools/visual-check/base.mjs`, `tools/visual-check/stations.mjs`, `tools/visual-check/inventory.mjs` |
 
 Nova receita = uma entrada em `recipes.ts`. Novo item = uma entrada em `items.ts` (com `about`, `traits`, `tint` e
 aparência). Nova estação = `stations.ts` + um móvel em `base.ts` + um modelo em `stationModels.ts` + receitas.

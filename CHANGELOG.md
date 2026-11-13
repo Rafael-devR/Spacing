@@ -7,13 +7,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Adicionado
 
-- **Tela do forno refeita em PixiJS** ([design/FORNO.md](docs/design/FORNO.md), [ADR 0018](docs/adr/0018-forno-em-pixijs.md)). Em vez do painel
-  em Canvas, o forno mostra a máquina trabalhando: **espelhos** mandando feixes de luz (a energia do sol), **câmara** que esquenta e brilha
-  com a temperatura, **três cadinhos** com o conteúdo derretendo, a etapa de agora e as unidades, **ventoinha** que gira mais rápido com o
-  calor e continua girando enquanto o forno esfria, **termômetro** com ponteiro, fagulhas, bolhas, fumaça da chaminé, ar azul da ventoinha,
-  minério caindo no cadinho e barra saindo para a **bandeja**. Receitas em cartões que rolam com o dedo. Direção de arte do Spacing
-  (registro sério de interface de nave: fundo escuro, fios finos, cantos chanfrados, Chakra Petch e JetBrains Mono). `pixi.js` 8.22.0, carregado só quando o forno abre pela primeira vez; se o WebGL
-  falhar, o forno usa a tela antiga. Bancada e eletrolisador não mudaram. Teste: `tools/visual-check/furnace.mjs`.
+- **Inventário e estações refeitos numa tela só** ([design/INVENTARIO.md](docs/design/INVENTARIO.md), [design/ESTACOES.md](docs/design/ESTACOES.md),
+  [ADR 0019](docs/adr/0019-inventario-e-estacoes-em-html.md)). Visual minimalista e espacial (fundo escuro, fios finos, cantoneiras,
+  Chakra Petch e JetBrains Mono). **Mexer nos itens como no Minecraft:** arrastar com o dedo, segurar para pegar metade (botão direito
+  no computador), tocar e tocar, toque duplo para mandar entre mochila e barra, botão Organizar. A mochila mostra o traje e o que é o
+  item escolhido. **Estações (bancada, forno, eletrolisador) com o inventário ao lado:** entrada → câmara animada → saída; arrastar um
+  item para a entrada escolhe a receita e o lote, arrastar a saída para o inventário pega o que ficou pronto; vagas com pausar e
+  cancelar. Câmaras: forno que esquenta (cor do calor, fagulhas, °C), bancada com dois lasers imprimindo em camadas, eletrolisador com
+  bolhas. Energia da base no mesmo estilo. Barra de itens do HUD no mesmo visual. Saíram o PixiJS e as telas em Canvas. Teste:
+  `tools/visual-check/inventory.mjs`.
 - **Astronauta novo, do Blender, com animações** ([design/PERSONAGEM.md](docs/design/PERSONAGEM.md),
   [ADR 0017](docs/adr/0017-personagem-do-blender-com-animacao-procedural.md)). Voxel chibi a partir das imagens do dono (capacete
   grande, visor escuro, fones laranja, faixas escuras). Animação procedural: parado, à toa, andar, correr, curva, pulo, queda, pouso,

@@ -45,15 +45,16 @@ Câmera de perto e capturas em cada animação (parado, correndo, pulo, queda, p
 morte); confere o esqueleto do Blender, a poeira na corrida e que dentro da base não sobe poeira
 ([design/PERSONAGEM.md](../../docs/design/PERSONAGEM.md)).
 
-## Teste do forno (PixiJS)
+## Teste da tela de itens (inventário e estações)
 
 ```bash
-node furnace.mjs http://localhost:5173/ /tmp/shots
+node inventory.mjs http://localhost:5173/ /tmp/shots
 ```
 
-Abre o forno (carrega o Pixi sob demanda), toca nos botões e cartões de verdade (`craftPanel.furnace.targets()` devolve onde estão),
-confere calor, ventoinha, partículas, bandeja e o esfriar, rola a lista com o arrasto e tira capturas, inclusive em pé
-([design/FORNO.md](../../docs/design/FORNO.md)).
+Mexe nos itens com o mouse como se fosse o dedo: arrastar, segurar para pegar metade, tocar e tocar, toque duplo, botão direito,
+Organizar. No forno: solta ferro na entrada (escolhe a receita e o lote), fabrica, usa as vagas (pausar, cancelar), pega arrastando a
+saída para o inventário; abre a energia. Capturas deitado e em pé ([design/INVENTARIO.md](../../docs/design/INVENTARIO.md),
+[design/ESTACOES.md](../../docs/design/ESTACOES.md)).
 
 ## Teste dos meteoros
 
@@ -103,9 +104,9 @@ roda por software, o jogo fica bem lento aqui: as esperas são longas de propós
 node stations.mjs http://localhost:5173/ /tmp/shots
 ```
 
-Abre as telas cheias em Canvas (bancada, forno com 3 vagas e lote, ciência no "?", eletrolisador sem energia, energia
-da base e retrato) e toca nos botões de verdade (as áreas que a tela desenha a cada quadro, em `hits`). Capturas
-`st-*.png` com densidade 2. Rode depois de mexer em `src/ui/CraftPanel.ts`, `PowerPanel.ts` ou `canvasScreen.ts`.
+Abre as telas das estações (bancada, forno com 3 vagas e lote, ciência no "i", eletrolisador sem energia, energia
+da base e retrato) e toca nos botões de verdade (os elementos com `data-hit`, em `hits`). Capturas
+`st-*.png` com densidade 2. Rode depois de mexer em `src/ui/station/`, `src/ui/inventory/` ou `PowerPanel.ts`.
 
 ## Teste das cavernas
 

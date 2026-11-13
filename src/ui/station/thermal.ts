@@ -1,8 +1,19 @@
-// Calor e ventoinha do forno (docs/design/FORNO.md). Sem Pixi: o que a tela mostra de temperatura, resfriamento e brilho sai
+// Calor e ventoinha do forno (docs/design/ESTACOES.md). Sem desenho: o que a tela mostra de temperatura, resfriamento e brilho sai
 // daqui, para testar em Node. A câmara esquenta em poucos segundos com trabalho e esfria devagar sem ele; a ventoinha acelera com o
 // calor, tem inércia e continua girando enquanto o forno esfria.
 import type { JobView } from '../../systems/Crafting';
-import { mix } from './theme';
+
+/** mistura duas cores 0xRRGGBB (t de 0 a 1) */
+export function mix(a: number, b: number, t: number): number {
+  const k = Math.max(0, Math.min(1, t));
+  const r = ((a >> 16) & 255) + (((b >> 16) & 255) - ((a >> 16) & 255)) * k;
+  const g = ((a >> 8) & 255) + (((b >> 8) & 255) - ((a >> 8) & 255)) * k;
+  const bl = (a & 255) + ((b & 255) - (a & 255)) * k;
+  return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(bl);
+}
+
+/** 0xRRGGBB → '#rrggbb' */
+export const css = (c: number): string => '#' + c.toString(16).padStart(6, '0');
 
 /** temperatura ambiente da câmara (°C) */
 export const AMBIENT = 22;
@@ -33,8 +44,8 @@ export const heat01 = (temp: number): number => clamp((temp - AMBIENT) / (MAX_TE
 
 /** Rampa do brilho do calor: preto-roxo, brasa, laranja, amarelo, quase branco. */
 const RAMP: [number, number][] = [
-  [AMBIENT, 0x1a1430],
-  [300, 0x3b1a2a],
+  [AMBIENT, 0x15202a],
+  [300, 0x3a1c1c],
   [600, 0x7a1f1f],
   [900, 0xd4391a],
   [1100, 0xff6a1a],

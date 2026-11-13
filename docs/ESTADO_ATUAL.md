@@ -113,18 +113,19 @@ Astronauta novo do Blender em estilo voxel chibi, com animação procedural e it
 ([design/PERSONAGEM.md](design/PERSONAGEM.md), ADR 0017). O dono acompanhou as prévias do Blender (pediu "mais fofinho", braços mais
 naturais e "mais voxel"), mas **ainda não viu as animações no celular**.
 
-## Forno em PixiJS (2026-11-13)
+## Inventário e estações refeitos (2026-11-13)
 
-O dono mandou o projeto Idle CPU (`.zip`, feito em PixiJS) como **referência de como a máquina trabalha na tela** (ventoinha, calor,
-partículas), mas com a **direção de arte do Spacing**. Ele quer as telas técnicas refeitas **uma por vez**; feita só a do **forno**
-([design/FORNO.md](design/FORNO.md), ADR 0018): `ui/FurnacePanel.ts` + `ui/furnace/*`, chamada pela fachada `ui/StationPanel.ts`
-(`window.spacing.craftPanel` agora é a fachada; a tela antiga é `craftPanel.craft`, o forno é `craftPanel.furnace`). Bancada, eletrolisador
-e energia seguem em Canvas até ele aprovar. **Esperar o retorno dele antes de refazer outra tela.** Existe a branch local
-`backup/teclas-bancada` com uma tentativa anterior (estilo "teclas" do Idle CPU no Canvas) que ele **não pediu**; não usar sem ele pedir.
+O dono pediu para refazer **inventário, barra, mochila e todas as estações** e deixou o design livre ("minimalista, mais espacial,
+simples"; ergonomia de Minecraft: arrastar, dividir pilha). Feito numa tela só em HTML ([design/INVENTARIO.md](design/INVENTARIO.md),
+[design/ESTACOES.md](design/ESTACOES.md), ADR 0019, que substitui o forno em PixiJS do ADR 0018): `ui/inventory/` (tela, grade, mão),
+`ui/Bag.ts`, `ui/station/` (StationScreen, câmara, calor), `ui/PowerPanel.ts`. **As regras de fabricação não mudaram** (nada de
+salvamento novo). Antes disso o dono viu o forno em Pixi e pediu "menos cartoon, mais interface espacial"; essa direção seguiu aqui.
+A branch local `backup/teclas-bancada` (tentativa antiga em Canvas) não serve mais.
 
 ## O que o dono ainda **não viu** no celular
 
-- **A tela do forno em Pixi** (fluidez com um contexto WebGL a mais, toque nos cartões e cadinhos, o tempo da primeira abertura).
+- **A tela de itens nova** (mochila e estações): arrastar com o dedo, segurar para metade, toque duplo, soltar na entrada da máquina,
+  arrastar a saída; tamanho dos espaços e das letras no celular deitado e em pé.
 
 - **O astronauta novo animado** (correr, pular, cair, pousar, minerar, item na mão, gestos à toa) e a **poeira nova**.
 - **O interior novo da base** (maior, móveis novos) e **as estações do Blender com animação**. Antes disso o dono viu o casco

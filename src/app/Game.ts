@@ -92,7 +92,8 @@ import { createEquipModel } from '../render/equipModels';
 import { Crafting } from '../systems/Crafting';
 import { Equipment } from '../systems/Equipment';
 import { BaseHud } from '../ui/BaseHud';
-import { StationPanel } from '../ui/StationPanel';
+import { InvScreen } from '../ui/inventory/screen';
+import { StationScreen } from '../ui/station/StationScreen';
 import { JobsChip } from '../ui/JobsChip';
 import { PowerPanel } from '../ui/PowerPanel';
 import { Power, type Load } from '../systems/Power';
@@ -180,7 +181,8 @@ export class Game {
   private tabletOnly = false;
   /** cena vazia: com o mapa em tela cheia o mundo não é desenhado */
   private readonly blankScene = new THREE.Scene();
-  private readonly craftPanel: StationPanel;
+  private readonly invScreen: InvScreen;
+  private readonly craftPanel: StationScreen;
   private readonly powerPanel: PowerPanel;
   readonly power: Power;
   private readonly jobsChip: JobsChip;
@@ -288,7 +290,8 @@ export class Game {
     const bb = baseLayout.structure.box;
     const under = this.world.evictPlaced('solarPanel', (x, z) => x >= bb.x0 - 1 && x <= bb.x1 + 1 && z >= bb.z0 - 1 && z <= bb.z1 + 2);
     if (under > 0) this.inventory.add('solar_panel', under, false);
-    this.bag = new Bag(this.inventory);
+    this.invScreen = new InvScreen(this.inventory);
+    this.bag = new Bag(this.invScreen, this.inventory);
     this.equipment = new Equipment(events, this.save?.equipment);
     this.exploration = new Exploration(events, this.save?.explored);
     // jogo novo: a placa de circuito do Mapa vem aproveitada do módulo de pouso (docs/design/CRAFTING.md)
@@ -321,7 +324,7 @@ export class Game {
       },
       this.save?.crafting,
     );
-    this.craftPanel = new StationPanel(this.crafting, {
+    this.craftPanel = new StationScreen(this.invScreen, this.crafting, {
       speed: (id) => (STATIONS[id].energy === 'sun' ? this.power.sun : this.power.satisfaction),
       battery: () => this.power.battery / this.power.capacity,
     });
@@ -1031,6 +1034,13 @@ export class Game {
       this.hud.setAim(null);
       sfx.play('ui');
       this.events.emit('bag:toggled', { open });
+    };
+    // tela de itens (docs/design/INVENTARIO.md): som e vibração curtos para cada gesto da mão
+    this.invScreen.onFeedback = (k) => {
+      if (k === 'deny') sfx.play('deny');
+      else if (k === 'pick' || k === 'half') sfx.play('clink');
+      else if (k === 'drop') sfx.play('pop', 0.9);
+      this.haptics.play(k === 'half' ? 'tap' : 'tick');
     };
     el('#help').addEventListener('pointerdown', () => (el('#help').hidden = true));
 

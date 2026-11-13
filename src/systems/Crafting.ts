@@ -3,7 +3,7 @@
 // estação. A energia vem de algum lugar (docs/design/ENERGIA.md): `speed` diz quanto a estação recebe agora.
 // Uma receita pode ser feita em lote: depois do preparo, sai **uma unidade de cada vez**, e cada unidade pronta já pode
 // ser pega, sem esperar o lote inteiro. Um trabalho pode ser **pausado** (não gasta energia, os outros aceleram) ou
-// **cancelado** (devolve os materiais do que ainda não ficou pronto). Não desenha nada: a tela fica em ui/CraftPanel.ts
+// **cancelado** (devolve os materiais do que ainda não ficou pronto). Não desenha nada: a tela fica em ui/station/StationScreen.ts
 // e a experiência em app/BaseDirector.ts.
 import type { GameBus } from '../app/events';
 import { isItemId, type ItemId } from '../data/items';

@@ -1,6 +1,6 @@
 # ADR 0018: Tela do forno em PixiJS
 
-- **Status:** aceita
+- **Status:** substituída pelo [ADR 0019](0019-inventario-e-estacoes-em-html.md) (2026-11-13)
 - **Data:** 2026-11-13
 
 ## Contexto

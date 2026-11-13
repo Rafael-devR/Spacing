@@ -56,12 +56,10 @@ pouco vai para os cantos de cima.**
 - **Embaixo:** joystick no polegar esquerdo; pular (botão grande, no canto) e minerar/construir (ao lado,
   em arco) no polegar direito; barra de itens no centro.
 - **Em pé (retrato):** a barra de itens fica na borda de baixo e os polegares logo acima dela.
-- **Telas cheias em Canvas** (estações e energia da base): ocupam a tela inteira, desenhadas na resolução do aparelho
-  (`src/ui/canvasScreen.ts`). Voltar no canto de cima à esquerda. Estações: receitas **à direita** (perto do polegar; no
-  retrato, faixa embaixo), máquina com módulos, barramento e vagas em grade de células, e a receita ou a vaga escolhida
-  embaixo ([CRAFTING.md](CRAFTING.md)). Estilo de painel técnico (referência: o jogo Idle CPU), letras JetBrains Mono.
-  **O forno é a exceção:** tela em PixiJS ([FORNO.md](FORNO.md)). Energia: sol → painéis → bateria → consumidores ([ENERGIA.md](ENERGIA.md)). Regra: poucos números; cor, barra,
-  palavra e movimento que significa algo de verdade. O HTML fica só para o HUD e os menus simples.
+- **Telas de itens** (mochila e estações) e **energia da base**: tela inteira em HTML, minimalista e espacial, com o inventário ao
+  lado e arrastar e soltar ([INVENTARIO.md](INVENTARIO.md), [ESTACOES.md](ESTACOES.md), ADR 0019). Voltar no canto de cima à esquerda.
+  Energia: sol → geração → bateria → consumo ([ENERGIA.md](ENERGIA.md)). Regra: poucos números; cor, barra, palavra e movimento que
+  significa algo de verdade.
 - Nome do lugar e coordenadas saíram do HUD e foram para o cabeçalho do menu de pausa.
 - O HUD fica escondido no menu inicial e na pausa. Na tela de morte só ficam os medidores.
 - **Menu de pausa, Teste de desempenho:** logo abaixo de **Continuar** está o botão **Teste de desempenho**. Ele abre a

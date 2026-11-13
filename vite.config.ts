@@ -9,8 +9,6 @@ export default defineConfig({
   },
   // modelos do Blender (docs/design/MODELOS.md): o jogo importa com ?url, os testes leem com ?inline
   assetsInclude: ['**/*.glb'],
-  // o Pixi (tela do forno) é carregado sob demanda: sem isto o Vite só o descobre ao abrir o forno e recarrega a página
-  optimizeDeps: { include: ['pixi.js'] },
   build: { target: 'es2022', sourcemap: true, chunkSizeWarningLimit: 900 },
   test: {
     environment: 'node',

@@ -18,14 +18,40 @@ Inventário em **espaços livres**, como no Minecraft. Nenhum espaço é preso a
 - **Morte:** todos os espaços esvaziam, barra e mochila, e os itens caem no chão (como antes).
 - Esvaziar um espaço deixa um buraco; o próximo item **novo** vai para ele.
 
-## Mochila
+## Tela do inventário (desde 2026-11-13, [ADR 0019](../adr/0019-inventario-e-estacoes-em-html.md))
 
-- Abre pelo botão de mochila ao lado da barra, ou pelas teclas **I** e **Tab**. Fecha pelo X, tocando fora,
-  ou com **Esc**.
-- **Mover:** toque num item (ele fica destacado em laranja) e depois toque no espaço de destino. Se o destino
-  estiver vazio, o item vai para lá; se tiver o mesmo item, as pilhas se juntam até 64; se tiver outro item,
-  os dois trocam de lugar.
-- O jogo não pausa com a mochila aberta: o oxigênio continua gastando.
+Uma tela só para tudo que mexe em itens: a **mochila** e as **estações** ([ESTACOES.md](ESTACOES.md)). O inventário fica sempre à
+direita (em pé, embaixo): **3 fileiras da mochila** e, separada por um fio, **a barra de itens** (8 espaços, a mesma do HUD). O lado
+esquerdo muda: na mochila mostra o **traje** (equipamentos) e o **item escolhido** (nome, para que serve, quantos tem).
+
+- Abre pelo botão de mochila ao lado da barra, ou pelas teclas **I** e **Tab**. Fecha no **‹** de cima, tocando fora, ou com **Esc**.
+- O jogo não pausa com a tela aberta: o oxigênio continua gastando.
+
+### Gestos (a "mão", como no Minecraft)
+
+| Gesto | Celular | Computador | O que faz |
+| --- | --- | --- | --- |
+| Arrastar | segurar e mover o dedo | arrastar com o mouse | o item segue o dedo; ao soltar: espaço vazio recebe, mesmo item junta, outro item troca |
+| Tocar e tocar | toque no item, toque no destino | clique, clique | igual a arrastar, sem segurar |
+| Metade | **toque longo** (a pilha "pula") e arraste ou toque no destino | botão direito | leva metade da pilha |
+| Mandar rápido | **toque duplo** | Shift + clique | mochila ↔ barra; numa estação, manda para a entrada da máquina |
+| Organizar | botão **Organizar** | | junta pilhas iguais e ordena a mochila (a barra não muda) |
+
+- Soltar fora do inventário (ou tocar de novo no mesmo item) **cancela**: nada muda.
+- Enquanto arrasta, o espaço de origem fica apagado com o que sobra, e o destino sob o dedo acende (verde = aceita,
+  vermelho = não aceita).
+- A mão **não guarda itens**: eles só mudam de lugar ao soltar. Fechar a tela no meio de um arrasto não perde nada.
+
+### Visual
+
+Minimalista e espacial, igual nas estações: fundo quase preto translúcido sobre o jogo, **fios de 1 px**, espaços quadrados com
+o número da pilha em letra técnica (JetBrains Mono) no canto, títulos em Chakra Petch maiúsculo. Um só destaque frio (ciano); o
+espaço escolhido da barra tem **cantoneiras** em vez de borda grossa. Sem sombras, sem brilho de botão.
+
+### Barra de itens (HUD)
+
+Mesma linguagem: espaços escuros com fio fino, número em letra técnica, o selecionado com cantoneiras ciano e o nome do item em
+cima, em maiúsculas pequenas. Tocar seleciona (como antes); arrastar na barra do HUD não existe (o dedo ali é do jogo).
 
 ## Salvamento
 
@@ -34,14 +60,14 @@ O formato passou para a **versão 4**: `inventory` virou `{ slots, selected }`, 
 
 ## Código e testes
 
-- Regras: `src/systems/Inventory.ts`. Barra: `src/ui/Hud.ts`. Mochila: `src/ui/Bag.ts`.
-- Testes: `tests/core.test.ts` (regras), `tests/save.test.ts` (migração v3 → v4), `tests/survival.test.ts`
+- Regras: `src/systems/Inventory.ts` (`moveN`, `quickMove`, `sortBag`). Barra: `src/ui/Hud.ts`. Tela: `src/ui/inventory/` (`screen.ts` a
+  tela, `grid.ts` os espaços, `hand.ts` os gestos), mochila em `src/ui/Bag.ts`.
+- Testes: `tests/core.test.ts` (regras), `tests/inventoryOps.test.ts` (mover parte, mandar rápido, organizar), `tests/save.test.ts` (migração v3 → v4), `tests/survival.test.ts`
   (mochila cheia deixa o item no chão), `tools/visual-check/ui.mjs` (coleta no primeiro espaço e mover
   pela mochila no navegador).
 
 ## Em aberto
 
-- Arrastar itens com o dedo (hoje é toque e toque).
-- Dividir pilha (pegar metade) e jogar item fora.
+- Jogar item fora (soltar no mundo).
+- Arrastar espalhando por vários espaços (dividir igual).
 - Tamanho da mochila ligado ao traje ou a equipamentos (Sobrevivência II).
-- Atalho para mandar um item direto da mochila para a barra.

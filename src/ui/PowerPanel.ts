@@ -1,239 +1,177 @@
-// Tela cheia da energia da base (docs/design/ENERGIA.md), aberta no console do habitat. Mostra de onde vem e para
-// onde vai cada pedaço de energia: sol → painéis → bateria → máquinas. Cada pontinho que corre num fio é um pacote
-// de energia; quanto mais energia passa, mais pontinhos e fio mais grosso. Quase sem números: frases curtas dizem o
-// que está acontecendo e o que fazer.
+// Tela da energia da base (docs/design/ENERGIA.md, ESTACOES.md), aberta no console do habitat, no mesmo estilo das estações: de onde
+// vem e para onde vai a energia, em quatro colunas (sol → geração → bateria → consumo). Os fios tracejados correm na proporção do que
+// passa por eles. Quase sem números: frases curtas dizem o que está acontecendo e o que fazer.
 import { POWER } from '../data/power';
 import { STATIONS, type StationId } from '../data/stations';
 import { t } from '../i18n';
 import type { Power } from '../systems/Power';
-import { boltIcon, CanvasScreen, COLORS, FONT_TITLE, FONT_UI, fitText, hexA, roundRect, sunIcon, wrapText, type Rect } from './canvasScreen';
+import { el } from './dom';
+import type { Hit } from './station/StationScreen';
 
-interface Node extends Rect {
-  id: string;
-  label: string;
-  sub: string;
-  on: boolean;
-  color: string;
+const BACK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>';
+
+interface Row {
+  el: HTMLElement;
+  k: HTMLElement;
+  v: HTMLElement;
 }
 
-interface Dot {
-  wire: string;
-  t: number;
-  dur: number;
-}
-
-interface Wire {
-  id: string;
-  a: { x: number; y: number };
-  b: { x: number; y: number };
-  kw: number;
-  color: string;
-}
-
-const ACCENT = '#ffd84a';
-
-export class PowerPanel extends CanvasScreen {
-  private dots: Dot[] = [];
-  private readonly emitT = new Map<string, number>();
+export class PowerPanel {
+  onToggle: ((open: boolean) => void) | null = null;
+  private readonly root = el('#power');
+  private readonly rows = new Map<string, Row>();
+  private readonly links: HTMLElement[];
+  private readonly q: Record<string, HTMLElement> = {};
+  private raf = 0;
+  private timer = 0;
+  private last = 0;
 
   constructor(private readonly power: Power) {
-    super('#power');
+    const r = this.root;
+    r.classList.add('ui-screen', 'pw');
+    r.innerHTML = `
+      <div class="ui-frame pw-frame">
+        <section class="pane">
+          <header class="ui-head">
+            <button class="ui-back" type="button" data-hit="back" aria-label="${t('ui.back')}">${BACK_SVG}</button>
+            <div class="ui-title"><span class="ui-k">${t('power.kicker')}</span><h2>${t('power.title')}</h2></div>
+            <span class="pw-sub">${t('power.subtitle')}</span>
+          </header>
+          <div class="pw-flow">
+            <div class="pw-col pw-sun"><span class="ui-label">${t('power.k.sun')}</span><div class="pw-sun-ring"><i></i></div><b class="pw-sun-v"></b></div>
+            <i class="pw-link" data-l="gen"></i>
+            <div class="pw-col"><span class="ui-label">${t('power.k.gen')}</span><div class="pw-list pw-gen"></div></div>
+            <i class="pw-link" data-l="bat"></i>
+            <div class="pw-col pw-bat-col"><span class="ui-label">${t('power.battery')}</span><div class="pw-bat"><i></i></div><b class="pw-bat-v"></b><small class="pw-bat-s"></small></div>
+            <i class="pw-link" data-l="use"></i>
+            <div class="pw-col"><span class="ui-label">${t('power.k.use')}</span><div class="pw-list pw-use"></div></div>
+          </div>
+          <div class="pw-say"><b class="pw-l1"></b><span class="pw-l2"></span></div>
+        </section>
+      </div>`;
+    for (const [k, sel] of [['sunV', '.pw-sun-v'], ['sunRing', '.pw-sun-ring'], ['gen', '.pw-gen'], ['use', '.pw-use'], ['bat', '.pw-bat > i'], ['batV', '.pw-bat-v'], ['batS', '.pw-bat-s'], ['l1', '.pw-l1'], ['l2', '.pw-l2']] as const)
+      this.q[k] = r.querySelector(sel) as HTMLElement;
+    this.links = [...r.querySelectorAll<HTMLElement>('.pw-link')];
+    const add = (box: HTMLElement, id: string, label: string): void => {
+      const e = document.createElement('div');
+      e.className = 'pw-row';
+      e.innerHTML = `<span class="pw-k"></span><span class="pw-v"></span>`;
+      (e.querySelector('.pw-k') as HTMLElement).textContent = label;
+      box.appendChild(e);
+      this.rows.set(id, { el: e, k: e.querySelector('.pw-k') as HTMLElement, v: e.querySelector('.pw-v') as HTMLElement });
+    };
+    add(this.q.gen, 'roof', t('power.roof'));
+    add(this.q.gen, 'ground', t('power.ground'));
+    add(this.q.use, 'life', t('power.life'));
+    for (const id of ['workbench', 'electrolyzer', 'furnace'] as StationId[]) add(this.q.use, id, STATIONS[id].name);
+    add(this.q.use, 'suit', t('power.suit'));
+    (r.querySelector('[data-hit="back"]') as HTMLElement).addEventListener('click', () => this.close());
+  }
+
+  get open(): boolean {
+    return !this.root.hidden;
   }
 
   show(): void {
-    this.dots = [];
-    this.openScreen();
+    if (this.open) return;
+    this.root.hidden = false;
+    this.refresh();
+    this.last = performance.now();
+    const tick = (now: number): void => {
+      if (!this.open) return;
+      this.timer -= (now - this.last) / 1000;
+      this.last = now;
+      if (this.timer <= 0) {
+        this.timer = 0.25;
+        this.refresh();
+      }
+      this.raf = requestAnimationFrame(tick);
+    };
+    this.raf = requestAnimationFrame(tick);
+    this.onToggle?.(true);
   }
 
-  protected draw(dt: number): void {
-    const p = this.power;
-    this.background(ACCENT);
-    const top = this.topBar(t('power.title'), t('power.subtitle'), ACCENT);
-    const pad = 14;
-    const L = this.safe.l + pad, R = this.W - this.safe.r - pad, B = this.H - this.safe.b - pad;
-    const area = { x: L, y: top + 4, w: R - L, h: B - top - 4 };
-    const g = this.g;
-    g.fillStyle = 'rgba(4,8,22,0.5)';
-    roundRect(g, area, 14);
-    g.fill();
-    const textH = 54;
-    const diag = { x: area.x, y: area.y, w: area.w, h: area.h - textH };
+  close(): void {
+    if (!this.open) return;
+    cancelAnimationFrame(this.raf);
+    this.root.hidden = true;
+    this.onToggle?.(false);
+  }
 
-    // colunas: sol | geração | bateria | consumo
-    const col = (k: number): number => diag.x + diag.w * k;
-    const nodeW = Math.min(170, diag.w * 0.2), nodeH = 40;
-    const sun = { x: col(0.07), y: diag.y + diag.h / 2 };
+  /** onde estão os botões (para os testes no navegador) */
+  get hits(): Hit[] {
+    if (!this.open) return [];
+    return [...this.root.querySelectorAll<HTMLElement>('[data-hit]')].map((b) => {
+      const r = b.getBoundingClientRect();
+      return { id: b.dataset.hit as string, x: r.left, y: r.top, w: r.width, h: r.height };
+    });
+  }
+
+  private row(id: string, value: string, on: boolean, sub = ''): void {
+    const r = this.rows.get(id);
+    if (!r) return;
+    r.el.classList.toggle('on', on);
+    const s = sub ? `${value} · ${sub}` : value;
+    if (r.v.textContent !== s) r.v.textContent = s;
+  }
+
+  private link(i: number, kw: number): void {
+    const l = this.links[i];
+    l.classList.toggle('on', kw > 0.01);
+    // mais energia, mais rápido (a duração da animação encurta)
+    l.style.setProperty('--dur', `${Math.max(0.35, 2.4 / (0.4 + kw)).toFixed(2)}s`);
+  }
+
+  private refresh(): void {
+    const p = this.power;
+    const kw = (v: number): string => `${v.toFixed(1)} kW`;
+    // sol
+    this.q.sunV.textContent = p.sun > 0.95 ? t('power.sunFull') : t('power.sunWeak');
+    this.q.sunRing.style.setProperty('--f', p.sun.toFixed(2));
+    // geração
     const panelsAll = p.panels;
     const linked = panelsAll.filter((x) => x.linked);
     const shaded = linked.filter((x) => x.light < 0.5).length;
     const far = panelsAll.length - linked.length;
     const roofKw = p.roofKw;
     const groundKw = linked.reduce((s, x) => s + x.kw, 0);
-    const gens: Node[] = [
-      { id: 'roof', x: col(0.2), y: diag.y + diag.h * 0.3 - nodeH / 2, w: nodeW, h: nodeH, label: t('power.roof'), sub: t('power.roofSub', { n: POWER.roofPanels }), on: roofKw > 0.01, color: ACCENT },
-      {
-        id: 'ground', x: col(0.2), y: diag.y + diag.h * 0.7 - nodeH / 2, w: nodeW, h: nodeH, label: t('power.ground'),
-        sub: panelsAll.length ? t('power.groundSub', { n: linked.length }) : t('power.noPanels'), on: groundKw > 0.01, color: ACCENT,
-      },
-    ];
-    const bat = { x: col(0.47) - 34, y: diag.y + diag.h / 2 - 56, w: 68, h: 112 };
-    const loads = new Map(p.lastLoads.map((l) => [l.id, l.kw]));
-    const consumers: { id: string; label: string }[] = [
-      { id: 'life', label: t('power.life') },
-      ...(['workbench', 'electrolyzer', 'furnace'] as StationId[]).map((id) => ({ id, label: STATIONS[id].name })),
-      { id: 'suit', label: t('power.suit') },
-    ];
-    const cn = consumers.length;
-    const cGap = 6;
-    const cH = Math.min(nodeH, (diag.h - 20 - cGap * (cn - 1)) / cn);
-    const cons: Node[] = consumers.map((c, i) => {
-      const kw = loads.get(c.id) ?? 0;
-      return {
-        id: c.id, x: R - pad - nodeW, y: diag.y + 10 + i * (cH + cGap), w: nodeW, h: cH, label: c.label,
-        // o ar do habitat tem prioridade: só as máquinas e a recarga desaceleram
-        sub: kw > 0 ? (p.satisfaction < 0.99 && c.id !== 'life' ? t('power.slow') : t('power.on')) : t('power.off'), on: kw > 0, color: '#9fe8ff',
-      };
-    });
-
-    // fios com a energia que passa
+    this.row('roof', kw(roofKw), roofKw > 0.01, t('power.roofSub', { n: POWER.roofPanels }));
+    this.row('ground', kw(groundKw), groundKw > 0.01, panelsAll.length ? t('power.groundSub', { n: linked.length }) : t('power.noPanels'));
+    // bateria
+    const f = p.battery / p.capacity;
     const charge = p.generation - p.demand;
-    const wires: Wire[] = [
-      { id: 'sun-roof', a: sun, b: { x: gens[0].x, y: gens[0].y + nodeH / 2 }, kw: roofKw, color: ACCENT },
-      { id: 'sun-ground', a: sun, b: { x: gens[1].x, y: gens[1].y + nodeH / 2 }, kw: groundKw, color: ACCENT },
-      { id: 'roof-bat', a: { x: gens[0].x + nodeW, y: gens[0].y + nodeH / 2 }, b: { x: bat.x, y: bat.y + bat.h * 0.35 }, kw: roofKw, color: '#9fe8ff' },
-      { id: 'ground-bat', a: { x: gens[1].x + nodeW, y: gens[1].y + nodeH / 2 }, b: { x: bat.x, y: bat.y + bat.h * 0.65 }, kw: groundKw, color: '#9fe8ff' },
-      ...cons.map((c) => ({
-        id: `bat-${c.id}`, a: { x: bat.x + bat.w, y: bat.y + bat.h / 2 }, b: { x: c.x, y: c.y + c.h / 2 },
-        kw: (loads.get(c.id) ?? 0) * p.satisfaction, color: '#9fe8ff',
-      })),
-    ];
-    for (const w of wires) this.wire(w);
-    this.flow(wires, dt);
-
-    // nós
-    sunIcon(g, sun.x, sun.y, 16 * Math.max(0.5, p.sun), this.time);
-    g.fillStyle = COLORS.dim;
-    g.font = `500 12px ${FONT_UI}`;
-    g.textAlign = 'center';
-    g.fillText(p.sun > 0.95 ? t('power.sunFull') : t('power.sunWeak'), sun.x, sun.y + 42);
-    for (const n of [...gens, ...cons]) this.node(n);
-    this.battery(bat, charge);
-
-    // frases: o que está acontecendo e o que fazer
-    const lines: string[] = [];
-    if (charge > 0.01) lines.push(p.battery >= p.capacity - 0.5 ? t('power.full') : t('power.charging'));
-    else if (charge < -0.01 && p.battery > 0) lines.push(t('power.draining', { time: minutes(p.battery / -charge) }));
-    else if (p.satisfaction < 0.99) lines.push(t('power.empty', { pct: Math.round(p.satisfaction * 100) }));
-    else lines.push(t('power.balanced'));
-    if (!panelsAll.length) lines.push(t('power.hintPanels'));
+    this.q.bat.style.height = `${Math.round(f * 100)}%`;
+    this.q.bat.dataset.s = f > 0.3 ? 'ok' : f > 0.1 ? 'low' : 'crit';
+    this.q.batV.textContent = `${Math.round(f * 100)}%`;
+    this.q.batS.textContent = charge > 0.01 ? t('power.batCharging') : charge < -0.01 ? t('power.batDraining') : '';
+    // consumo
+    const loads = new Map(p.lastLoads.map((l) => [l.id, l.kw]));
+    let use = 0;
+    for (const id of ['life', 'workbench', 'electrolyzer', 'furnace', 'suit']) {
+      const v = loads.get(id) ?? 0;
+      use += v * p.satisfaction;
+      const state = v > 0 ? (p.satisfaction < 0.99 && id !== 'life' ? t('power.slow') : t('power.on')) : t('power.off');
+      this.row(id, v > 0 ? kw(v) : state, v > 0, v > 0 ? state : '');
+    }
+    this.link(0, roofKw + groundKw);
+    this.link(1, roofKw + groundKw);
+    this.link(2, use);
+    // frases
+    let l1: string;
+    if (charge > 0.01) l1 = p.battery >= p.capacity - 0.5 ? t('power.full') : t('power.charging');
+    else if (charge < -0.01 && p.battery > 0) l1 = t('power.draining', { time: minutes(p.battery / -charge) });
+    else if (p.satisfaction < 0.99) l1 = t('power.empty', { pct: Math.round(p.satisfaction * 100) });
+    else l1 = t('power.balanced');
+    let l2: string;
+    if (!panelsAll.length) l2 = t('power.hintPanels');
     else {
       const parts = [t('power.panelsLinked', { n: linked.length })];
       if (shaded) parts.push(t('power.panelsShade', { n: shaded }));
       if (far) parts.push(t('power.panelsFar', { n: far, reach: POWER.cableReach }));
-      lines.push(parts.join(' · '));
+      l2 = parts.join(' · ');
     }
-    g.textAlign = 'left';
-    g.font = `500 13px ${FONT_UI}`;
-    let y = area.y + area.h - textH + 18;
-    for (const line of lines) {
-      for (const l of wrapText(g, line, area.w - 28).slice(0, 1)) {
-        g.fillStyle = y === area.y + area.h - textH + 18 ? COLORS.ink : COLORS.dim;
-        g.fillText(l, area.x + 14, y);
-      }
-      y += 20;
-    }
-  }
-
-  private wire(w: Wire): void {
-    const g = this.g;
-    const on = w.kw > 0.01;
-    g.strokeStyle = on ? hexA(w.color, 0.35) : 'rgba(255,255,255,0.07)';
-    g.lineWidth = on ? 1.5 + Math.min(5, w.kw * 1.5) : 1;
-    g.beginPath();
-    const mx = (w.a.x + w.b.x) / 2;
-    g.moveTo(w.a.x, w.a.y);
-    g.bezierCurveTo(mx, w.a.y, mx, w.b.y, w.b.x, w.b.y);
-    g.stroke();
-  }
-
-  /** pacotes de energia: um a cada tanto, na proporção dos kW que passam no fio */
-  private flow(wires: Wire[], dt: number): void {
-    const g = this.g;
-    for (const w of wires) {
-      if (w.kw <= 0.01) continue;
-      const left = (this.emitT.get(w.id) ?? 0) - dt;
-      if (left <= 0) {
-        this.dots.push({ wire: w.id, t: 0, dur: 1.1 });
-        this.emitT.set(w.id, 1 / (4 * w.kw));
-      } else this.emitT.set(w.id, left);
-    }
-    const byId = new Map(wires.map((w) => [w.id, w]));
-    this.dots = this.dots.filter((d) => (d.t += dt) < d.dur && (byId.get(d.wire)?.kw ?? 0) > 0.01);
-    for (const d of this.dots) {
-      const w = byId.get(d.wire);
-      if (!w) continue;
-      const u = d.t / d.dur, v = 1 - u;
-      const mx = (w.a.x + w.b.x) / 2;
-      const x = v * v * v * w.a.x + 3 * v * v * u * mx + 3 * v * u * u * mx + u * u * u * w.b.x;
-      const y = v * v * v * w.a.y + 3 * v * v * u * w.a.y + 3 * v * u * u * w.b.y + u * u * u * w.b.y;
-      g.fillStyle = w.color;
-      g.globalAlpha = Math.sin(Math.PI * u);
-      g.beginPath();
-      g.arc(x, y, 2.6, 0, Math.PI * 2);
-      g.fill();
-    }
-    g.globalAlpha = 1;
-  }
-
-  private node(n: Node): void {
-    const g = this.g;
-    g.fillStyle = n.on ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)';
-    roundRect(g, n, 10);
-    g.fill();
-    g.strokeStyle = n.on ? hexA(n.color, 0.6) : 'rgba(255,255,255,0.1)';
-    g.lineWidth = 1;
-    g.stroke();
-    g.textAlign = 'left';
-    g.fillStyle = n.on ? COLORS.ink : COLORS.faint;
-    const big = n.h >= 34;
-    g.font = `500 ${big ? 12.5 : 11}px ${FONT_UI}`;
-    g.fillText(fitText(g, n.label, n.w - 16), n.x + 9, n.y + (big ? 17 : n.h / 2 + 4));
-    if (big) {
-      g.fillStyle = n.on ? COLORS.dim : COLORS.faint;
-      g.font = `400 10.5px ${FONT_UI}`;
-      g.fillText(fitText(g, n.sub, n.w - 16), n.x + 9, n.y + 31);
-    } else if (n.on) {
-      g.fillStyle = COLORS.dim;
-      g.font = `400 10px ${FONT_UI}`;
-      g.textAlign = 'right';
-      g.fillText(n.sub, n.x + n.w - 8, n.y + n.h / 2 + 4);
-    }
-  }
-
-  private battery(r: Rect, charge: number): void {
-    const g = this.g;
-    const f = this.power.battery / this.power.capacity;
-    g.fillStyle = 'rgba(255,255,255,0.08)';
-    roundRect(g, r, 12);
-    g.fill();
-    g.fillStyle = 'rgba(255,255,255,0.25)';
-    roundRect(g, { x: r.x + r.w / 2 - 12, y: r.y - 7, w: 24, h: 8 }, 3);
-    g.fill();
-    const inner = { x: r.x + 6, y: r.y + 6, w: r.w - 12, h: r.h - 12 };
-    const fh = inner.h * f;
-    g.fillStyle = f > 0.3 ? COLORS.ok : f > 0.1 ? COLORS.work : COLORS.warn;
-    g.globalAlpha = 0.85;
-    roundRect(g, { x: inner.x, y: inner.y + inner.h - fh, w: inner.w, h: Math.max(2, fh) }, 7);
-    g.fill();
-    g.globalAlpha = 1;
-    boltIcon(g, r.x + r.w / 2, r.y + r.h / 2, 13, charge > 0.01 ? '#ffffff' : 'rgba(255,255,255,0.6)');
-    g.fillStyle = COLORS.ink;
-    g.font = `600 12px ${FONT_TITLE}`;
-    g.textAlign = 'center';
-    g.fillText(t('power.battery'), r.x + r.w / 2, r.y + r.h + 18);
-    g.fillStyle = COLORS.dim;
-    g.font = `400 11px ${FONT_UI}`;
-    g.fillText(charge > 0.01 ? t('power.batCharging') : charge < -0.01 ? t('power.batDraining') : '', r.x + r.w / 2, r.y + r.h + 33);
+    this.q.l1.textContent = l1;
+    this.q.l2.textContent = l2;
   }
 }
 

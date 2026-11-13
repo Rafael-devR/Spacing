@@ -37,8 +37,8 @@ src/
   render/            modelos do Blender (gltfModels), materiais e shaders, céu, luzes, pós-processamento, partículas, modelos, câmera, ícones,
                      modelo da base, bancada com laser (Fabricator), forno e eletrolisador (stationModels),
                      itens fabricados (craftedModels) e camada do interior (indoors)
-  ui/                HUD, menu de pausa, mochila, telas cheias em Canvas (canvasScreen: estações em CraftPanel, energia em
-                     PowerPanel), selo dos trabalhos (JobsChip),
+  ui/                HUD, menu de pausa, tela de itens (inventory/: tela, grade e a mão de arrastar) com a mochila (Bag) e as
+                     estações (station/: StationScreen, câmara animada, calor), energia (PowerPanel), selo dos trabalhos (JobsChip),
                      botão de ação e transições da base, estilos
   audio/             sons sintetizados e áudio posicional (design/AUDIO.md)
   i18n/              textos da interface (pt-BR)

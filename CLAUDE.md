@@ -52,7 +52,7 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). **Sessão nova?
 - Depuração em `npm run dev`: `window.spacing` é o objeto do jogo; `?eventos` no endereço mostra os eventos.
 - Decisões: `docs/adr/`. Referências de arte: `docs/art/reference/`.
 - Fabricação (ADR 0009): itens com propósito e calor/peso/raridade em `src/data/items.ts`, estações em `stations.ts`, receitas e
-  fórmula do tempo em `recipes.ts`, regras em `src/systems/Crafting.ts`, tela técnica em `src/ui/CraftPanel.ts`, máquinas em
+  fórmula do tempo em `recipes.ts`, regras em `src/systems/Crafting.ts`, tela em `src/ui/station/StationScreen.ts`, máquinas em
   `src/render/stationModels.ts` ([design/CRAFTING.md](docs/design/CRAFTING.md), panorama em [design/ITENS.md](docs/design/ITENS.md)).
   Todo item novo precisa de `about` e de uso; o teste `tests/crafting.test.ts` confere. Estações têm vagas e lotes.
 - Modelos 3D (ADR 0013, [design/MODELOS.md](docs/design/MODELOS.md)): scripts do Blender em `tools/models/` (`build.sh`, `lib.py`,
@@ -64,10 +64,12 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). **Sessão nova?
 - Personagem ([design/PERSONAGEM.md](docs/design/PERSONAGEM.md), ADR 0017): modelo `tools/models/astronaut.py` (voxel chibi, um nó por
   junta), esqueleto e item na mão em `src/render/astronaut.ts`, animação procedural pura em `src/render/astronautAnim.ts` (testada em
   `tests/astronautAnim.test.ts`), poeira dos pés em `src/render/dustFx.ts`; teste `tools/visual-check/astronaut.mjs`.
-- Forno em PixiJS ([design/FORNO.md](docs/design/FORNO.md), ADR 0018): `src/ui/FurnacePanel.ts` (painel), `src/ui/furnace/` (`furnaceScene.ts` a máquina,
-  `furnaceModel.ts` calor e ventoinha **sem Pixi**, testado em `tests/furnaceModel.test.ts`, `pixiKit.ts` botão/lista/ícones, `particles.ts`),
-  fachada `src/ui/StationPanel.ts` (o forno carrega sob demanda; bancada e eletrolisador seguem em `CraftPanel`); teste `tools/visual-check/furnace.mjs`.
-  O dono quer as telas técnicas refeitas **uma por vez** (hoje só o forno), com a direção de arte do Spacing.
+- Tela de itens (ADR 0019, [design/INVENTARIO.md](docs/design/INVENTARIO.md), [design/ESTACOES.md](docs/design/ESTACOES.md)): **mochila e estações
+  são a mesma tela em HTML** (`src/ui/inventory/screen.ts`, `#inv`), com o inventário à direita e um painel à esquerda (`src/ui/Bag.ts` ou
+  `src/ui/station/StationScreen.ts`). Gestos (arrastar, segurar = metade, toque duplo = mandar rápido) em `src/ui/inventory/hand.ts`; regras
+  em `Inventory.moveN/quickMove/sortBag` (`tests/inventoryOps.test.ts`). Câmara animada da estação em `src/ui/station/core.ts`, calor do forno
+  em `thermal.ts` (`tests/furnaceModel.test.ts`). Botões têm `data-hit`; `craftPanel.hits` devolve onde estão. Teste `tools/visual-check/inventory.mjs`.
+  Não há mais PixiJS nem telas em Canvas.
 - **Modo de teste** ([design/TESTE.md](docs/design/TESTE.md), ADR 0015): `?teste` liga um painel de depuração (dar itens, soltar meteoros,
   teleportar, parar o tempo…) com **salvamento próprio**. Catálogo em `src/data/testmode.ts`, executor em `src/app/TestMode.ts`, painel em
   `src/ui/TestPanel.ts`. **Para testar uma mudança, provoque a situação com `window.spacing.testMode.run('…')` em vez de jogar até ela**; o
@@ -88,7 +90,7 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). **Sessão nova?
   no mesher, corte da câmera em `src/render/cutaway.ts`; teste `tools/visual-check/caves.mjs`. Mudou o gerador? Suba `WORLD_GEN`.
 - Energia (ADR 0010, regra do dono: **nada vem do nada**): números em `src/data/power.ts`, regras em `src/systems/Power.ts`,
   tela no console em `src/ui/PowerPanel.ts`; painel solar é um objeto colocado no mundo ([design/ENERGIA.md](docs/design/ENERGIA.md)).
-  Telas cheias em Canvas herdam de `src/ui/canvasScreen.ts`; teste `tools/visual-check/stations.mjs`.
+  Tela no mesmo estilo das estações; teste `tools/visual-check/stations.mjs`.
 - Base: dados em `src/data/base.ts` (módulos), `recipes.ts`, `equipment.ts`; experiência em
   `src/app/BaseDirector.ts`; teste no navegador `tools/visual-check/base.mjs` ([design/BASE.md](docs/design/BASE.md)).
 - Brocas: `src/data/drills.ts` (velocidade, nível, bateria), `equipment.ts` e `recipes.ts`; microgravidade dos

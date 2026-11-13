@@ -186,30 +186,12 @@
 <div id="bench-choose" hidden role="dialog" aria-modal="true"></div>
 <div id="bench-result" hidden role="dialog" aria-modal="true" aria-labelledby="bench-result-title"></div>
 
-<!-- telas cheias em Canvas (src/ui/canvasScreen.ts): estações e energia da base -->
-<div id="craft" class="screen" hidden role="dialog" aria-modal="true" aria-label="Estação de fabricação"><canvas></canvas></div>
-<!-- a tela do forno é em PixiJS (src/ui/FurnacePanel.ts, ADR 0018): canvas e contexto próprios -->
-<div id="furnace" class="screen" hidden role="dialog" aria-modal="true" aria-label="Forno solar"><canvas></canvas></div>
-<div id="power" class="screen" hidden role="dialog" aria-modal="true" aria-label="Energia da base"><canvas></canvas></div>
+<!-- tela de itens (src/ui/inventory/screen.ts, ADR 0019): mochila e estações, com o inventário ao lado; o conteúdo vem do código -->
+<div id="inv" class="ui-screen" hidden role="dialog" aria-modal="true"></div>
+<!-- energia da base (src/ui/PowerPanel.ts), no mesmo estilo -->
+<div id="power" hidden role="dialog" aria-modal="true" aria-label="Energia da base"></div>
 
 <div id="testpanel" hidden role="dialog" aria-label="Modo de teste"></div>
-
-<div id="bag" hidden role="dialog" aria-modal="true" aria-labelledby="bag-title">
-  <div class="bag-card">
-    <div class="bag-head">
-      <h2 id="bag-title">Mochila</h2>
-      <span id="bag-hint"></span>
-      <button class="chip" id="bag-close" type="button" aria-label="Fechar mochila">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
-    </div>
-    <div class="bag-grid" id="bag-grid"></div>
-    <span class="bag-label">Barra de itens</span>
-    <div class="bag-grid" id="bag-hotbar"></div>
-    <span class="bag-label">Equipamento no traje</span>
-    <div class="equip-row" id="bag-equip"></div>
-  </div>
-</div>
 
 <div id="death" hidden role="dialog" aria-modal="true" aria-labelledby="death-title">
   <div class="death-card">
@@ -326,7 +308,7 @@
       <dt>Segurar no chão</dt><dd>Aparece uma mira acima do dedo: arraste até o bloco e segure para minerar (se estiver longe, o astronauta vai até lá)</dd>
       <dt>Toque rápido</dt><dd>Andar até o ponto</dd>
       <dt>Botão cubo</dt><dd>Modo construção: toque num bloco para colocar outro em cima</dd>
-      <dt>Bolsa</dt><dd>Abrir a mochila: toque num item e depois em outro espaço para mover</dd>
+      <dt>Bolsa</dt><dd>Abrir a mochila: arraste os itens; segure para pegar metade; toque duas vezes para mandar à barra</dd>
       <dt>Botão de ação</dt><dd>Aparece perto da porta da base, da bancada e do beliche</dd>
       <dt>Pinça</dt><dd>Zoom</dd>
       <dt>Setas curvas</dt><dd>Girar a câmera 90° (canto de cima)</dd></span>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AMBIENT, FAN_MAX_SPEED, heat01, heatColor, MAX_TEMP, targetTemp, ThermalModel } from '../src/ui/furnace/furnaceModel';
+import { AMBIENT, FAN_MAX_SPEED, heat01, heatColor, MAX_TEMP, targetTemp, ThermalModel } from '../src/ui/station/thermal';
 import { recipeById } from '../src/data/recipes';
 import type { JobView } from '../src/systems/Crafting';
 

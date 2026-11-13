@@ -27,7 +27,7 @@ const g = (fn, arg) => page.evaluate(fn, arg);
 const shot = (n) => page.screenshot({ path: `${out}/st-${n}.png` });
 /** toca no botão `id` que a tela desenhou neste quadro */
 const tap = async (panel, id) => {
-  const r = await g(([p, i]) => (p === 'craftPanel' ? window.spacing.craftPanel.craft : window.spacing[p]).hits.find((h) => h.id === i) ?? null, [panel, id]);
+  const r = await g(([p, i]) => window.spacing[p].hits.find((h) => h.id === i) ?? null, [panel, id]);
   if (!r) return false;
   await page.mouse.click(r.x + r.w / 2, r.y + r.h / 2);
   await page.waitForTimeout(250);
@@ -62,7 +62,7 @@ check('forno instalado', await g(() => window.spacing.crafting.isBuilt('furnace'
 await tap('craftPanel', 'back');
 check('voltar fecha a tela', await g(() => !window.spacing.craftPanel.open));
 
-// o forno agora é uma tela em PixiJS, com teste próprio: furnace.mjs
+// o forno e os gestos da tela de itens têm teste próprio: inventory.mjs
 
 // eletrolisador sem energia: bateria vazia e muito consumo
 await g(() => {
