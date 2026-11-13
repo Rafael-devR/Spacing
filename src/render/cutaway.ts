@@ -5,6 +5,12 @@
 // A mesma conta vale no shader (materials.ts, USE_CUT) e na mira (`skip`), para o toque não acertar rocha invisível.
 import * as THREE from 'three';
 
+/**
+ * Liga o recorte. Desligado (2026-11-13): o dono pediu só a câmera de caverna, sem recorte, porque o recorte escondia blocos
+ * que bloqueiam o caminho (o bloco some, mas a colisão continua). Com `false`, nada é cortado, a mira não pula e o material
+ * de corte não entra nos chunks. Para voltar, troque para `true`.
+ */
+export const CUT_SWITCH = { enabled: false };
 /** margem (blocos) na frente do astronauta que nunca é cortada */
 export const CUT_MARGIN = 0.6;
 /** tudo o que está acima disto (blocos acima dos pés) e na frente do astronauta é cortado: o teto e o que há sobre ele */
@@ -30,7 +36,7 @@ const _o = new THREE.Vector3();
 
 /** Atualiza o corte: `feet` é a posição do astronauta, `k` (0..1) abre o corte aos poucos. */
 export function setCut(camera: THREE.Camera, feet: THREE.Vector3, k: number): void {
-  CUT.uCutR.value = k > 0.01 ? CUT_RADIUS * k : 0;
+  CUT.uCutR.value = CUT_SWITCH.enabled && k > 0.01 ? CUT_RADIUS * k : 0;
   CUT.uCutF.value.set(feet.x, feet.y + 0.15, feet.z);
   camera.getWorldDirection(CUT.uCutV.value);
   CUT.uCutU.value.set(0, 1, 0).applyQuaternion(camera.quaternion);
@@ -52,7 +58,7 @@ export function isCut(p: THREE.Vector3): boolean {
  */
 export function skip(origin: THREE.Vector3, dir: THREE.Vector3): number {
   const V = CUT.uCutV.value, U = CUT.uCutU.value, R = CUT.uCutR.value;
-  if (R <= 0) return 0;
+  if (!CUT_SWITCH.enabled || R <= 0) return 0;
   const dv = dir.dot(V), du = dir.dot(U);
   _q.copy(dir).addScaledVector(V, -dv);
   const a = _q.lengthSq();

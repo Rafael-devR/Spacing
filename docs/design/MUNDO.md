@@ -103,10 +103,13 @@ Os ruídos 3D são calculados numa grade de 4×2×4 e interpolados (como o Minec
 O problema: a câmera fica do lado de fora, olhando de cima; debaixo de um teto, o astronauta some.
 
 1. **O jogo mede o teto:** 9 pontos em volta do astronauta (um raio de 4 blocos); com mais de ~1/3 deles cobertos, começa o
-   modo caverna; com ~2/3, está completo.
+   modo caverna; com ~2/3, está completo. **Só conta debaixo da terra:** é preciso que pelo menos 10 de 16 colunas num anel de
+   8 blocos tenham o terreno acima dos pés (2026-11-13). Na superfície, perto de borda ou de teto, o modo não liga.
 2. **A câmera aproxima** em ~1 s: de 30 para 15 blocos (metade do zoom do jogador, entre 12 e 20). O ângulo e o giro de
    90° não mudam; o zoom continua funcionando.
-3. **O corte abre junto**, como uma íris: some a rocha que está **entre a câmera e o astronauta**: o que cobriria o corpo
+3. **O corte está DESLIGADO** (`CUT_SWITCH` em `render/cutaway.ts`, 2026-11-13): o dono pediu só a câmera de caverna. O recorte
+   removia blocos que bloqueiam o caminho (o bloco sumia, mas a colisão continuava). Texto original, para voltar se quiser:
+   o corte abre junto some a rocha que está **entre a câmera e o astronauta**: o que cobriria o corpo
    dele e tudo o que está acima da cabeça (o teto e o morro por cima). Ficam o chão, a parte de baixo das paredes e tudo o
    que está atrás dele. O miolo da rocha cortada aparece escuro.
 4. **A mira ignora o que foi cortado:** tocar "através" do teto invisível acerta o que se vê.

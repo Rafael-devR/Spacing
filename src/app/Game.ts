@@ -30,7 +30,10 @@ import { IsoRig } from '../render/IsoRig';
 import { ItemModels } from '../render/itemModels';
 import { Lights } from '../render/lights';
 import { U, createMaterials } from '../render/materials';
-import { setCut, skip as cutSkip } from '../render/cutaway';
+import { CUT_SWITCH, setCut, skip as cutSkip } from '../render/cutaway';
+
+/** quantos blocos a superfície tem de estar acima dos pés para o astronauta contar como debaixo da terra (modo caverna) */
+const CAVE_MIN_DEPTH = 3;
 import { ResolutionScaler } from '../render/scaler';
 import { createChunkWorkers } from '../world/workerPool';
 import { model } from '../render/gltfModels';
@@ -1153,6 +1156,22 @@ export class Game {
     if (this.state === 'paused') this.post.render(this.time);
   }
 
+  /**
+   * Debaixo da terra? Olha 16 colunas num anel de 8 blocos em volta do astronauta: se a maior parte do terreno ali está
+   * acima dos pés dele, ele está num buraco ou num túnel, e não na superfície (na beira de cratera o terreno em volta
+   * fica no nível dele ou abaixo).
+   */
+  private surroundedByGround(p: THREE.Vector3): boolean {
+    const { world } = this;
+    let higher = 0;
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      const x = Math.floor(p.x + Math.cos(a) * 8), z = Math.floor(p.z + Math.sin(a) * 8);
+      if (world.topY(x, z) - p.y > CAVE_MIN_DEPTH) higher++;
+    }
+    return higher >= 10;
+  }
+
   /** Quanto teto há sobre o astronauta (0 a 1) e quão escuro está: comanda a câmera de caverna, a lanterna e a neblina. */
   private updateCover(dt: number): void {
     const { world, player, rig } = this;
@@ -1161,7 +1180,9 @@ export class Game {
     if (this.coverT <= 0) {
       this.coverT = 0.1;
       let n = 0;
-      if (!this.indoors.on) {
+      // só conta como caverna se o astronauta está DEBAIXO da terra: a superfície da coluna dele fica bem acima dos pés.
+      // Na beira de cratera ou no pé de um paredão o chão está no nível dele, e o modo não liga (docs/design/MUNDO.md).
+      if (!this.indoors.on && this.surroundedByGround(p)) {
         const y = p.y + 1.9;
         for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (world.roofed(p.x + dx * 4, y, p.z + dz * 4)) n++;
       }
@@ -1353,7 +1374,7 @@ export class Game {
     // corte da caverna: abre junto com a câmera de caverna; o material com corte só entra nos chunks enquanto é preciso
     setCut(this.camera, player.model.root.position, rig.cave);
     this.underside.position.set(rig.target.x, 0.5, rig.target.z);
-    world.setMaterial(rig.cave > 0.01 ? this.cutMaterial : this.terrainMaterial);
+    world.setMaterial(CUT_SWITCH.enabled && rig.cave > 0.01 ? this.cutMaterial : this.terrainMaterial);
     p?.begin(SUB.map);
     this.map.update(realDt);
     p?.end(SUB.map);

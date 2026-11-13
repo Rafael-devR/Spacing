@@ -6,7 +6,7 @@ import { CH, CS, HOME_CRATER, ICE_LEVEL, SEA, Terrain, idx } from '../src/world/
 import { SKY_MAX, World } from '../src/world/World';
 import { PropFactory } from '../src/render/models';
 import { createMaterials } from '../src/render/materials';
-import { CUT, isCut, setCut, skip } from '../src/render/cutaway';
+import { CUT, CUT_SWITCH, isCut, setCut, skip } from '../src/render/cutaway';
 import { randomSeed, seedFromSearch } from '../src/core/seed';
 
 const SEEDS = [1, 42, 987654, 20261111, 314159];
@@ -162,7 +162,30 @@ describe('luz do céu', () => {
 });
 
 describe('corte da caverna', () => {
-  it('corta só o que está entre a câmera e o astronauta, e a mira pula a parte cortada', () => {
+  it('desligado (padrão): não corta nada e a mira não pula', () => {
+    expect(CUT_SWITCH.enabled).toBe(false);
+    const cam = new PerspectiveCamera(30, 2, 1, 400);
+    const feet = new Vector3(10, 20, 10);
+    cam.position.set(20, 32.8, 20);
+    cam.lookAt(10, 20.8, 10);
+    cam.updateMatrixWorld();
+    setCut(cam, feet, 1);
+    expect(CUT.uCutR.value).toBe(0);
+    expect(isCut(new Vector3(10, 26, 10))).toBe(false); // o teto continua visível
+    expect(skip(new Vector3(10, 26, 10), new Vector3(0, -1, 0))).toBe(0);
+  });
+
+  it('ligado: corta só o que está entre a câmera e o astronauta, e a mira pula a parte cortada', () => {
+    CUT_SWITCH.enabled = true;
+    try {
+      geometry();
+    } finally {
+      CUT_SWITCH.enabled = false;
+    }
+  });
+});
+
+function geometry(): void {
     const cam = new PerspectiveCamera(30, 2, 1, 400);
     const feet = new Vector3(10, 20, 10);
     cam.position.set(10 + 10, 20 + 0.8 + 12, 10 + 10);
@@ -184,5 +207,4 @@ describe('corte da caverna', () => {
     expect(t).toBeGreaterThan(d - 3);
     expect(t).toBeLessThan(d);
     expect(isCut(cam.position.clone().addScaledVector(dir, t + 0.01))).toBe(false);
-  });
-});
+}

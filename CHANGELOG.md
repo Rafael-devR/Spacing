@@ -7,6 +7,9 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Corrigido
 
+- **Recorte que escondia blocos na sua frente.** Desligado (`CUT_SWITCH` em `render/cutaway.ts`): o bloco continua no lugar e
+  bloqueia o caminho, sem sumir. O modo caverna (aproximar a câmera) só liga debaixo da terra (o terreno em volta fica acima dos
+  pés), e não na superfície perto de borda ou de teto.
 - **Limite de FPS estável.** O limite passou a andar numa grade de tempo fixa (`core/framecap.ts`): antes acumulava desvio e podia
   alternar entre 25 e 30 (ou entregar 45 FPS com limite de 60 numa tela de 90 Hz).
 

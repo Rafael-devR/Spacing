@@ -143,7 +143,9 @@ Em ordem de execução, tudo com testes e documentação:
 
 Vamos um por vez. Ainda sem detalhes do dono; a investigação começa quando ele mandar.
 
-1. **Blocos transparentes atrás do personagem (cavernas e relevo).** O personagem não fica atrás dos blocos e eles aparecem
+1. **[Parcialmente feito, 2026-11-13] Blocos invisíveis na frente do personagem.** O recorte foi desligado (`CUT_SWITCH`) e o modo
+   caverna só liga debaixo da terra. Falta o dono conferir no celular se a superfície e a entrada de caverna ficaram boas.
+   Texto original: blocos transparentes atrás do personagem (cavernas e relevo). O personagem não fica atrás dos blocos e eles aparecem
    transparentes. Acontece dentro de cavernas e também fora delas: o relevo do chão some atrás de uma cratera. Provável ligação
    com o corte da câmera (`src/render/cutaway.ts`) e com o material de corte dos chunks.
 2. **Escada da base.** Precisa de ajuste (o dono vai detalhar).
