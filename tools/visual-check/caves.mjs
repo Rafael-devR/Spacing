@@ -30,6 +30,7 @@ const shot = (n) => page.screenshot({ path: `${out}/caves-${tag}-${n}.png` });
 await page.goto(`${url}${url.includes('?') ? '&' : '?'}semente=${seed}`);
 await page.waitForSelector('#btn-start:not([disabled])', { timeout: 120000 });
 await page.click('#btn-start');
+await page.waitForFunction(() => document.body.dataset.state === 'playing', null, { timeout: 180000 });
 await page.waitForTimeout(1200);
 check('a semente do endereço vale num jogo novo', (await g(() => window.spacing.seed)) === Number(seed));
 await shot('0-pouso');

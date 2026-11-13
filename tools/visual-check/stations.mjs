@@ -37,6 +37,7 @@ const tap = async (panel, id) => {
 await page.goto(url);
 await page.waitForSelector('#btn-start:not([disabled])', { timeout: 120000 });
 await page.click('#btn-start');
+await page.waitForFunction(() => document.body.dataset.state === 'playing', null, { timeout: 180000 });
 await page.waitForTimeout(1500);
 await g(() => {
   const s = window.spacing;

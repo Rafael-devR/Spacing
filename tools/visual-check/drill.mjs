@@ -28,6 +28,7 @@ const g = (fn, arg) => page.evaluate(fn, arg);
 await page.goto(url);
 await page.waitForSelector('#btn-start:not([disabled])', { timeout: 120000 });
 await page.click('#btn-start');
+await page.waitForFunction(() => document.body.dataset.state === 'playing', null, { timeout: 180000 });
 await page.waitForTimeout(800);
 
 // um bloco de basalto (pede broca nível 1) ao lado do astronauta, e o ponto da tela dele

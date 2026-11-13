@@ -172,6 +172,7 @@ await g(() => window.spacing['persist']());
 await page.reload();
 await page.waitForSelector('#btn-start:not([disabled])', { timeout: 120000 });
 await page.click('#btn-start');
+await page.waitForFunction(() => document.body.dataset.state === 'playing', null, { timeout: 180000 });
 await page.waitForFunction(() => document.body.dataset.state === 'playing', null, { timeout: 15000 });
 const back = await g(() => {
   const s = window.spacing, st = s.greenhouseState.site;

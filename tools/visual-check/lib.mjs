@@ -36,7 +36,7 @@ export async function boot({ url = 'http://localhost:5173/', out = '/tmp', w = 8
   await page.waitForSelector('#btn-start:not([disabled])', { timeout: 120000 });
   if (start) {
     await page.click('#btn-start');
-    await page.waitForFunction(() => document.body.dataset.state === 'playing', null, { timeout: 15000 });
+    await page.waitForFunction(() => document.body.dataset.state === 'playing', null, { timeout: 180000 });
   }
   /** fecha o navegador e escreve o resultado; sai com erro se algo falhou */
   async function finish() {

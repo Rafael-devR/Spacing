@@ -28,6 +28,7 @@ const g = (fn, arg) => page.evaluate(fn, arg);
 await page.goto(`${url}${url.includes('?') ? '&' : '?'}semente=${seed}`);
 await page.waitForSelector('#btn-start:not([disabled])', { timeout: 120000 });
 await page.click('#btn-start');
+await page.waitForFunction(() => document.body.dataset.state === 'playing', null, { timeout: 180000 });
 await page.waitForTimeout(1500);
 check('o jogo usa workers para os chunks', await g(() => window.spacing.world.usesWorkers));
 

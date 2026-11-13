@@ -32,9 +32,10 @@ page.on('console', (m) => { if (['error', 'warning'].includes(m.type()) && !/GPU
 const base = url.includes('?') ? `${url}&planeta=marte` : `${url}?planeta=marte`;
 await page.goto(base);
 await page.waitForSelector('#btn-start:not([disabled])', { timeout: 120000 });
-check('a tela inicial é de Marte', /Elysium/.test(await page.textContent('#start-kicker')));
-check('o botão Marte está marcado', (await page.getAttribute('[data-planet="marte"]', 'aria-pressed')) === 'true');
+check('a tela inicial é de Marte', /Elysium/.test(await page.textContent('#title-region')));
+check('o botão Marte está marcado', (await page.getAttribute('#title-settings [data-planet="marte"]', 'aria-pressed')) === 'true');
 await page.click('#btn-start');
+await page.waitForFunction(() => document.body.dataset.state === 'playing', null, { timeout: 180000 });
 await page.waitForTimeout(4000);
 await page.screenshot({ path: `${out}/mars-1-pouso.png` });
 

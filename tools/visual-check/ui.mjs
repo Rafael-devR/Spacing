@@ -30,6 +30,7 @@ async function open(w, h, prefix) {
   await page.screenshot({ path: `${out}/${prefix}1-inicio.png` });
   check(`${prefix} HUD escondido no menu`, await page.evaluate(() => getComputedStyle(document.querySelector('#hud')).visibility === 'hidden'));
   await page.click('#btn-start');
+  await page.waitForFunction(() => document.body.dataset.state === 'playing', null, { timeout: 180000 });
   await page.waitForTimeout(3500);
   await page.screenshot({ path: `${out}/${prefix}2-jogo.png` });
   // nada do HUD pode sair da tela nem se sobrepor aos controles

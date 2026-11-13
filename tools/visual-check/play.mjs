@@ -29,6 +29,7 @@ const check = (name, ok, detail = '') => results.push(`${ok ? 'OK  ' : 'FALHOU'}
 await page.goto(url);
 await page.waitForSelector('#btn-start:not([disabled])', { timeout: 120000 });
 await page.click('#btn-start');
+await page.waitForFunction(() => document.body.dataset.state === 'playing', null, { timeout: 180000 });
 check('estado depois de começar', (await page.evaluate(() => window.spacing.state)) === 'playing');
 
 // bloco do chão logo à frente do astronauta, em coordenadas de tela

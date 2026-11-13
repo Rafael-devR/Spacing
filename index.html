@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Fredoka:wght@500;600;700&family=JetBrains+Mono:wght@500;700&family=Rubik:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="/src/ui/styles.css">
 </head>
-<body data-state="loading">
+<body data-state="title">
 <div id="game"></div>
 
 <div id="hud">
@@ -317,32 +317,68 @@
   </div>
 </div>
 
-<div id="start">
-  <div class="start-inner">
-    <span class="kicker" id="start-kicker">Missão 01 · Cratera Shackleton</span>
-    <h1 class="title">Spacing</h1>
-    <p class="pitch" id="start-pitch">Seu módulo pousou no polo sul da Lua. Minere regolito, gelo e minérios, construa com blocos e prepare o caminho para um planeta com vida.</p>
-    <!-- provisório (docs/design/MARTE.md): escolha do planeta até existir a viagem de verdade -->
-    <div class="start-planet" role="group" aria-label="Planeta">
-      <span class="setting-label">Planeta (provisório)</span>
-      <div class="seg">
+<!-- tela de título (src/ui/title/, docs/design/TITULO.md): o fundo é o planeta escolhido, desenhado no canvas do jogo -->
+<div id="title" hidden>
+  <div class="title-main">
+    <span class="title-kicker" id="title-region"></span>
+    <h1 class="title-name">Spacing</h1>
+    <span class="title-version" id="title-version"></span>
+    <nav class="title-menu" aria-label="Menu principal">
+      <button class="title-btn primary" id="btn-start" type="button">Jogar</button>
+      <button class="title-btn" id="btn-reset" type="button" hidden>Novo jogo</button>
+      <button class="title-btn" id="btn-settings" type="button">Configurações</button>
+      <button class="title-btn" id="btn-controls" type="button">Controles</button>
+      <button class="title-btn quiet" id="btn-testmode" type="button">Modo de teste</button>
+    </nav>
+    <p id="title-error" hidden></p>
+  </div>
+  <div class="title-foot">
+    <span id="title-planet"></span>
+    <span id="rotate-hint"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M3 14a9 9 0 0 0 6 6"/></svg>Melhor deitado: gire o celular</span>
+  </div>
+  <section id="title-settings" class="title-panel" hidden aria-labelledby="title-settings-h">
+    <header>
+      <button class="title-back" id="title-settings-back" type="button" aria-label="Voltar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <h2 id="title-settings-h">Configurações</h2>
+    </header>
+    <div class="title-row">
+      <span class="title-row-k">Planeta <small>provisório, até existir a viagem</small></span>
+      <div class="title-seg" role="group" aria-label="Planeta">
         <button type="button" data-planet="lua">Lua</button>
         <button type="button" data-planet="marte">Marte</button>
       </div>
     </div>
-    <div class="legend" id="start-legend">
-      <span><b>Regolito</b> poeira da superfície</span>
-      <span><b>Gelo</b> fundo das crateras</span>
-      <span><b>Ilmenita</b> rocha escura de titânio</span>
-      <span><b>Cristal</b> brilha no escuro</span>
+    <div class="title-row">
+      <span class="title-row-k">Gráficos</span>
+      <div class="title-seg" role="group" aria-label="Gráficos">
+        <button type="button" data-quality="auto">Auto</button>
+        <button type="button" data-quality="baixo">Baixa</button>
+        <button type="button" data-quality="medio">Média</button>
+        <button type="button" data-quality="alto">Alta</button>
+      </div>
     </div>
-    <div class="start-row">
-      <button class="cta" id="btn-start" type="button" disabled>Carregando…</button>
-      <button class="ghost-btn" id="btn-reset" type="button" hidden>Novo jogo</button>
-      <button class="ghost-btn" id="btn-testmode" type="button">Modo de teste</button>
-      <span id="loading">Carregando motor 3D…</span>
-      <span id="rotate-hint"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M3 14a9 9 0 0 0 6 6"/></svg>Melhor deitado: gire o celular</span>
+    <div class="title-row">
+      <span class="title-row-k">Som</span>
+      <div class="title-seg"><button type="button" id="title-sound">Ligado</button></div>
     </div>
+    <div class="title-row">
+      <span class="title-row-k">Vibração</span>
+      <div class="title-seg"><button type="button" id="title-vibration">Ligado</button></div>
+    </div>
+    <p class="title-note">Mais opções (tremor de tela, mira, gráficos avançados) ficam no menu de pausa, durante o jogo.</p>
+  </section>
+</div>
+
+<!-- tela de carregamento (src/ui/title/LoadingScreen.ts) -->
+<div id="boot" hidden role="status" aria-live="polite">
+  <div class="boot-inner">
+    <span class="boot-k" id="boot-region"></span>
+    <strong class="boot-planet" id="boot-planet"></strong>
+    <div class="boot-line"><span id="boot-step"></span><span id="boot-pct">0%</span></div>
+    <div class="boot-track"><i id="boot-bar"></i></div>
+    <p class="boot-tip" id="boot-tip"></p>
   </div>
 </div>
 

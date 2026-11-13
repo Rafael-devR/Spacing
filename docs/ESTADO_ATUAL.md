@@ -122,8 +122,15 @@ simples"; ergonomia de Minecraft: arrastar, dividir pilha). Feito numa tela só 
 salvamento novo). Antes disso o dono viu o forno em Pixi e pediu "menos cartoon, mais interface espacial"; essa direção seguiu aqui.
 A branch local `backup/teclas-bancada` (tentativa antiga em Canvas) não serve mais.
 
+## Tela de título e carregamento (2026-11-13)
+
+Pedido do dono: título de jogo de verdade com o planeta voxel (Blender) no fundo, escolha do planeta nas configurações e carregamento
+certinho depois de "Jogar" ([design/TITULO.md](design/TITULO.md), ADR 0020). O próximo passo que ele já anunciou: **refazer a tela de
+configurações** para ficar "um jogo de verdade".
+
 ## O que o dono ainda **não viu** no celular
 
+- **A tela de título e o carregamento** (o planeta voxel no fundo, os botões, as configurações, o tempo de carregar no celular).
 - **A tela de itens nova** (mochila e estações): arrastar com o dedo, segurar para metade, toque duplo, soltar na entrada da máquina,
   arrastar a saída; tamanho dos espaços e das letras no celular deitado e em pé.
 

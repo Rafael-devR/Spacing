@@ -29,6 +29,7 @@ page.on('console', (m) => { if (['error', 'warning'].includes(m.type()) && !/GPU
 await page.goto(url);
 await page.waitForSelector('#btn-start:not([disabled])', { timeout: 120000 });
 await page.click('#btn-start');
+await page.waitForFunction(() => document.body.dataset.state === 'playing', null, { timeout: 180000 });
 await page.waitForTimeout(4000);
 const prefs = () => page.evaluate(() => JSON.parse(localStorage.getItem('spacing.prefs.v1') || '{}'));
 const click = async (key, value) => {
@@ -110,6 +111,7 @@ await page.waitForSelector('#btn-start:not([disabled])', { timeout: 120000 });
 p = await prefs();
 check('as trocas sobrevivem a recarregar', p.gfx && p.gfx.fpsCap === 60 && p.gfx.resolution === 0.5, JSON.stringify(p.gfx));
 await page.click('#btn-start');
+await page.waitForFunction(() => document.body.dataset.state === 'playing', null, { timeout: 180000 });
 await page.waitForTimeout(3500);
 check('o contador de FPS volta sozinho', await page.isVisible('#fps-meter'));
 await page.keyboard.press('Escape');

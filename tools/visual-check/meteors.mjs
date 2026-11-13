@@ -31,6 +31,7 @@ const shot = (n) => page.screenshot({ path: `${out}/meteoro-${n}.png` });
 await page.goto(url);
 await page.waitForSelector('#btn-start:not([disabled])', { timeout: 120000 });
 await page.click('#btn-start');
+await page.waitForFunction(() => document.body.dataset.state === 'playing', null, { timeout: 180000 });
 await page.waitForTimeout(2500);
 
 /** o que há por dentro do jogo agora (só no `npm run dev`, onde `window.spacing` existe) */

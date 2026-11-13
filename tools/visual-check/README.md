@@ -45,6 +45,17 @@ Câmera de perto e capturas em cada animação (parado, correndo, pulo, queda, p
 morte); confere o esqueleto do Blender, a poeira na corrida e que dentro da base não sobe poeira
 ([design/PERSONAGEM.md](../../docs/design/PERSONAGEM.md)).
 
+## Teste da tela de título e do carregamento
+
+```bash
+node title.mjs http://localhost:5173/ /tmp/shots
+```
+
+Confere que o título não carrega o jogo, as configurações (planeta sem recarregar, gráficos, som), Continuar e Novo jogo (com
+confirmação, apaga só o salvamento daquele planeta), a barra do carregamento só andando para a frente até o jogo, e a tela em pé
+([design/TITULO.md](../../docs/design/TITULO.md)). Os outros testes clicam em `#btn-start` e esperam o estado `playing`: o jogo só existe
+depois disso.
+
 ## Teste da tela de itens (inventário e estações)
 
 ```bash

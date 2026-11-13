@@ -2,6 +2,7 @@
 // Dois tipos de som (docs/design/AUDIO.md):
 // - do capacete (IA, alarmes, respiração, interface): sem posição, sempre no centro;
 // - do mundo (passos, mineração, destroços, meteoros, módulo): com posição, direção e distância.
+import { takePrimedAudio } from './unlock';
 import { PLANET } from '../core/planet';
 import { distanceCutoff, distanceGain, FAR, HUM, listenerPosition, NEAR, reverbSend, type SpatialProfile } from './spatial';
 
@@ -72,8 +73,9 @@ export class Sfx {
     }
     const AC: AudioCtor | undefined =
       window.AudioContext ?? (window as unknown as { webkitAudioContext?: AudioCtor }).webkitAudioContext;
-    if (!AC) return;
-    const ctx = (this.ctx = new AC());
+    const pre = takePrimedAudio();
+    if (!AC && !pre) return;
+    const ctx = (this.ctx = pre ?? new (AC as AudioCtor)());
     this.master = ctx.createGain();
     this.master.gain.value = this.muted ? 0 : MASTER;
     this.muffle = ctx.createBiquadFilter();

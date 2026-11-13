@@ -1,25 +1,11 @@
 // Planeta desta sessão (docs/design/MARTE.md). Escolhido antes de o jogo montar o mundo: `?planeta=marte` no endereço ou a
-// escolha guardada da tela inicial. Fica fixo enquanto a página está aberta; trocar de planeta recarrega a página.
-import { PLANETS, isPlanetId, type PlanetDef, type PlanetId } from '../data/planets';
+// escolha guardada nas configurações da tela de título (core/planetChoice.ts). Fixado quando o jogo é importado (depois de "Jogar"); fica fixo enquanto a página está aberta; trocar de planeta recarrega a página.
+import { PLANETS, type PlanetDef, type PlanetId } from '../data/planets';
+import { currentPlanet, PLANET_KEY } from './planetChoice';
 
-export const PLANET_KEY = 'spacing.planet';
+export { choosePlanet, PLANET_KEY } from './planetChoice';
 
-export function choosePlanet(search: string, stored: string | null): PlanetId {
-  const q = new URLSearchParams(search).get('planeta');
-  if (isPlanetId(q)) return q;
-  return isPlanetId(stored) ? stored : 'lua';
-}
-
-function detect(): PlanetId {
-  try {
-    if (typeof location === 'undefined') return 'lua';
-    return choosePlanet(location.search, typeof localStorage === 'undefined' ? null : localStorage.getItem(PLANET_KEY));
-  } catch {
-    return 'lua';
-  }
-}
-
-export const PLANET: PlanetDef = PLANETS[detect()];
+export const PLANET: PlanetDef = PLANETS[currentPlanet()];
 
 /** Guarda a escolha e recarrega a página no outro planeta. */
 export function switchPlanet(id: PlanetId): void {

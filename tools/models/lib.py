@@ -324,3 +324,101 @@ def preview(path, target=(0, 0, 1.8), dist=9.0, size=640, yaw=45.0, pitch=28.0):
         o.data.materials.clear()
     for o in (floor, cam, sun):
         bpy.data.objects.remove(o)
+
+
+# ---------- planetas voxel (tela de título, docs/design/TITULO.md) ----------
+
+def voxel_planet(name, radius, height, color, ao=0.22):
+    """Planeta feito de cubos de 1 unidade, centrado na origem. `height(dir)` dá o raio da superfície na direção `dir`
+    (Vector unitário); `color(dir, depth, voxel)` dá a cor hex de cada cubo (`depth` = quanto abaixo da superfície, em cubos).
+    Só as faces que dão para fora entram na malha. Cada face escurece um pouco conforme os cubos em volta dela (oclusão
+    simples, para o relevo aparecer sem sombra de luz). Devolve o objeto."""
+    lim = int(radius * 1.35) + 2
+    solid = {}
+    for x in range(-lim, lim):
+        for y in range(-lim, lim):
+            for z in range(-lim, lim):
+                c = Vector((x + 0.5, y + 0.5, z + 0.5))
+                r = c.length
+                if r > lim:
+                    continue
+                d = c.normalized()
+                h = height(d)
+                if r <= h:
+                    solid[(x, y, z)] = (d, h - r)
+    me = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    verts = {}
+
+    def vert(p):
+        v = verts.get(p)
+        if v is None:
+            v = verts[p] = bm.verts.new(p)
+        return v
+
+    # as 6 faces de um cubo: direção do vizinho e os 4 cantos (em volta da face, sentido anti-horário visto de fora)
+    faces = [
+        ((1, 0, 0), [(1, 0, 0), (1, 1, 0), (1, 1, 1), (1, 0, 1)]),
+        ((-1, 0, 0), [(0, 0, 0), (0, 0, 1), (0, 1, 1), (0, 1, 0)]),
+        ((0, 1, 0), [(0, 1, 0), (0, 1, 1), (1, 1, 1), (1, 1, 0)]),
+        ((0, -1, 0), [(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)]),
+        ((0, 0, 1), [(0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)]),
+        ((0, 0, -1), [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)]),
+    ]
+    cols = []
+    for (x, y, z), (d, depth) in solid.items():
+        base = hex_rgb(color(d, depth, (x, y, z)))
+        for (nx, ny, nz), corners in faces:
+            if (x + nx, y + ny, z + nz) in solid:
+                continue
+            # oclusão: quantos dos 8 cubos em volta da face (na camada de fora) estão ocupados
+            occ = 0
+            for a in (-1, 0, 1):
+                for b in (-1, 0, 1):
+                    if a == 0 and b == 0:
+                        continue
+                    if nx:
+                        q = (x + nx, y + a, z + b)
+                    elif ny:
+                        q = (x + a, y + ny, z + b)
+                    else:
+                        q = (x + a, y + b, z + nz)
+                    occ += q in solid
+            k = 1 - ao * occ / 8
+            f = bm.faces.new([vert((x + cx, y + cy, z + cz)) for cx, cy, cz in corners])
+            cols.append((f, tuple(ch * k for ch in base) + (1.0,)))
+    bm.to_mesh(me)
+    bm.free()
+    attr = me.color_attributes.new('Col', 'BYTE_COLOR', 'CORNER')
+    for p, (_, c) in zip(me.polygons, cols):
+        for li in p.loop_indices:
+            attr.data[li].color_srgb = c
+    me.color_attributes.active_color = attr
+    o = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(o)
+    return o
+
+
+def craters(seed, n, rmin, rmax):
+    """crateras sorteadas: (direção, raio angular)"""
+    rnd = random.Random(seed)
+    out = []
+    for _ in range(n):
+        d = Vector((rnd.gauss(0, 1), rnd.gauss(0, 1), rnd.gauss(0, 1))).normalized()
+        out.append((d, rnd.uniform(rmin, rmax)))
+    return out
+
+
+def crater_shape(d, list_, depth):
+    """quanto as crateras mudam a altura (negativo no fundo, positivo na borda) e se o ponto é fundo (-1), borda (1) ou nada (0)"""
+    dh, kind = 0.0, 0
+    for c, r in list_:
+        a = math.acos(max(-1.0, min(1.0, d.dot(c))))
+        u = a / r
+        if u < 1:
+            dh -= depth * (0.8 + r * 4) * (1 - u * u)
+            kind = -1
+        elif u < 1.3:
+            dh += depth * 0.7 * (1 - (u - 1) / 0.3)
+            kind = kind or 1
+    return dh, kind

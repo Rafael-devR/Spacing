@@ -148,6 +148,12 @@ da alta qualidade usa um material próprio da estufa, mais visível que o vidro 
 (luva direita) e `holster` (cinto). Sem animação no arquivo: o código monta o esqueleto e anima tudo. Ver
 [PERSONAGEM.md](PERSONAGEM.md) e o [ADR 0017](../adr/0017-personagem-do-blender-com-animacao-procedural.md).
 
+## Planetas da tela de título
+
+`tools/models/planet_moon.py` e `planet_mars.py` (nós `moon` e `mars`), com `lib.voxel_planet`: esfera de cubos de raio 15, só as faces
+de fora, cor por cubo e oclusão simples por face; crateras com `lib.craters`. Cerca de 9 mil triângulos cada. Só a tela de título usa
+(carrega direto com o `GLTFLoader`, material próprio), o jogo não ([TITULO.md](TITULO.md)).
+
 ## Próximos candidatos
 
 Painel solar, pedras e minérios soltos (variações por semente), meteorito caído. Cada um com o seu teto no teste.

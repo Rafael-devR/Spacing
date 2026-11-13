@@ -42,6 +42,7 @@ async function load(scale) {
 }
 async function startAndPause() {
   await page.click('#btn-start');
+  await page.waitForFunction(() => document.body.dataset.state === 'playing', null, { timeout: 180000 });
   await page.waitForTimeout(500);
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => window.spacing.state === 'paused', null, { timeout: 10000 });
@@ -163,6 +164,7 @@ await page.click('#br-close');
 await page.waitForFunction(() => !window.spacing, null, { timeout: 5000 }).catch(() => {});
 await page.waitForSelector('#btn-start:not([disabled])', { timeout: 120000 });
 await page.click('#btn-start');
+await page.waitForFunction(() => document.body.dataset.state === 'playing', null, { timeout: 180000 });
 await page.waitForTimeout(600);
 const after = await g(() => ({ inv: JSON.stringify(window.spacing.inventory.serialize()), pos: window.spacing.player.pos.toArray() }));
 check('depois de fechar, o jogo volta ao progresso de antes', after.inv === before.inv && Math.hypot(after.pos[0] - before.pos[0], after.pos[2] - before.pos[2]) < 3, `pos ${after.pos.map((v) => v.toFixed(0))}`);

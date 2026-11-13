@@ -67,10 +67,13 @@ export function prepareModel(root: THREE.Object3D): THREE.Object3D {
 }
 
 /** Carrega todos os modelos. Nunca falha: o que não carregar fica de fora e o jogo usa o modelo em código. */
-export async function loadModels(): Promise<void> {
+export async function loadModels(onProgress?: (done: number, total: number) => void): Promise<void> {
   const loader = new GLTFLoader();
+  const ids = Object.keys(URLS) as ModelId[];
+  let done = 0;
+  onProgress?.(0, ids.length);
   await Promise.all(
-    (Object.keys(URLS) as ModelId[]).map(async (id) => {
+    ids.map(async (id) => {
       try {
         const gltf = await loader.loadAsync(URLS[id]);
         separateCoplanar(gltf.scene);
@@ -78,6 +81,7 @@ export async function loadModels(): Promise<void> {
       } catch (err) {
         console.warn(`modelo ${id} não carregou; usando o modelo em código`, err);
       }
+      onProgress?.(++done, ids.length);
     }),
   );
 }

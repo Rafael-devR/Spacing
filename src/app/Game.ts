@@ -64,6 +64,9 @@ import { AUTOSAVE_MS, FIXED_STEP, MAX_STEPS_PER_FRAME, MINE_SHAKE, TOUCH_AIM_OFF
 
 /** semente e salvamento são do planeta desta sessão (data/planets.ts) */
 import { createBus, type GameBus, type GameState, type Vec3Like } from './events';
+
+/** etapas do carregamento (a tela de carregamento dá um nome e um peso a cada uma) */
+export type BootStep = 'terrain' | 'place' | 'shaders' | 'icons' | 'audio';
 import { FixedStep } from './FixedStep';
 import { MarsDirector } from './MarsDirector';
 import { SurvivalDirector } from './SurvivalDirector';
@@ -237,6 +240,7 @@ export class Game {
   constructor(
     private readonly container: HTMLElement,
     private readonly renderer: THREE.WebGLRenderer,
+    opts: { newGame?: boolean } = {},
   ) {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -263,6 +267,11 @@ export class Game {
 
     // semente: a do salvamento; num jogo novo, a do endereço (`?semente=`) ou uma sorteada (docs/design/MUNDO.md)
     const fresh = (): number => seedFromSearch(location.search) ?? randomSeed();
+    // "Novo jogo" na tela de título: o salvamento deste planeta (ou o do modo de teste) sai antes de carregar
+    if (opts.newGame) clearSave(this.store, SAVE_KEY_NOW);
+    document.body.dataset.planet = PLANET.id;
+    const region = document.querySelector('#pause-region');
+    if (region) region.textContent = PLANET.region;
     let save = loadSave(this.store, PLANET.seed, SAVE_KEY_NOW);
     // o gerador mudou desde que o mundo foi salvo: o progresso fica, o mundo é refeito
     if (save && save.worldGen !== WORLD_GEN[PLANET.id]) {
@@ -586,26 +595,37 @@ export class Game {
 
   // ---------- inicialização ----------
 
-  /** Gera o mundo inicial, posiciona tudo e libera o botão de começar. */
-  boot(): void {
+  /**
+   * Carrega tudo o que o jogo precisa antes do primeiro quadro (docs/design/TITULO.md), em etapas, devolvendo o progresso para a
+   * tela de carregamento: o terreno em volta (chunk a chunk), os materiais e sombras compilados, o mundo posicionado, os ícones e o
+   * som. Entre as etapas a tela respira (um quadro), para a barra andar. No fim o jogo fica em 'menu', pronto para `start()`.
+   */
+  async boot(report: (step: BootStep, f: number) => void = () => {}): Promise<void> {
     const { world, player, lander } = this;
+    const breathe = (): Promise<void> => new Promise((r) => requestAnimationFrame(() => r()));
+    // terreno em volta do pouso: gerado e malhado aqui mesmo, alguns chunks por quadro
+    report('terrain', 0);
     world.radius = 3;
+    let total = 0;
+    for (;;) {
+      const left = world.update(0, 0, 3, 0);
+      total = Math.max(total, left);
+      report('terrain', total ? 1 - Math.max(0, left - 3) / total : 1);
+      if (left <= 3) break;
+      await breathe();
+    }
     world.update(0, 0, 999, 0);
+    report('terrain', 1);
     // daqui em diante os chunks novos são gerados e malhados em workers (ADR 0012); `?semWorker` volta ao modo antigo, para comparar
     if (!new URLSearchParams(location.search).has('semWorker')) {
       const workers = createChunkWorkers();
       if (workers.length) world.enableWorkers(workers, PLANET.id, this.seed);
     }
-    // o material do corte da caverna é compilado já (um triângulo fora da vista), para não engasgar ao entrar na primeira
-    const warm = new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3)), this.cutMaterial);
-    warm.receiveShadow = true;
-    warm.frustumCulled = false;
-    this.scene.add(warm);
-    this.renderer.compile(this.scene, this.camera);
-    this.scene.remove(warm);
-    warm.geometry.dispose();
+    // o mundo no lugar: módulo de pouso, astronauta, base, câmera
+    report('place', 0);
+    await breathe();
     lander.group.position.set(LANDER.x + 0.5, world.topY(LANDER.x, LANDER.z) + 1, LANDER.z + 0.5);
-    // zumbido do módulo: começa quando o áudio liberar (primeiro toque) e ajuda a achar o caminho de volta
+    // zumbido do módulo: começa quando o áudio estiver pronto e ajuda a achar o caminho de volta
     const lp = lander.group.position;
     this.sfx.onReady = () => this.sfx.hum({ x: lp.x, y: lp.y + 1.2, z: lp.z });
     const saved = this.save?.player;
@@ -622,17 +642,48 @@ export class Game {
     this.exploration.revealAround(player.pos.x, player.pos.z);
     this.loot.load(this.save?.loot ?? []);
     this.rig.snap(new THREE.Vector3(player.pos.x, player.pos.y + 0.8, player.pos.z));
-
     this.applyEquipment();
+    report('place', 1);
+    // materiais e sombras: compila todos os shaders da cena agora (senão o primeiro quadro de cada um engasga); o do corte da
+    // caverna também, com um triângulo fora da vista
+    report('shaders', 0);
+    await breathe();
+    const warm = new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3)), this.cutMaterial);
+    warm.receiveShadow = true;
+    warm.frustumCulled = false;
+    this.scene.add(warm);
+    this.renderer.compile(this.scene, this.camera);
+    this.scene.remove(warm);
+    warm.geometry.dispose();
+    report('shaders', 1);
+    // ícones dos itens, equipamentos e estações (desenhados uma vez, do próprio modelo 3D)
     const icons = {} as Record<ItemId, string>;
-    for (const k of ITEM_ORDER) icons[k] = renderIcon(this.renderer, this.itemModels.create(k));
+    const equipIds = Object.keys(EQUIPMENT) as EquipId[];
+    const n = ITEM_ORDER.length + equipIds.length + STATION_ORDER.length;
+    let k = 0;
+    const tick = async (): Promise<void> => {
+      k++;
+      if (k % 6 === 0) {
+        report('icons', k / n);
+        await breathe();
+      }
+    };
+    report('icons', 0);
+    for (const id of ITEM_ORDER) {
+      icons[id] = renderIcon(this.renderer, this.itemModels.create(id));
+      await tick();
+    }
     this.hud.buildHotbar(icons, this.inventory);
     this.bag.setIcons(icons);
     const equipIcons = {} as Record<EquipId, string>;
-    for (const id of Object.keys(EQUIPMENT) as EquipId[]) equipIcons[id] = renderIcon(this.renderer, createEquipModel(id));
+    for (const id of equipIds) {
+      equipIcons[id] = renderIcon(this.renderer, createEquipModel(id));
+      await tick();
+    }
     this.bag.setEquipment(this.equipment, equipIcons);
     const stationIcons: Partial<Record<StationId, string>> = {};
     for (const id of STATION_ORDER) {
+      await tick();
       const g = new THREE.Group();
       const m = createStationModel(id, g);
       if (!m) continue;
@@ -642,13 +693,19 @@ export class Game {
     this.craftPanel.setIcons(icons, equipIcons, stationIcons);
     this.jobsChip.setIcons(icons, equipIcons, stationIcons);
     this.hud.setMission(this.missions.view());
-
-    el('#loading').hidden = true;
-    const startBtn = el<HTMLButtonElement>('#btn-start');
-    startBtn.disabled = false;
-    startBtn.textContent = t(this.save ? 'menu.continue' : 'menu.start');
-    el('#btn-reset').hidden = !this.save;
+    report('icons', 1);
+    // som: o contexto já foi criado no toque em "Jogar"; aqui monta os sons de fundo, o eco e o ruído
+    report('audio', 0);
+    await breathe();
+    this.sfx.setMuted(this.prefs.muted);
+    this.sfx.init();
+    report('audio', 1);
     this.setState('menu');
+  }
+
+  /** sabe se há um jogo salvo (para o texto do botão) */
+  get hasSave(): boolean {
+    return this.save !== null;
   }
 
   run(): void {
@@ -670,9 +727,6 @@ export class Game {
     this.setState('playing');
     this.sfx.init();
     this.sfx.setMuted(this.prefs.muted);
-    const startEl = el('#start');
-    startEl.classList.add('gone');
-    setTimeout(() => (startEl.hidden = true), 500);
     // volta para um ângulo isométrico "limpo"
     const rig = this.rig;
     rig.yawTarget = Math.round((rig.yaw - Math.PI / 4) / (Math.PI / 2)) * (Math.PI / 2) + Math.PI / 4;
@@ -979,15 +1033,6 @@ export class Game {
 
   private wireControls(): void {
     const { input, rig, interaction, inventory, sfx } = this;
-    el('#btn-start').addEventListener('click', () => this.start());
-    const reset = el<HTMLButtonElement>('#btn-reset');
-    reset.addEventListener('click', () => {
-      if (reset.dataset.confirm) this.newGame();
-      else {
-        reset.dataset.confirm = '1';
-        reset.textContent = t('menu.confirmReset');
-      }
-    });
     const press = (sel: string, fn: () => void): void => {
       el(sel).addEventListener('pointerdown', (e) => {
         e.preventDefault();

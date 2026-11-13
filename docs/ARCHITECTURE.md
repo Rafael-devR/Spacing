@@ -19,12 +19,12 @@ do `MeshLambertMaterial` (`src/render/materials.ts`). Atualizar exige revisar es
 
 ```
 src/
-  main.ts            ponto de entrada: cria o renderizador e o Game
+  main.ts            ponto de entrada: cria o renderizador, mostra o título e, depois de "Jogar", importa e carrega o Game em etapas
   app/               Game (laço, estados, ligação dos sistemas), SurvivalDirector (resposta à sobrevivência),
                      BaseDirector (entrada na base, bancada, descanso), MarsDirector (clima, lava e vulcão de
                      Marte), MeteorDirector (som, câmera e ondas de choque do meteoro), TestMode (executor do modo
                      de teste), eventos do jogo, configuração, passo fixo
-  core/              barramento de eventos, entrada, salvamento, preferências, tela cheia, ruído, cor, vibração,
+  core/              barramento de eventos, entrada, salvamento, preferências, escolha do planeta e chaves lidas pelo título, tela cheia, ruído, cor, vibração,
   data/              conteúdo como dados: blocos, itens, objetos, missões, base, estações, receitas, equipamentos e os
                      cenários do teste de desempenho
   bench/             teste de desempenho: estatísticas puras, sondas de CPU, observadores, GPU, efeitos só na
@@ -37,7 +37,7 @@ src/
   render/            modelos do Blender (gltfModels), materiais e shaders, céu, luzes, pós-processamento, partículas, modelos, câmera, ícones,
                      modelo da base, bancada com laser (Fabricator), forno e eletrolisador (stationModels),
                      itens fabricados (craftedModels) e camada do interior (indoors)
-  ui/                HUD, menu de pausa, tela de itens (inventory/: tela, grade e a mão de arrastar) com a mochila (Bag) e as
+  ui/                tela de título e carregamento (title/), HUD, menu de pausa, tela de itens (inventory/: tela, grade e a mão de arrastar) com a mochila (Bag) e as
                      estações (station/: StationScreen, câmara animada, calor), energia (PowerPanel), selo dos trabalhos (JobsChip),
                      botão de ação e transições da base, estilos
   audio/             sons sintetizados e áudio posicional (design/AUDIO.md)

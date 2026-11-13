@@ -1,11 +1,11 @@
 // Painel do modo de teste (docs/design/TESTE.md): uma gaveta na direita da tela, com seções que abrem e fecham e botões grandes
 // para o dedo. Só desenha o catálogo (data/testmode.ts) e chama o executor (app/TestMode.ts). O jogo continua rodando por trás.
 import type { TestMode } from '../app/TestMode';
-import { enterTestMode, leaveTestMode, TEST_MODE } from '../core/testmode';
+
 import { ITEM_ORDER, ITEMS } from '../data/items';
 import { PROPS, PROP_TYPES } from '../data/props';
 import { TEST_SECTIONS, TEST_SOUNDS, type TestControl } from '../data/testmode';
-import { el, maybeEl } from './dom';
+import { el } from './dom';
 
 function button(label: string, cls = 'tp-btn'): HTMLButtonElement {
   const b = document.createElement('button');
@@ -16,15 +16,6 @@ function button(label: string, cls = 'tp-btn'): HTMLButtonElement {
 }
 
 /** O botão "Modo de teste" da tela inicial: abre o jogo no modo de teste (ou, dentro dele, volta ao normal). */
-export function setupTestEntry(): void {
-  const b = maybeEl<HTMLButtonElement>('#btn-testmode');
-  if (!b) return;
-  if (TEST_MODE) {
-    b.textContent = 'Sair do modo de teste';
-    b.addEventListener('click', () => leaveTestMode());
-  } else b.addEventListener('click', () => enterTestMode());
-}
-
 export class TestPanel {
   private readonly root = el('#testpanel');
   private readonly chip = el<HTMLButtonElement>('#btn-test');

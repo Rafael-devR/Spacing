@@ -1,5 +1,6 @@
 // Salvamento com versão e migração. Toda mudança de formato ganha uma versão nova,
 // uma função de migração e um teste (tests/save.test.ts).
+import { LEGACY_SAVE_KEY } from './keys';
 import { isItemId, type ItemId } from '../data/items';
 import type { EquipmentSave } from '../systems/Equipment';
 import { EQUIP_SLOTS, EQUIPMENT, isEquipId } from '../data/equipment';
@@ -18,8 +19,8 @@ import {
 
 export const SAVE_KEY = 'spacing.save';
 /** chave usada pela v0.1, sem campo de versão */
-export const LEGACY_SAVE_KEY = 'spacing.save.v1';
-export const PREFS_KEY = 'spacing.prefs.v1';
+export { LEGACY_SAVE_KEY } from './keys';
+export { PREFS_KEY } from './keys';
 export const SAVE_VERSION = 12;
 
 export interface ExtraPropSave {
