@@ -79,7 +79,7 @@ montado em código como antes.
 
 - Colunas facetadas nos cantos, nervuras e faixa laranja; três janelas com moldura em cada lado (leste e oeste), acesas em
   azul-gelo como a luz de dentro; dois radiadores de aletas na parede norte.
-- Câmara de entrada com batentes, faixas de atenção, marquise laranja, soleira e degrau; as duas folhas da porta são peças
+- Câmara de entrada com batentes, faixas de atenção, marquise laranja e soleira (o degrau agora é a sacada de blocos de metal do terreno: [BASE.md](BASE.md), 2026-11-13); as duas folhas da porta são peças
   à parte (`door_l`, `door_r`) que o código abre.
 - Telhado com beiral e abóbada com nervuras; dois painéis solares num mastro, antena com luz vermelha, prato de
   comunicação e caixa de ventilação.
