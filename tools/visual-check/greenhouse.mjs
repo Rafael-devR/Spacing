@@ -261,5 +261,17 @@ await g(() => {
   s.rig.distTarget = 16; s.rig.dist = 16;
 });
 await freeze('estufa-6-canteiros', true);
+// câmera de segurança: dentro a lente abre; ao sair, volta à normal sem ficar aberta nem pular
+const camIn = await g(() => ({ fov: window.spacing.camera.fov, base: window.spacing.rig.baseFov }));
+check('dentro da estufa a lente é mais aberta', camIn.fov > camIn.base + 10, JSON.stringify(camIn));
+await g(() => { const s = window.spacing, st = s.greenhouseState.site; s.player.pos.set(st.x + 3.5, st.floorY + 1.05, st.z + 12); s.player.prevPos.copy(s.player.pos); });
+const fovs = await g(async () => {
+  const out = [];
+  for (let i = 0; i < 12; i++) { await new Promise((r) => setTimeout(r, 250)); out.push(window.spacing.camera.fov); }
+  return out;
+});
+const fovBase = camIn.base;
+const smooth = fovs.every((f, i) => i === 0 || f <= fovs[i - 1] + 0.01);
+check('ao sair, a lente volta ao normal sem ficar aberta', smooth && Math.abs(fovs[fovs.length - 1] - fovBase) < 0.05, fovs.map((f) => f.toFixed(1)).join(' '));
 
 await finish();

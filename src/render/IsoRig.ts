@@ -21,12 +21,11 @@ export class IsoRig {
   readonly max = 46;
   readonly target = new THREE.Vector3();
   /** câmera de segurança (estufa): posição, ponto olhado e lente fixos; `watchK` é a mistura suave com a câmera normal */
-  watch: { pos: THREE.Vector3; look: THREE.Vector3; fov: number } | null = null;
+  watch: { pos: THREE.Vector3; fov: number } | null = null;
   watchK = 0;
   /** lente da câmera normal (o jogo ajusta ao redimensionar) */
   baseFov = 30;
-  private readonly _p = new THREE.Vector3();
-  private readonly _l = new THREE.Vector3();
+  private lastWatch: { pos: THREE.Vector3; fov: number } | null = null;
   /** a mola do soco de zoom: dureza e atrito (pouco amortecida: volta com um balanço curto, em cerca de meio segundo) */
   static readonly PUNCH_K = 120;
   static readonly PUNCH_C = 10;
@@ -92,11 +91,20 @@ export class IsoRig {
     }
   }
 
-  /** Mistura a câmera de segurança: a posição, o alvo e a lente vão do normal para o fixo, sem salto. */
+  /**
+   * Mistura a câmera de segurança: a posição e a lente vão do normal para o canto fixo e voltam, sem salto. A câmera fica parada
+   * no mundo, mas gira para manter o astronauta no centro (o alvo já segue com um leve atraso).
+   */
   private security(dt: number, instant: boolean): void {
+    if (this.watch) {
+      this.lastWatch ??= { pos: new THREE.Vector3(), fov: 60 };
+      this.lastWatch.pos.copy(this.watch.pos);
+      this.lastWatch.fov = this.watch.fov;
+    }
     const goal = this.watch ? 1 : 0;
     this.watchK += (goal - this.watchK) * (instant ? 1 : 1 - Math.exp(-5 * dt));
-    if (this.watchK < 0.002 && !this.watch) {
+    const w = this.lastWatch;
+    if (!w || (this.watchK < 0.002 && !this.watch)) {
       this.watchK = 0;
       if (this.camera.fov !== this.baseFov) {
         this.camera.fov = this.baseFov;
@@ -104,13 +112,9 @@ export class IsoRig {
       }
       return;
     }
-    const w = this.watch;
-    if (!w) return;
     const k = this.watchK * this.watchK * (3 - 2 * this.watchK);
     this.camera.position.lerp(w.pos, k);
-    this._l.copy(this.target).lerp(w.look, k);
-    this._p.copy(this._l);
-    this.camera.lookAt(this._p);
+    this.camera.lookAt(this.target);
     const fov = this.baseFov + (w.fov - this.baseFov) * k;
     if (Math.abs(fov - this.camera.fov) > 0.01) {
       this.camera.fov = fov;

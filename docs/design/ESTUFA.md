@@ -60,8 +60,8 @@ Depois de pronta, o astronauta **entra pela porta** (vão de 1 bloco por 2 de al
 ## Câmera por dentro
 
 Com a estufa pronta e o astronauta dentro dela, a câmera vira uma **câmera de segurança**: presa a um canto alto da cúpula
-(`GH.camInset`, `camHeight`), com lente aberta (`camFov`, `camFovTall` no retrato) e olhando o piso inteiro, para ver o cultivo
-sem as paredes na frente. Os botões de girar trocam de canto. Ao sair, a câmera normal volta numa transição suave
+(`GH.camInset`, `camHeight`), com lente aberta (`camFov`, `camFovTall` no retrato) e parada no mundo, mas girando para manter o astronauta
+no centro (com o leve atraso da câmera normal). Os botões de girar trocam de canto. Ao sair, a câmera normal volta numa transição suave
 (`IsoRig.watch`, `Game.greenhouseCamera`).
 
 ## Como está feito

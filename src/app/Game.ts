@@ -1226,9 +1226,8 @@ export class Game {
     }
     const sx = Math.sin(rig.yawTarget) > 0 ? 1 : -1, sz = Math.cos(rig.yawTarget) > 0 ? 1 : -1;
     const cx = site.x + n / 2, cz = site.z + n / 2, off = n / 2 - GH.camInset;
-    const w = rig.watch ?? { pos: new THREE.Vector3(), look: new THREE.Vector3(), fov: 60 };
+    const w = rig.watch ?? { pos: new THREE.Vector3(), fov: 60 };
     w.pos.set(cx + sx * off, site.floorY + GH.camHeight, cz + sz * off);
-    w.look.set(cx, site.floorY + 0.3, cz);
     w.fov = this.camera.aspect >= 1 ? GH.camFov : GH.camFovTall;
     rig.watch = w;
   }
