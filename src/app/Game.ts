@@ -782,6 +782,16 @@ export class Game {
     this.setState('playing');
   }
 
+  /**
+   * O botão Voltar do app Android: fecha a camada de cima (ajuda, configurações, mochila, mapa…) e, jogando, pausa; na pausa,
+   * continua. Devolve `false` só quando não há o que fazer (carregando ou morto), para o app não fechar sem querer.
+   */
+  back(): boolean {
+    if (this.state === 'loading' || this.state === 'menu' || this.state === 'dead') return true;
+    this.togglePause();
+    return true;
+  }
+
   private togglePause(): void {
     const help = el('#help');
     if (!help.hidden) {

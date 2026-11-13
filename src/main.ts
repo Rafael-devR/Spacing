@@ -3,8 +3,10 @@
 // semente certa, o terreno em volta, a base e o astronauta no lugar, os materiais compilados, os ícones, o som e os primeiros quadros.
 // Toda a lógica do jogo fica em app/Game.ts.
 import * as THREE from 'three';
+import { isNative } from './core/platform';
 import { PLANETS } from './data/planets';
 import { t } from './i18n';
+import './ui/fonts';
 import { el } from './ui/dom';
 import { LoadingScreen, type LoadStep } from './ui/title/LoadingScreen';
 import { TitleScreen, type PlayOptions } from './ui/title/TitleScreen';
@@ -27,6 +29,17 @@ const loading = new LoadingScreen();
 title.onPlay = (o) => void play(o);
 title.show();
 
+/** o jogo, depois de carregado: o botão Voltar do app e o segundo plano falam com ele (docs/design/APK.md) */
+let current: { back(): boolean; pause(): void } | null = null;
+if (isNative) {
+  void import('./core/native').then(({ initNative }) =>
+    initNative({
+      onBack: () => (current ? current.back() : title.back()),
+      onBackground: () => current?.pause(),
+    }),
+  );
+}
+
 /** espera um quadro (a barra de progresso aparece antes de cada etapa pesada) */
 const nextFrame = (): Promise<void> => new Promise((r) => requestAnimationFrame(() => r()));
 
@@ -47,6 +60,7 @@ async function play(o: PlayOptions): Promise<void> {
     step('world', 0);
     await nextFrame();
     const game = new Game(container, renderer, { newGame: o.newGame });
+    current = game;
     if (import.meta.env.DEV) (window as unknown as { spacing: typeof game }).spacing = game;
     step('world', 1);
     // 4) terreno, base, materiais, ícones e som

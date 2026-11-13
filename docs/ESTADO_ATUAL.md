@@ -128,8 +128,14 @@ Pedido do dono: título de jogo de verdade com o planeta voxel (Blender) no fund
 certinho depois de "Jogar" ([design/TITULO.md](design/TITULO.md), ADR 0020). Depois ele pediu a **pausa refeita** (Salvar, Sair, configurações únicas no título e na pausa):
 [design/PAUSA.md](design/PAUSA.md), ADR 0021.
 
+## App Android (2026-11-13)
+
+O dono pediu o jogo num APK (Capacitor) e escolheu gerar pelo GitHub Actions: [design/APK.md](design/APK.md), ADR 0022. O APK compila e
+assina aqui, mas **nunca rodou num aparelho**.
+
 ## O que o dono ainda **não viu** no celular
 
+- **O app Android** (instalar o APK do GitHub; barras escondidas, Voltar, pausa ao sair, som, desempenho).
 - **A pausa nova** (Salvar, Sair para o título, configurações únicas) e **a tela de título e o carregamento** (o planeta low poly com blocos no fundo, os botões, as configurações, o tempo de carregar no celular).
 - **A tela de itens nova** (mochila e estações): arrastar com o dedo, segurar para metade, toque duplo, soltar na entrada da máquina,
   arrastar a saída; tamanho dos espaços e das letras no celular deitado e em pé.

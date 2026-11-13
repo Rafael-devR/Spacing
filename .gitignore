@@ -10,3 +10,6 @@ coverage/
 
 # Python (scripts do Blender)
 __pycache__/
+
+# app Android (docs/design/APK.md): o projeto nativo em android/ guarda só o que é nosso; saídas de build ficam de fora
+android/local.properties

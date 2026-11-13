@@ -6,7 +6,7 @@
 import type * as THREE from 'three';
 import { VERSION } from '../../app/config';
 import { primeAudio } from '../../audio/unlock';
-import { enterFullscreen, isFullscreen } from '../../core/fullscreen';
+import { applyOrientation, enterFullscreen, isFullscreen } from '../../core/fullscreen';
 import { LEGACY_SAVE_KEY } from '../../core/keys';
 import { patchSettings, readSettings } from '../../core/prefsLite';
 import { currentPlanet, setPlanet } from '../../core/planetChoice';
@@ -70,7 +70,10 @@ export class TitleScreen {
         this.change({ fullscreen });
         if (fullscreen) this.fullscreen();
       },
-      onOrientation: (orientation) => this.change({ orientation }),
+      onOrientation: (orientation) => {
+        this.change({ orientation });
+        void applyOrientation(orientation === 'landscape');
+      },
       onPlanet: (id) => {
         if (isPlanetId(id) && id !== this.planet) {
           setPlanet(id);
@@ -157,6 +160,21 @@ export class TitleScreen {
     primeAudio();
     if (isTouch()) this.fullscreen();
     this.onPlay?.({ newGame });
+  }
+
+  /** o botão Voltar do app: fecha o que estiver aberto (configurações, controles); `false` se não havia nada (o app fecha) */
+  back(): boolean {
+    if (this.root.hidden) return true; // carregando: o Voltar não faz nada
+    if (this.settings.open) {
+      this.openSettings(false);
+      return true;
+    }
+    const help = el('#help');
+    if (!help.hidden) {
+      help.hidden = true;
+      return true;
+    }
+    return false;
   }
 
   /** o planeta que vai ser carregado */

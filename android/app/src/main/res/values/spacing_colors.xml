@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- o mesmo fundo do jogo (variável space em src/ui/styles.css) -->
+    <color name="spacingBg">#120F26</color>
+</resources>

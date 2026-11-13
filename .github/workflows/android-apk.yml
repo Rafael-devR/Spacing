@@ -1,0 +1,62 @@
+# Gera o APK de teste do jogo (docs/design/APK.md, ADR 0022). Roda sozinho a cada push que mexe no jogo ou no app, e na mão (Actions →
+# "APK Android" → Run workflow). O APK fica em "Artifacts" no fim da execução (zip; baixe pelo celular e instale). É um APK de teste,
+# assinado com a chave fixa de android/debug.keystore (por isso dá para instalar um por cima do outro). O de loja é outra etapa.
+name: APK Android
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'src/**'
+      - 'index.html'
+      - 'android/**'
+      - 'capacitor.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - '.github/workflows/android-apk.yml'
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync android
+      - name: Compilar o APK
+        working-directory: android
+        run: |
+          VERSION=$(node -p "require('../package.json').version")
+          ./gradlew assembleDebug --no-daemon \
+            -PspacingVersionCode=${{ github.run_number }} \
+            -PspacingVersionName="$VERSION"
+          cp app/build/outputs/apk/debug/app-debug.apk "../Spacing-$VERSION-${GITHUB_SHA::7}.apk"
+          echo "APK=Spacing-$VERSION-${GITHUB_SHA::7}.apk" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spacing-apk
+          path: ${{ env.APK }}
+          retention-days: 30
+      - name: Como instalar
+        run: |
+          {
+            echo "### APK pronto: \`$APK\`"
+            echo "Baixe o artefato **spacing-apk** (zip), extraia e abra o .apk no celular."
+            echo "Na primeira vez o Android pede para permitir instalar apps desse navegador ou gerenciador de arquivos."
+          } >> "$GITHUB_STEP_SUMMARY"

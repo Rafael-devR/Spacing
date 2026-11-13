@@ -4,6 +4,7 @@
 // ajusta o que está rodando). Linhas que o aparelho não suporta somem.
 import { fullscreenSupported } from '../../core/fullscreen';
 import { hapticsSupported } from '../../core/haptics';
+import { isNative } from '../../core/platform';
 import type { SettingsView } from '../../core/prefsLite';
 import { t } from '../../i18n';
 import { el } from '../dom';
@@ -55,7 +56,8 @@ export class SettingsPanel {
     el('#set-advanced').addEventListener('click', () => h.onAdvanced?.(), { signal });
     el('#set-vibration-row').hidden = !hapticsSupported;
     el('#set-fullscreen-row').hidden = !fullscreenSupported;
-    el('#set-orientation-row').hidden = !fullscreenSupported || !('orientation' in screen);
+    // no app Android a orientação é travada pelo plugin nativo; no navegador só vale em tela cheia
+    el('#set-orientation-row').hidden = !isNative && (!fullscreenSupported || !('orientation' in screen));
   }
 
   /** tira os ouvintes e fecha */

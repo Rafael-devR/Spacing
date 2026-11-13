@@ -1,7 +1,9 @@
 // Tela cheia e orientação da tela.
 // O navegador só deixa entrar em tela cheia logo depois de um gesto do jogador (toque solto ou clique).
 // A trava de orientação (paisagem) só funciona em tela cheia e não existe no iPhone: lá o jogo segue o
-// celular e o layout de retrato continua funcionando.
+// celular e o layout de retrato continua funcionando. No app Android (docs/design/APK.md) a tela já é cheia e a orientação é
+// travada pelo plugin nativo (core/native.ts).
+import { isNative } from './platform';
 
 interface LockableOrientation {
   lock?(o: 'landscape'): Promise<void>;
@@ -15,6 +17,7 @@ type WebkitDoc = Document & {
 type WebkitEl = HTMLElement & { webkitRequestFullscreen?: () => Promise<void> };
 
 export const fullscreenSupported: boolean =
+  !isNative && // no app Android a tela já é cheia (modo imersivo nativo); o botão e a opção somem
   typeof document !== 'undefined' &&
   (!!document.documentElement.requestFullscreen ||
     !!(document.documentElement as WebkitEl).webkitRequestFullscreen) &&
@@ -52,6 +55,10 @@ export async function exitFullscreen(): Promise<void> {
 
 /** Trava ou solta a orientação (só tem efeito em tela cheia, em celulares que permitem). */
 export async function applyOrientation(landscape: boolean): Promise<void> {
+  if (isNative) {
+    await (await import('./native')).setOrientation(landscape);
+    return;
+  }
   const o = screen.orientation as (ScreenOrientation & LockableOrientation) | undefined;
   if (!o) return;
   try {

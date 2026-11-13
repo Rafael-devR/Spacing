@@ -73,7 +73,7 @@ pouco vai para os cantos de cima.**
   só permite isso logo depois de um toque, então a tela cheia entra quando o dedo solta.
 - **Botão de tela cheia** no canto superior direito, que liga e desliga. Desligar pelo botão também desliga
   a entrada automática.
-- **Tela deitada:** em tela cheia o jogo trava a tela na horizontal (preferência "Tela em tela cheia:
+- **Tela deitada:** em tela cheia o jogo trava a tela na horizontal (preferência "Orientação:
   Deitada" ou "Livre").
 - **iPhone:** o Safari do iPhone não tem tela cheia para páginas nem trava de orientação. Lá o botão some,
   o layout de retrato continua funcionando e a tela inicial sugere deitar o celular.

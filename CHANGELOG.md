@@ -7,6 +7,11 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Adicionado
 
+- **App Android (APK)** ([design/APK.md](docs/design/APK.md), [ADR 0022](docs/adr/0022-app-android-com-capacitor-e-apk-pelo-github.md)).
+  O jogo embalado com o Capacitor: o mesmo código numa janela nativa, sem internet, com a barra do Android escondida, tela deitada,
+  tela sempre ligada, botão Voltar do Android (fecha a camada de cima, abre a pausa) e pausa ao ir para o segundo plano. O **APK de teste
+  sai do GitHub Actions** a cada push (artefato `spacing-apk`) e na mão; chave de teste fixa para instalar um por cima do outro. Ícone novo
+  (lua de blocos). As **fontes agora vêm empacotadas** (antes, do Google Fonts), no jogo e no app.
 - **Menu de pausa refeito** ([design/PAUSA.md](docs/design/PAUSA.md), [ADR 0021](docs/adr/0021-configuracoes-unicas-e-pausa-com-salvar-e-sair.md)):
   Continuar, **Salvar** (grava na hora e confirma), Configurações, Controles, Teste de desempenho, **Sair para o título** e Novo jogo, no jeito
   do título (cartões arredondados). As configurações viraram **uma tela só**, a mesma no título e na pausa (planeta só no título, gráficos
