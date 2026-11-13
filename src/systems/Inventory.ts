@@ -168,26 +168,97 @@ export class Inventory {
    * diferentes, só move se `to` estiver vazio.
    */
   move(from: number, to: number): void {
-    if (from === to || from < 0 || to < 0 || from >= SLOT_COUNT || to >= SLOT_COUNT) return;
+    const a = this.slots[from];
+    if (a) this.moveN(from, to, a.n);
+  }
+
+  /**
+   * Move até `n` unidades do espaço `from` para `to` (a "mão" da tela do inventário, docs/design/INVENTARIO.md). Destino vazio
+   * recebe; mesmo item junta até a pilha encher; item diferente só troca de lugar se a pilha inteira estiver indo (senão nada
+   * muda). Pilha cheia do mesmo item também troca. Devolve quantas unidades mudaram de espaço.
+   */
+  moveN(from: number, to: number, n: number): number {
+    if (from === to || !this.valid(from) || !this.valid(to)) return 0;
     const a = this.slots[from], b = this.slots[to];
-    if (!a) return;
-    if (b && b.item === a.item) {
-      const k = Math.min(stackSize(a.item) - b.n, a.n);
-      if (k <= 0) {
-        // pilha cheia: troca
-        this.slots[from] = b;
-        this.slots[to] = a;
-      } else {
-        b.n += k;
-        a.n -= k;
-        if (a.n === 0) this.slots[from] = null;
-      }
-    } else {
+    if (!a) return 0;
+    n = Math.min(a.n, Math.floor(n));
+    if (n <= 0) return 0;
+    let moved: number;
+    if (!b) {
+      this.slots[to] = { item: a.item, n };
+      a.n -= n;
+      moved = n;
+    } else if (b.item === a.item && b.n < stackSize(a.item)) {
+      moved = Math.min(stackSize(a.item) - b.n, n);
+      b.n += moved;
+      a.n -= moved;
+    } else if (n === a.n) {
+      // outro item (ou pilha cheia): troca
       this.slots[from] = b;
       this.slots[to] = a;
+      moved = n;
+    } else return 0;
+    if (a.n === 0 && this.slots[from] === a) this.slots[from] = null;
+    this.changed(from, to);
+    return moved;
+  }
+
+  /**
+   * Mandar rápido (toque duplo): da barra para a mochila ou da mochila para a barra. Junta primeiro em pilhas iguais do outro lado,
+   * depois usa o primeiro espaço vazio. Devolve quantas unidades foram.
+   */
+  quickMove(from: number): number {
+    if (!this.valid(from)) return 0;
+    const a = this.slots[from];
+    if (!a) return 0;
+    const [lo, hi] = from < HOTBAR_SIZE ? [HOTBAR_SIZE, SLOT_COUNT] : [0, HOTBAR_SIZE];
+    const max = stackSize(a.item);
+    const start = a.n;
+    for (let i = lo; i < hi && a.n > 0; i++) {
+      const b = this.slots[i];
+      if (b?.item !== a.item || b.n >= max) continue;
+      const k = Math.min(max - b.n, a.n);
+      b.n += k;
+      a.n -= k;
+    }
+    for (let i = lo; i < hi && a.n > 0; i++) {
+      if (this.slots[i]) continue;
+      this.slots[i] = { item: a.item, n: a.n };
+      a.n = 0;
+    }
+    if (a.n === 0) this.slots[from] = null;
+    const moved = start - a.n;
+    if (moved > 0) this.changed(from, from);
+    return moved;
+  }
+
+  /** Organizar: junta pilhas iguais da mochila e põe em ordem (ordem de referência dos itens). A barra não muda. */
+  sortBag(): void {
+    const totals = new Map<ItemId, number>();
+    for (let i = HOTBAR_SIZE; i < SLOT_COUNT; i++) {
+      const s = this.slots[i];
+      if (s) totals.set(s.item, (totals.get(s.item) ?? 0) + s.n);
+      this.slots[i] = null;
+    }
+    let k = HOTBAR_SIZE;
+    for (const item of ITEM_ORDER) {
+      let n = totals.get(item) ?? 0;
+      while (n > 0 && k < SLOT_COUNT) {
+        const q = Math.min(stackSize(item), n);
+        this.slots[k++] = { item, n: q };
+        n -= q;
+      }
     }
     this.events?.emit('inventory:changed', { item: null });
-    if (from === this.selectedIndex || to === this.selectedIndex) this.emitSelected();
+  }
+
+  private valid(i: number): boolean {
+    return Number.isInteger(i) && i >= 0 && i < SLOT_COUNT;
+  }
+
+  private changed(a: number, b: number): void {
+    this.events?.emit('inventory:changed', { item: null });
+    if (a === this.selectedIndex || b === this.selectedIndex || a < HOTBAR_SIZE || b < HOTBAR_SIZE) this.emitSelected();
   }
 
   get selected(): number {
