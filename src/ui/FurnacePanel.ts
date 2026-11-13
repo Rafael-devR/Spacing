@@ -47,7 +47,7 @@ export interface Target {
 async function waitFonts(): Promise<void> {
   const fonts = document.fonts as FontFaceSet | undefined;
   if (!fonts?.load) return;
-  const wanted = ['600 14px Fredoka', '700 14px Fredoka', '500 12px Rubik', '600 12px Rubik'];
+  const wanted = ['600 14px "Chakra Petch"', '700 14px "Chakra Petch"', '500 12px "JetBrains Mono"', '700 12px "JetBrains Mono"'];
   await Promise.race([Promise.all(wanted.map((f) => fonts.load(f).catch(() => []))), new Promise((r) => setTimeout(r, 1500))]);
 }
 
@@ -66,7 +66,7 @@ export class FurnacePanel {
   private readonly ctrlBg = new Graphics();
   private readonly header = new Container();
   private readonly btn = new Map<string, PButton>();
-  private readonly title = txt('', { title: true, size: 19, weight: '600', fill: C.ink });
+  private readonly title = txt('', { title: true, size: 18, weight: '700', fill: C.ink, spacing: 2 });
   private readonly tagline = txt('', { size: 10.5, fill: C.dim });
   private readonly chip = new Container();
   private readonly chipG = new Graphics();
@@ -247,7 +247,7 @@ export class FurnacePanel {
 
   private buildUi(): void {
     const st = STATIONS[STATION];
-    setText(this.title, st.name);
+    setText(this.title, st.name.toUpperCase());
     setText(this.tagline, st.tagline);
     setText(this.listTitle, t('craft.k.recipes'));
     // cabeçalho
@@ -318,9 +318,9 @@ export class FurnacePanel {
     const g = this.bg;
     g.clear();
     g.rect(0, 0, W, H).fill({ color: C.bg });
-    for (let x = 0; x < W; x += 24) g.moveTo(x + 0.5, 0).lineTo(x + 0.5, H);
-    for (let y = 0; y < H; y += 24) g.moveTo(0, y + 0.5).lineTo(W, y + 0.5);
-    g.stroke({ width: 1, color: C.panelLine, alpha: 0.12 });
+    for (let x = 0; x < W; x += 32) g.moveTo(x + 0.5, 0).lineTo(x + 0.5, H);
+    for (let y = 0; y < H; y += 32) g.moveTo(0, y + 0.5).lineTo(W, y + 0.5);
+    g.stroke({ width: 1, color: C.panelLine, alpha: 0.22 });
     // cabeçalho
     const y0 = safe.t + 8;
     const back = this.btn.get('back') as PButton;
@@ -353,7 +353,7 @@ export class FurnacePanel {
     this.scene.layout(this.machineRect.width, this.machineRect.height, STATIONS[STATION].slots);
     // lista
     this.listFrame.clear();
-    drawPanel(this.listFrame, this.listRect.x, this.listRect.y, this.listRect.width, this.listRect.height, { fill: C.panel, line: C.panelLine, radius: 12, lip: 3 });
+    drawPanel(this.listFrame, this.listRect.x, this.listRect.y, this.listRect.width, this.listRect.height, { fill: C.panel, line: C.panelLine, radius: 10 });
     const lt = this.landscape ? 26 : 8;
     this.listTitle.visible = this.landscape;
     this.listTitle.position.set(this.listRect.x + 14, this.listRect.y + 10);
@@ -361,7 +361,7 @@ export class FurnacePanel {
     // controle
     const c = this.ctrlRect;
     this.ctrlBg.clear();
-    drawPanel(this.ctrlBg, c.x, c.y, c.width, c.height, { fill: C.panel, line: C.panelLine, radius: 12, lip: 3 });
+    drawPanel(this.ctrlBg, c.x, c.y, c.width, c.height, { fill: C.panel, line: C.panelLine, radius: 10 });
     this.ctrl.position.set(c.x, c.y);
     const bh = 38, by = c.height - 12 - bh;
     (this.btn.get('minus') as PButton).layout(10, by, bh, bh, 18);
@@ -381,7 +381,7 @@ export class FurnacePanel {
     if (tr) (this.btn.get('take') as PButton).layout(tr.right - 108, tr.y + 5, 100, 24, 12);
     this.infoBox.position.set(4, 4);
     this.infoG.clear();
-    drawPanel(this.infoG, 0, 0, c.width - 50, c.height - 8, { fill: 0x0d0a1c, line: C.orange, radius: 10 });
+    drawPanel(this.infoG, 0, 0, c.width - 50, c.height - 8, { fill: 0x050a10, line: C.orange, radius: 8, brackets: false });
     this.infoNote.style.wordWrapWidth = Math.max(120, c.width - 78);
     this.infoReaction.position.set(12, 10);
     this.infoSteps.position.set(12, 30);
@@ -394,18 +394,18 @@ export class FurnacePanel {
   private drawChip(w: number, frac: number): void {
     const g = this.chipG;
     g.clear();
-    drawPanel(g, 0, 0, w, 38, { fill: C.panel, line: C.panelLine, radius: 10, lip: 2 });
+    drawPanel(g, 0, 0, w, 38, { fill: C.panel, line: C.panelLine, radius: 8 });
     // sol pequeno
-    g.circle(18, 19, 6.5).fill({ color: C.gold });
+    g.circle(18, 19, 4.5).fill({ color: C.gold }).circle(18, 19, 8).stroke({ width: 1, color: C.gold, alpha: 0.8 });
     for (let k = 0; k < 8; k++) {
       const a = (k / 8) * Math.PI * 2;
-      g.moveTo(18 + Math.cos(a) * 9, 19 + Math.sin(a) * 9).lineTo(18 + Math.cos(a) * 12, 19 + Math.sin(a) * 12);
+      g.moveTo(18 + Math.cos(a) * 10, 19 + Math.sin(a) * 10).lineTo(18 + Math.cos(a) * 12.5, 19 + Math.sin(a) * 12.5);
     }
-    g.stroke({ width: 1.6, color: C.gold });
+    g.stroke({ width: 1, color: C.gold, alpha: 0.8 });
     const bx = 78, bw = w - bx - 10;
     if (bw > 10) {
-      g.roundRect(bx, 24, bw, 5, 2.5).fill({ color: C.metalLo });
-      g.roundRect(bx, 24, bw * Math.max(0.05, Math.min(1, frac)), 5, 2.5).fill({ color: frac > 0.99 ? C.ok : frac > 0.5 ? C.gold : C.warn });
+      g.rect(bx, 25, bw, 3).fill({ color: C.metalLo });
+      g.rect(bx, 25, bw * Math.max(0.05, Math.min(1, frac)), 3).fill({ color: frac > 0.99 ? C.ok : frac > 0.5 ? C.gold : C.warn });
     }
     this.chipLbl.position.set(32, 7);
     this.chipVal.position.set(32, 19);
@@ -434,7 +434,7 @@ export class FurnacePanel {
     const g = new Graphics();
     drawPanel(g, 0, 0, w, h, {
       fill: on ? mix(C.panelHi, C.ice, 0.14) : can ? mix(C.panelHi, C.ok, 0.1) : C.panelHi,
-      line: on ? C.ice : can ? mix(C.panelLine, C.ok, 0.7) : C.panelLine, radius: 10, lip: 3,
+      line: on ? C.ice : can ? mix(C.panelLine, C.ok, 0.7) : C.panelLine, radius: 8, brackets: false,
     });
     c.addChild(g);
     const out = r.outputs[0];
@@ -527,8 +527,8 @@ export class FurnacePanel {
   private stack(src: string | undefined, n: string, color: number, dim: boolean, x: number, y: number, size: number): Container {
     const c = new Container();
     const g = new Graphics();
-    g.roundRect(0, 0, size + 8, size + 8, 8).fill({ color: 0x000000, alpha: 0.28 });
-    g.roundRect(0, 0, size + 8, size + 8, 8).stroke({ width: 1.2, color: dim ? C.warn : C.panelLine, alpha: dim ? 0.7 : 1 });
+    g.rect(0, 0, size + 8, size + 8).fill({ color: 0x000000, alpha: 0.35 });
+    g.rect(0.5, 0.5, size + 7, size + 7).stroke({ width: 1, color: dim ? C.warn : C.panelLine, alpha: dim ? 0.7 : 1 });
     const ic = this.icons.sprite(src, size);
     ic.position.set(4 + size / 2, 4 + size / 2);
     ic.alpha = dim ? 0.5 : 1;

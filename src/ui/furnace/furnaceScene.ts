@@ -8,7 +8,7 @@ import type { JobView } from '../../systems/Crafting';
 import { t } from '../../i18n';
 import { AMBIENT, heatColor, MAX_TEMP, targetTemp, tempText, ThermalModel } from './furnaceModel';
 import { Particles, softTexture } from './particles';
-import { drawPanel, fitWidth, setText, txt, type IconCache } from './pixiKit';
+import { chamfer, drawPanel, fitWidth, setText, txt, type IconCache } from './pixiKit';
 import { C, mix, shade } from './theme';
 
 export interface SceneDeps {
@@ -110,7 +110,7 @@ export class FurnaceScene extends Container {
   private readonly needle = new Graphics();
   private needleAng = 0;
   private readonly lblMirror = txt('', { size: 9, weight: '600', fill: C.dim, spacing: 1.4 });
-  private readonly kwText = txt('', { title: true, size: 15, fill: C.gold });
+  private readonly kwText = txt('', { title: true, size: 14, fill: C.gold });
   private readonly lblFan = txt('', { size: 9, weight: '600', fill: C.dim, spacing: 1.4, ax: 0.5 });
   private readonly tempTextObj = txt('', { title: true, size: 17, fill: C.ink, ax: 0.5, ay: 0.5 });
   private readonly statusTxt = txt('', { size: 9.5, weight: '600', fill: C.dim, ax: 0.5, ay: 0.5, spacing: 0.8 });
@@ -192,15 +192,15 @@ export class FurnaceScene extends Container {
     const b = this.back;
     b.clear();
     // espelhos
-    drawPanel(b, g.mirror.x, g.mirror.y, g.mirror.width, g.mirror.height, { fill: C.panel, line: mix(C.panelLine, C.gold, 0.25), radius: 12, lip: 3 });
+    drawPanel(b, g.mirror.x, g.mirror.y, g.mirror.width, g.mirror.height, { fill: C.panel, line: mix(C.panelLine, C.gold, 0.2), radius: 10 });
     // câmara: corpo de metal com borda grossa
     const ch = g.chamber;
-    drawPanel(b, ch.x, ch.y, ch.width, ch.height, { fill: C.metal, line: C.metalHi, radius: 14, lip: 3 });
+    drawPanel(b, ch.x, ch.y, ch.width, ch.height, { fill: C.metal, line: C.metalHi, radius: 12 });
     // chaminé
-    b.roundRect(ch.x + ch.width / 2 - 14, ch.y - 7, 28, 14, 4).fill({ color: C.metalLo });
-    b.roundRect(ch.x + ch.width / 2 - 14, ch.y - 7, 28, 14, 4).stroke({ width: 1.2, color: C.metalHi });
+    b.rect(ch.x + ch.width / 2 - 14, ch.y - 7, 28, 14).fill({ color: C.metalLo });
+    b.rect(ch.x + ch.width / 2 - 14, ch.y - 7, 28, 14).stroke({ width: 1, color: C.metalHi });
     // resfriamento
-    drawPanel(b, g.cool.x, g.cool.y, g.cool.width, g.cool.height, { fill: C.panel, line: mix(C.panelLine, C.ice, 0.3), radius: 12, lip: 3 });
+    drawPanel(b, g.cool.x, g.cool.y, g.cool.width, g.cool.height, { fill: C.panel, line: mix(C.panelLine, C.ice, 0.25), radius: 10 });
     // duto entre a ventoinha e a câmara
     const duct = { x0: ch.x + ch.width, x1: g.cool.x, y: g.fan.y };
     if (!g.compact) {
@@ -216,8 +216,9 @@ export class FurnaceScene extends Container {
     this.rotor.removeChildren().forEach((c) => c.destroy());
     const housing = new Graphics();
     housing.circle(0, 0, f.r + 7).fill({ color: C.metalLo });
-    housing.circle(0, 0, f.r + 7).stroke({ width: 2, color: C.metalHi });
+    housing.circle(0, 0, f.r + 7).stroke({ width: 1, color: C.metalHi });
     housing.circle(0, 0, f.r + 1).fill({ color: C.chamber });
+    housing.circle(0, 0, f.r + 1).stroke({ width: 1, color: C.metalHi, alpha: 0.6 });
     for (let k = 0; k < 4; k++) {
       const a = (k * Math.PI) / 4;
       housing.moveTo(Math.cos(a) * (f.r + 7), Math.sin(a) * (f.r + 7)).lineTo(-Math.cos(a) * (f.r + 7), -Math.sin(a) * (f.r + 7));
@@ -230,10 +231,10 @@ export class FurnaceScene extends Container {
       const a = (k / 5) * Math.PI * 2;
       const ca = Math.cos(a), sa = Math.sin(a), cp = Math.cos(a + 1.1), sp = Math.sin(a + 1.1);
       const rr = f.r * 0.96;
-      blades.poly([0, 0, ca * rr * 0.55 + cp * rr * 0.34, sa * rr * 0.55 + sp * rr * 0.34, ca * rr, sa * rr, ca * rr * 0.8 - cp * rr * 0.1, sa * rr * 0.8 - sp * rr * 0.1]).fill({ color: C.ice, alpha: 0.9 });
-      blades.poly([0, 0, ca * rr, sa * rr, ca * rr * 0.8 - cp * rr * 0.1, sa * rr * 0.8 - sp * rr * 0.1]).fill({ color: 0xffffff, alpha: 0.16 });
+      blades.poly([0, 0, ca * rr * 0.55 + cp * rr * 0.34, sa * rr * 0.55 + sp * rr * 0.34, ca * rr, sa * rr, ca * rr * 0.8 - cp * rr * 0.1, sa * rr * 0.8 - sp * rr * 0.1]).fill({ color: C.ice, alpha: 0.32 });
+      blades.poly([0, 0, ca * rr * 0.55 + cp * rr * 0.34, sa * rr * 0.55 + sp * rr * 0.34, ca * rr, sa * rr, ca * rr * 0.8 - cp * rr * 0.1, sa * rr * 0.8 - sp * rr * 0.1]).stroke({ width: 1, color: C.ice, alpha: 0.85 });
     }
-    blades.circle(0, 0, f.r * 0.24).fill({ color: C.metalHi }).circle(0, 0, f.r * 0.1).fill({ color: C.metalLo });
+    blades.circle(0, 0, f.r * 0.22).fill({ color: C.metalLo }).circle(0, 0, f.r * 0.22).stroke({ width: 1, color: C.metalHi }).circle(0, 0, f.r * 0.07).fill({ color: C.ice });
     this.rotor.addChild(blades);
     // termômetro: trilho do arco
     this.gaugeG.clear();
@@ -257,7 +258,7 @@ export class FurnaceScene extends Container {
     }
     setText(this.lblFan, 'RESFRIAMENTO');
     this.lblFan.position.set(g.cool.x + g.cool.width / 2, g.cool.y + 9);
-    const dy = g.compact ? g.gauge.r + 12 : g.gauge.r * 0.58;
+    const dy = g.compact ? g.gauge.r + 12 : g.gauge.r * 0.95;
     this.tempTextObj.position.set(g.gauge.x, g.gauge.y + dy);
     this.statusTxt.position.set(g.gauge.x, g.gauge.y + dy + 19);
     setText(this.lblTray, t('craft.k.slot') === 'V' ? 'BANDEJA' : 'BANDEJA');
@@ -275,17 +276,18 @@ export class FurnaceScene extends Container {
     this.sun.position.set(m.x + (g.compact ? 34 : 30), m.y + (g.compact ? 30 : 34));
     this.sunGlow.width = this.sunGlow.height = g.compact ? 70 : 90;
     const core = new Graphics();
-    core.circle(0, 0, 11).fill({ color: C.gold }).circle(0, 0, 11).stroke({ width: 2, color: 0xfff1b8 });
-    core.circle(-3, -3, 4).fill({ color: 0xffffff, alpha: 0.5 });
+    core.circle(0, 0, 8).fill({ color: C.gold, alpha: 0.85 }).circle(0, 0, 12).stroke({ width: 1, color: C.gold, alpha: 0.8 });
+    core.moveTo(-17, 0).lineTo(-13, 0).moveTo(13, 0).lineTo(17, 0).moveTo(0, -17).lineTo(0, -13).moveTo(0, 13).lineTo(0, 17).stroke({ width: 1, color: C.gold, alpha: 0.8 });
     this.sunCore?.destroy();
     this.sunCore = core;
     this.sun.addChild(core);
     this.sunRays.clear();
-    for (let k = 0; k < 10; k++) {
-      const a = (k / 10) * Math.PI * 2;
-      this.sunRays.moveTo(Math.cos(a) * 15, Math.sin(a) * 15).lineTo(Math.cos(a) * (k % 2 ? 20 : 24), Math.sin(a) * (k % 2 ? 20 : 24));
+    // anel de graduação girando em volta do sol
+    for (let k = 0; k < 24; k++) {
+      const a = (k / 24) * Math.PI * 2;
+      this.sunRays.moveTo(Math.cos(a) * 19, Math.sin(a) * 19).lineTo(Math.cos(a) * (k % 6 ? 21 : 24), Math.sin(a) * (k % 6 ? 21 : 24));
     }
-    this.sunRays.stroke({ width: 2.2, color: C.gold, alpha: 0.9 });
+    this.sunRays.stroke({ width: 1, color: C.gold, alpha: 0.6 });
     // as placas: um poste e um espelho que acompanha o sol
     const baseY = g.compact ? m.y + m.height - 12 : m.y + m.height - 62;
     for (let i = 0; i < n; i++) {
@@ -293,14 +295,13 @@ export class FurnaceScene extends Container {
       const c = new Container();
       c.position.set(x, baseY);
       const post = new Graphics();
-      post.roundRect(-2, 0, 4, 12, 1.5).fill({ color: C.metalHi });
-      post.roundRect(-8, 10, 16, 4, 2).fill({ color: C.metalLo });
+      post.rect(-1, 0, 2, 12).fill({ color: C.metalHi });
+      post.rect(-8, 11, 16, 2).fill({ color: C.metalHi });
       const plate = new Container();
       const pg = new Graphics();
       const pw = g.compact ? 13 : 15;
-      pg.roundRect(-pw, -3, pw * 2, 6, 2.5).fill({ color: 0xbfeaff });
-      pg.roundRect(-pw, -3, pw * 2, 6, 2.5).stroke({ width: 1.2, color: C.metalHi });
-      pg.roundRect(-pw + 2, -2.2, pw * 1.1, 1.6, 0.8).fill({ color: 0xffffff, alpha: 0.7 });
+      pg.rect(-pw, -2, pw * 2, 4).fill({ color: 0x1b3a4a });
+      pg.rect(-pw, -2, pw * 2, 4).stroke({ width: 1, color: C.ice, alpha: 0.85 });
       plate.addChild(pg);
       c.addChild(post, plate);
       this.mirrorLayer.addChild(c);
@@ -331,7 +332,7 @@ export class FurnaceScene extends Container {
       out.position.set(9, col.height - 22);
       const free = new Container();
       const plus = new Graphics();
-      plus.moveTo(-7, 0).lineTo(7, 0).moveTo(0, -7).lineTo(0, 7).stroke({ width: 2, color: C.faint, alpha: 0.7 });
+      plus.moveTo(-6, 0).lineTo(6, 0).moveTo(0, -6).lineTo(0, 6).stroke({ width: 1, color: C.faint, alpha: 0.9 });
       const fl = txt(t('craft.k.free'), { size: 9, weight: '600', fill: C.faint, ax: 0.5, spacing: 1.4 });
       fl.position.set(0, 16);
       free.addChild(plus, fl);
@@ -382,13 +383,13 @@ export class FurnaceScene extends Container {
     // o calor sobe do chão: mais escuro no teto, mais quente embaixo
     const grad = new FillGradient({
       type: 'linear', start: { x: 0, y: 0 }, end: { x: 0, y: 1 }, textureSpace: 'local',
-      colorStops: [{ offset: 0, color: mix(C.chamber, hc, 0.06 + 0.16 * heat) }, { offset: 1, color: mix(C.chamber, hc, 0.2 + 0.5 * heat) }],
+      colorStops: [{ offset: 0, color: mix(C.chamber, hc, 0.03 + 0.08 * heat) }, { offset: 1, color: mix(C.chamber, hc, 0.1 + 0.3 * heat) }],
     });
-    f.roundRect(ch.x + 6, ch.y + 6, ch.width - 12, ch.height - 12, 10).fill(grad);
+    f.poly(chamfer(ch.x + 6, ch.y + 6, ch.width - 12, ch.height - 12, 6)).fill(grad);
     // chão da câmara: faixa mais clara sob os cadinhos
-    f.roundRect(ch.x + 6, g.tray.y - 12, ch.width - 12, 6, 3).fill({ color: mix(C.metalLo, hc, 0.25 + 0.4 * heat) });
+    f.rect(ch.x + 6, g.tray.y - 12, ch.width - 12, 3).fill({ color: mix(C.metalLo, hc, 0.25 + 0.4 * heat) });
     this.heatGlow.tint = hc;
-    this.heatGlow.alpha = 0.08 + 0.34 * heat;
+    this.heatGlow.alpha = 0.03 + 0.1 * heat;
   }
 
   private drawMirrors(sun: number, dt: number): void {
@@ -411,7 +412,7 @@ export class FurnaceScene extends Container {
       plate.rotation = (toSun + toFocus) / 2 + Math.PI / 2 + Math.sin(this.time * 0.3 + i) * 0.03;
       const a = 0.06 + 0.5 * sun;
       bl.moveTo(this.sun.x, this.sun.y).lineTo(px, py).stroke({ width: 1, color: C.gold, alpha: a * 0.35 });
-      bl.moveTo(px, py).lineTo(g.focus.x, g.focus.y).stroke({ width: 1.6, color: 0xfff1b8, alpha: a });
+      bl.moveTo(px, py).lineTo(g.focus.x, g.focus.y).stroke({ width: 1, color: C.gold, alpha: a });
       // pacotes de luz correndo pelo feixe
       for (let k = 0; k < 3; k++) {
         const p = this.packets[pi++];
@@ -448,19 +449,24 @@ export class FurnaceScene extends Container {
     const frac = clamp((temp - AMBIENT) / (MAX_TEMP - AMBIENT), 0, 1);
     const gg = this.gaugeG;
     gg.clear();
-    gg.arc(x, y, r, a0, a1).stroke({ width: 7, color: C.metalLo, cap: 'round' });
-    if (frac > 0.01) gg.arc(x, y, r, a0, a0 + (a1 - a0) * frac).stroke({ width: 7, color: heatColor(temp), cap: 'round' });
+    gg.arc(x, y, r, a0, a1).stroke({ width: 2, color: C.metalHi, cap: 'butt' });
+    for (let k = 0; k <= 20; k++) {
+      const aa = a0 + ((a1 - a0) * k) / 20, l = k % 5 ? 3 : 6;
+      gg.moveTo(x + Math.cos(aa) * (r - 4), y + Math.sin(aa) * (r - 4)).lineTo(x + Math.cos(aa) * (r - 4 - l), y + Math.sin(aa) * (r - 4 - l));
+    }
+    gg.stroke({ width: 1, color: C.metalHi, alpha: 0.9 });
+    if (frac > 0.01) gg.arc(x, y, r, a0, a0 + (a1 - a0) * frac).stroke({ width: 4, color: heatColor(temp), cap: 'butt' });
     // marca do limite do processo
     const lm = a0 + (a1 - a0) * clamp((this.limit - AMBIENT) / (MAX_TEMP - AMBIENT), 0, 1);
-    gg.moveTo(x + Math.cos(lm) * (r - 7), y + Math.sin(lm) * (r - 7)).lineTo(x + Math.cos(lm) * (r + 6), y + Math.sin(lm) * (r + 6)).stroke({ width: 2, color: C.warn });
+    gg.moveTo(x + Math.cos(lm) * (r - 7), y + Math.sin(lm) * (r - 7)).lineTo(x + Math.cos(lm) * (r + 6), y + Math.sin(lm) * (r + 6)).stroke({ width: 1.5, color: C.warn });
     // ponteiro: vai até o valor com um pouco de mola
     const want = a0 + (a1 - a0) * frac;
     this.needleAng += (want - this.needleAng) * 0.18;
     const n = this.needle;
     n.clear();
     const na = this.needleAng || a0;
-    n.moveTo(x, y).lineTo(x + Math.cos(na) * (r - 11), y + Math.sin(na) * (r - 11)).stroke({ width: 2.4, color: C.ink, cap: 'round' });
-    n.circle(x, y, 3.2).fill({ color: C.ink });
+    n.moveTo(x, y).lineTo(x + Math.cos(na) * (r - 11), y + Math.sin(na) * (r - 11)).stroke({ width: 1.2, color: C.ink, cap: 'butt' });
+    n.circle(x, y, 2.6).fill({ color: C.panel }).circle(x, y, 2.6).stroke({ width: 1, color: C.ink });
     setText(this.tempTextObj, tempText(temp));
     const th = this.thermal;
     let s: string;
@@ -486,9 +492,14 @@ export class FurnaceScene extends Container {
       const sel = st.selected === i;
       // casinha da coluna
       const edge = sel ? C.ice : j?.ready ? C.ok : j && !j.paused ? mix(C.orange, C.metalHi, 0.3) : C.metalHi;
-      gf.roundRect(0, 0, col.width, col.height, 9).fill({ color: 0x000000, alpha: 0.22 });
-      if (!j) gf.roundRect(0, 0, col.width, col.height, 9).stroke({ width: 1.2, color: edge, alpha: 0.35 });
-      else gf.roundRect(0, 0, col.width, col.height, 9).stroke({ width: sel ? 2.4 : 1.4, color: edge, alpha: sel ? 1 : 0.75 });
+      const cp = chamfer(0, 0, col.width, col.height, 6);
+      gf.poly(cp).fill({ color: 0x000000, alpha: 0.35 });
+      if (!j) {
+        // vaga livre: contorno tracejado
+        for (let x = 4; x < col.width - 4; x += 8) gf.moveTo(x, 0.5).lineTo(Math.min(col.width - 4, x + 4), 0.5).moveTo(x, col.height - 0.5).lineTo(Math.min(col.width - 4, x + 4), col.height - 0.5);
+        for (let y = 4; y < col.height - 4; y += 8) gf.moveTo(0.5, y).lineTo(0.5, Math.min(col.height - 4, y + 4)).moveTo(col.width - 0.5, y).lineTo(col.width - 0.5, Math.min(col.height - 4, y + 4));
+        gf.stroke({ width: 1, color: edge, alpha: 0.45 });
+      } else gf.poly(cp).stroke({ width: sel ? 1.6 : 1, color: edge, alpha: sel ? 1 : 0.8 });
       sv.free.visible = !j;
       sv.head.style.fill = j ? C.ink : C.faint;
       const bowlW = Math.min(col.width - 10, 86);
@@ -537,11 +548,11 @@ export class FurnaceScene extends Container {
     }
     const poly = (arr: [number, number][]): number[] => arr.flatMap(([x, y]) => [x, y]);
     // sombra no chão da câmara
-    gf.ellipse(cx, top + h + 4, rx * 0.95, 4).fill({ color: 0x000000, alpha: 0.3 });
+    gf.ellipse(cx, top + h + 4, rx * 0.95, 3).fill({ color: 0x000000, alpha: 0.35 });
     if (!j) {
       gf.poly(poly(pts)).fill({ color: C.metalLo, alpha: 0.55 });
-      gf.poly(poly(pts)).stroke({ width: 1.4, color: C.metalHi, alpha: 0.6 });
-      gf.ellipse(cx, top, rx, 5).stroke({ width: 1.4, color: C.metalHi, alpha: 0.6 });
+      gf.poly(poly(pts)).stroke({ width: 1, color: C.metalHi, alpha: 0.7 });
+      gf.ellipse(cx, top, rx, 5).stroke({ width: 1, color: C.metalHi, alpha: 0.7 });
       sv.level = Math.max(0, sv.level - dt * 2);
       return;
     }
@@ -552,16 +563,15 @@ export class FurnaceScene extends Container {
     sv.level += (want - sv.level) * (1 - Math.exp(-dt * 6));
     const surf = top + h * (1 - sv.level * 0.82) - 1;
     // casco
-    gf.poly(poly(pts)).fill({ color: mix(0x1a1535, hc, 0.12 * th.heat) });
+    gf.poly(poly(pts)).fill({ color: mix(0x0a141d, hc, 0.12 * th.heat) });
     // conteúdo
     const filled = pts.map(([x, y]) => [x, Math.max(y, surf + 2)] as [number, number]);
-    const hot = working ? mix(heatColor(Math.min(th.temp, 1280)), tint, 0.16 + 0.08 * Math.sin(this.time * 6 + sv.root.x)) : j.ready ? shade(tint, -0.2) : mix(tint, C.faint, 0.6);
+    const hot = working ? mix(heatColor(Math.min(th.temp, 1280)), tint, 0.3 + 0.06 * Math.sin(this.time * 6 + sv.root.x)) : j.ready ? shade(tint, -0.2) : mix(tint, C.faint, 0.6);
     gf.poly(poly(filled)).fill({ color: hot });
-    gf.ellipse(cx, surf, rx * Math.min(1, 0.55 + 0.45 * ((surf - top) / h + 0.4)), 4.4).fill({ color: shade(hot, working ? 0.3 : 0.1) });
+    gf.ellipse(cx, surf, rx * Math.min(1, 0.55 + 0.45 * ((surf - top) / h + 0.4)), 4).fill({ color: shade(hot, working ? 0.22 : 0.05) });
     // casco por cima (aro) e brilho
-    gf.poly(poly(pts)).stroke({ width: 1.8, color: mix(C.metalHi, hc, 0.35 * th.heat) });
-    gf.ellipse(cx, top, rx, 5).stroke({ width: 1.6, color: mix(C.metalHi, hc, 0.4 * th.heat) });
-    gf.ellipse(cx - rx * 0.45, top + h * 0.45, 2.2, 6).fill({ color: 0xffffff, alpha: 0.12 });
+    gf.poly(poly(pts)).stroke({ width: 1, color: mix(C.ice, hc, 0.5 + 0.4 * th.heat), alpha: 0.9 });
+    gf.ellipse(cx, top, rx, 5).stroke({ width: 1, color: mix(C.ice, hc, 0.5 + 0.4 * th.heat), alpha: 0.9 });
     if (working) {
       // halo do calor embaixo do cadinho
       gf.ellipse(cx, top + h + 2, rx * 1.1, 6).fill({ color: hc, alpha: 0.18 + 0.2 * th.heat });
@@ -570,7 +580,7 @@ export class FurnaceScene extends Container {
     if (sv.boom > 0) {
       sv.boom -= dt * 2;
       const u = 1 - sv.boom;
-      gf.ellipse(cx, top + h * 0.55, rx * (0.6 + u * 0.9), 5 + u * 8).stroke({ width: 2.2, color: C.ok, alpha: Math.max(0, sv.boom) });
+      gf.ellipse(cx, top + h * 0.55, rx * (0.6 + u * 0.9), 5 + u * 8).stroke({ width: 1, color: C.ok, alpha: Math.max(0, sv.boom) });
     }
     void st;
   }
@@ -586,9 +596,9 @@ export class FurnaceScene extends Container {
       const done = k < Math.floor(unitsDone + 1e-6);
       const now = !done && k === Math.floor(unitsDone + 1e-6) && !j.ready;
       const x = x0 + k * (w + 3);
-      gf.roundRect(x, y, w, 9, 2.5).fill({ color: done ? C.ok : 0xffffff, alpha: done ? 0.9 : 0.06 });
-      if (now) gf.roundRect(x, y + 9 * (1 - j.unitProgress), w, 9 * j.unitProgress, 2.5).fill({ color: j.paused ? C.gold : C.orange });
-      gf.roundRect(x, y, w, 9, 2.5).stroke({ width: 1, color: done ? C.ok : now ? (j.paused ? C.gold : C.orange) : C.faint, alpha: done ? 1 : 0.7 });
+      gf.rect(x, y, w, 9).fill({ color: done ? C.ok : 0xffffff, alpha: done ? 0.55 : 0.04 });
+      if (now) gf.rect(x, y + 9 * (1 - j.unitProgress), w, 9 * j.unitProgress).fill({ color: j.paused ? C.gold : C.orange, alpha: 0.85 });
+      gf.rect(x + 0.5, y + 0.5, w - 1, 8).stroke({ width: 1, color: done ? C.ok : now ? (j.paused ? C.gold : C.orange) : C.faint, alpha: done ? 1 : 0.7 });
     }
   }
 
@@ -606,7 +616,7 @@ export class FurnaceScene extends Container {
       const yy = ch.y + ch.height * 0.62 - phase * ch.height * 0.45;
       s.moveTo(x0, yy);
       for (let u = 1; u <= 6; u++) s.lineTo(x0 + Math.sin(this.time * 3 + k + u * 0.9) * 3, yy - u * 4);
-      s.stroke({ width: 1.2, color: 0xffd9a0, alpha: 0.22 * heat * Math.sin(Math.PI * phase) });
+      s.stroke({ width: 1.2, color: C.orange, alpha: 0.18 * heat * Math.sin(Math.PI * phase) });
     }
   }
 
@@ -631,7 +641,7 @@ export class FurnaceScene extends Container {
         for (let q = 0; q < 2; q++)
           P.glow.spawn({
             x: cx + rnd(-16, 16), y: by + 4, vx: rnd(-34, 34), vy: rnd(-95, -35), ay: 140, size: rnd(4, 8), life: rnd(0.6, 1.2),
-            color: 0xffe08a, to: 0xff4a12, alpha: 1, drag: 0.35,
+            color: 0xffd58a, to: 0xc2461a, alpha: 0.9, drag: 0.35,
           });
       }
       if (this.bubbleAcc > 0.18) {
@@ -646,7 +656,7 @@ export class FurnaceScene extends Container {
       this.smokeAcc = 0;
       P.smoke.spawn({
         x: ch.x + ch.width / 2 + rnd(-4, 4), y: ch.y - 8, vx: rnd(-8, 12), vy: rnd(-34, -20), size: rnd(10, 16), growTo: 2.6, life: rnd(1.6, 2.6),
-        color: 0x8e86b8, to: 0x3a3470, alpha: 0.5, drag: 0.6,
+        color: 0x6f8794, to: 0x1c2c38, alpha: 0.4, drag: 0.6,
       });
     }
     // ar da ventoinha: sai da carcaça e vai embora
@@ -657,7 +667,7 @@ export class FurnaceScene extends Container {
       const a = rnd(-0.9, 0.9);
       P.glow.spawn({
         x: f.x + (g.compact ? 0 : f.r * 0.4), y: f.y + rnd(-f.r * 0.5, f.r * 0.5), vx: 40 + 150 * th.fan, vy: Math.sin(a) * 26, size: rnd(5, 9), growTo: 1.6,
-        life: rnd(0.5, 0.9), color: C.ice, to: 0x3b5fff, alpha: 0.4 * th.fan + 0.1, drag: 1.1,
+        life: rnd(0.5, 0.9), color: C.ice, to: 0x1c4a66, alpha: 0.3 * th.fan + 0.08, drag: 1.1,
       });
     }
     // brilhos nos espelhos quando há sol
@@ -749,8 +759,8 @@ export class FurnaceScene extends Container {
     const key = [...waiting.entries()].map(([k, n]) => `${k}${n}`).join(',');
     const ov = this.overlay;
     ov.clear();
-    ov.roundRect(tr.x, tr.y, tr.width, tr.height, 9).fill({ color: 0x000000, alpha: 0.3 });
-    ov.roundRect(tr.x, tr.y, tr.width, tr.height, 9).stroke({ width: 1.2, color: waiting.size ? C.ok : C.metalHi, alpha: waiting.size ? 0.9 : 0.5 });
+    ov.poly(chamfer(tr.x, tr.y, tr.width, tr.height, 6)).fill({ color: 0x000000, alpha: 0.4 });
+    ov.poly(chamfer(tr.x, tr.y, tr.width, tr.height, 6)).stroke({ width: 1, color: waiting.size ? C.ok : C.metalHi, alpha: waiting.size ? 0.9 : 0.6 });
     setText(this.lblTray, waiting.size ? 'PRONTO' : 'BANDEJA');
     this.lblTray.style.fill = waiting.size ? C.ok : C.faint;
     if (key !== this.trayKey) {

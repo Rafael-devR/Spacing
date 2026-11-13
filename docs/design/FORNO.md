@@ -2,8 +2,10 @@
 
 Tela cheia do **Forno solar**, refeita do zero em PixiJS ([ADR 0018](../adr/0018-forno-em-pixijs.md)). A referência do dono é o
 Idle CPU (como a máquina *trabalha* na tela: fluxos, ventoinha, calor, partículas). O **visual** é o do Spacing
-([ART_DIRECTION.md](../ART_DIRECTION.md)): cartoon, formas arredondadas e chapadas, cores limpas com leve tom roxo, laranja do traje
-e ciano do gelo como acentos, letras Fredoka e Rubik. As regras de fabricação não mudam ([CRAFTING.md](CRAFTING.md)).
+([ART_DIRECTION.md](../ART_DIRECTION.md)), mas **no registro sério de interface de nave** (pedido do dono: "menos cartoon, menos infantil"):
+fundo quase preto com grade fina, fios de 1 px azul-petróleo, painéis com canto chanfrado e colchetes nos cantos, botões chapados só com
+contorno (sem brilho nem sombra), dados em JetBrains Mono e títulos em Chakra Petch (maiúsculas). Laranja só para calor, verde só para
+"pronto", ciano para refrigeração. Tudo isso mora em `src/ui/furnace/theme.ts` e `pixiKit.ts`. As regras de fabricação não mudam ([CRAFTING.md](CRAFTING.md)).
 
 ## O que a tela mostra (tudo é real, nada é enfeite)
 
@@ -49,4 +51,4 @@ ventoinha, testado), `ui/furnace/pixiKit.ts` (botão, texto, painel, ícones), `
 ## O que o dono precisa conferir no celular
 
 Fluidez da tela do forno (um contexto WebGL a mais), se o toque nos cartões e cadinhos está bom, se a ventoinha e o calor
-"leem" bem o que está acontecendo, e se as letras (Fredoka, Rubik) carregaram.
+"leem" bem o que está acontecendo, e se as letras (Chakra Petch, JetBrains Mono) carregaram.

@@ -38,3 +38,10 @@ Canvas 2D ficam caros e difíceis de manter. Ele também quer a tela **toda refe
 - O pacote do Pixi (~150 KB comprimido) vem num pedaço à parte, carregado ao abrir o forno pela primeira vez.
 - Estações futuras em Pixi reaproveitam `ui/furnace/pixiKit.ts` (botão, texto, partículas); quando houver mais de uma, o kit sobe
   para `ui/pixi/`.
+
+## Atualização: registro visual sério
+
+O dono achou a primeira versão cartoon e infantil demais para o forno. Mantivemos a tecnologia e a lógica; mudou só o estilo: paleta fria
+e escura, fios de 1 px, cantos chanfrados, botões só com contorno, mostrador com graduação fina, fontes técnicas (Chakra Petch e JetBrains
+Mono; a Chakra Petch entrou no link de fontes do `index.html`). O cartoon do restante do jogo (personagem, blocos) não muda; as próximas
+telas técnicas devem seguir este registro.

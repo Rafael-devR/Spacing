@@ -1,34 +1,35 @@
-// Cores e letras da tela do forno, na direção de arte do Spacing (docs/ART_DIRECTION.md, docs/design/FORNO.md): cartoon, formas
-// arredondadas e chapadas, neutros com leve tom roxo, laranja do traje e ciano do gelo como acentos. Cores em número (Pixi).
+// Cores e letras da tela do forno: interface de nave, não brinquedo (docs/design/FORNO.md, ADR 0018). Fundo quase preto com grade
+// fina, linhas de 1 px azul-petróleo, dados em fonte técnica, cantos chanfrados. O laranja fica só para o calor e o verde só para
+// "pronto"; o resto é neutro e frio. Cores em número (Pixi).
 
-export const FONT_TITLE = 'Fredoka, "Trebuchet MS", system-ui, sans-serif';
-export const FONT_UI = 'Rubik, system-ui, -apple-system, "Segoe UI", sans-serif';
+export const FONT_TITLE = '"Chakra Petch", "JetBrains Mono", ui-monospace, "Segoe UI", sans-serif';
+export const FONT_UI = '"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace';
 
 export const C = {
-  bg: 0x120f26,
-  bgGrid: 0x1a1536,
+  bg: 0x04070b,
+  bgGrid: 0x0a1118,
   /** painéis (um tom acima do fundo) */
-  panel: 0x1d1743,
-  panelHi: 0x2a2360,
-  panelLine: 0x40378a,
-  /** sombra chapada embaixo de tudo que aperta */
-  shadow: 0x0a0818,
-  ink: 0xf4f0e8,
-  dim: 0xb4aed4,
-  faint: 0x756ea6,
+  panel: 0x08111a,
+  panelHi: 0x0e1a26,
+  panelLine: 0x1d3a4a,
+  /** sombra (usada só para escurecer) */
+  shadow: 0x02040a,
+  ink: 0xdce9ee,
+  dim: 0x8aa3ae,
+  faint: 0x4e6672,
   /** acentos */
-  orange: 0xff8a3d,
-  suit: 0xff7a2f,
-  ice: 0x7fe7ff,
-  ok: 0x6dffb0,
-  warn: 0xff9a85,
-  gold: 0xffcf5a,
-  /** metal do forno (neutro roxo-acinzentado) */
-  metal: 0x4a4470,
-  metalHi: 0x6a6396,
-  metalLo: 0x2c2750,
+  orange: 0xf0933a,
+  suit: 0xf0933a,
+  ice: 0x59d4e6,
+  ok: 0x4fdc9a,
+  warn: 0xe8604c,
+  gold: 0xe6b84a,
+  /** metal do forno (cinza-azulado escuro) */
+  metal: 0x101c27,
+  metalHi: 0x2f5366,
+  metalLo: 0x0a131c,
   /** vidro dos visores e câmara */
-  chamber: 0x0d0a1c,
+  chamber: 0x05090e,
 } as const;
 
 /** '#rrggbb' → número */

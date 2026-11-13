@@ -12,7 +12,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
   com a temperatura, **três cadinhos** com o conteúdo derretendo, a etapa de agora e as unidades, **ventoinha** que gira mais rápido com o
   calor e continua girando enquanto o forno esfria, **termômetro** com ponteiro, fagulhas, bolhas, fumaça da chaminé, ar azul da ventoinha,
   minério caindo no cadinho e barra saindo para a **bandeja**. Receitas em cartões que rolam com o dedo. Direção de arte do Spacing
-  (Fredoka e Rubik, cantos redondos, laranja do forno). `pixi.js` 8.22.0, carregado só quando o forno abre pela primeira vez; se o WebGL
+  (registro sério de interface de nave: fundo escuro, fios finos, cantos chanfrados, Chakra Petch e JetBrains Mono). `pixi.js` 8.22.0, carregado só quando o forno abre pela primeira vez; se o WebGL
   falhar, o forno usa a tela antiga. Bancada e eletrolisador não mudaram. Teste: `tools/visual-check/furnace.mjs`.
 - **Astronauta novo, do Blender, com animações** ([design/PERSONAGEM.md](docs/design/PERSONAGEM.md),
   [ADR 0017](docs/adr/0017-personagem-do-blender-com-animacao-procedural.md)). Voxel chibi a partir das imagens do dono (capacete

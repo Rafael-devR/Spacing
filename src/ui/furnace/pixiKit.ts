@@ -1,5 +1,5 @@
 // Peças de interface em PixiJS (docs/design/FORNO.md): texto, painel, botão que aperta, lista que rola com o dedo e ícones.
-// Direção de arte do Spacing: cartoon, cantos redondos, uma sombra chapada embaixo de tudo que aperta.
+// Estilo de interface de nave: fios de 1 px, cantos chanfrados, nada de brilho nem sombra (ver theme.ts).
 import { Container, Graphics, Rectangle, Sprite, Text, Texture, type FederatedPointerEvent } from 'pixi.js';
 import { C, FONT_TITLE, FONT_UI, shade } from './theme';
 
@@ -23,7 +23,7 @@ export interface TxtOpts {
   lineHeight?: number;
 }
 
-/** Texto. `title` usa Fredoka (títulos e números); o resto, Rubik. */
+/** Texto. `title` usa Chakra Petch (títulos); o resto, JetBrains Mono (dados). */
 export function txt(text: string, o: TxtOpts = {}): Text {
   const t = new Text({
     text,
@@ -59,62 +59,77 @@ export function fitWidth(t: Text, maxW: number): void {
 export interface PanelOpts {
   fill?: number;
   line?: number;
+  /** tamanho do chanfro dos cantos (pixels) */
   radius?: number;
-  /** sombra chapada embaixo (pixels) */
+  /** ignorado: o estilo sério não tem "lábio"; fica para não mexer nas chamadas */
   lip?: number;
   dashed?: boolean;
   alpha?: number;
+  /** pequenos colchetes nos cantos, como mira de painel técnico */
+  brackets?: boolean;
 }
 
-/** Painel cartoon: sombra chapada, corpo, brilho fino no topo e contorno. */
+/** pontos de um retângulo com os cantos de cima à esquerda e de baixo à direita chanfrados */
+export function chamfer(x: number, y: number, w: number, h: number, c: number): number[] {
+  const k = Math.max(0, Math.min(c, w / 3, h / 3));
+  return [x + k, y, x + w, y, x + w, y + h - k, x + w - k, y + h, x, y + h, x, y + k];
+}
+
+/** Painel técnico: fundo escuro, fio de 1 px, canto chanfrado e colchetes nos cantos. */
 export function drawPanel(g: Graphics, x: number, y: number, w: number, h: number, o: PanelOpts = {}): void {
-  const r = Math.min(o.radius ?? 10, w / 2, h / 2);
-  const fill = o.fill ?? C.panel;
-  if (o.lip) g.roundRect(x, y + o.lip, w, h, r).fill({ color: C.shadow, alpha: 0.85 });
-  g.roundRect(x, y, w, h, r).fill({ color: fill, alpha: o.alpha ?? 1 });
+  const c = Math.min(o.radius ?? 8, 10) * 0.55;
+  const line = o.line ?? C.panelLine;
+  const pts = chamfer(x, y, w, h, c);
+  g.poly(pts).fill({ color: o.fill ?? C.panel, alpha: o.alpha ?? 1 });
   if (o.dashed) {
-    dashedRound(g, x, y, w, h, r, o.line ?? C.panelLine);
+    dashedPoly(g, pts, line);
     return;
   }
-  g.roundRect(x, y, w, h, r).stroke({ width: 1.5, color: o.line ?? C.panelLine, alpha: 0.9 });
-  if (h > 20) g.roundRect(x + 2, y + 1.5, w - 4, Math.min(8, h / 3), Math.max(2, r - 2)).fill({ color: 0xffffff, alpha: 0.05 });
+  g.poly(pts).stroke({ width: 1, color: line, alpha: 0.85 });
+  if (o.brackets !== false && w > 60 && h > 40) {
+    const L = Math.min(10, w / 5, h / 5);
+    const bc = shade(line, 0.35);
+    // colchetes: os quatro cantos, por cima do fio
+    g.moveTo(x + 0.5, y + L).lineTo(x + 0.5, y + c + 0.5).lineTo(x + c + 0.5, y + 0.5).lineTo(x + L + c, y + 0.5);
+    g.moveTo(x + w - L - c, y + h - 0.5).lineTo(x + w - c - 0.5, y + h - 0.5).lineTo(x + w - 0.5, y + h - c - 0.5).lineTo(x + w - 0.5, y + h - L);
+    g.moveTo(x + w - L, y + 0.5).lineTo(x + w - 0.5, y + 0.5).lineTo(x + w - 0.5, y + L);
+    g.moveTo(x + L, y + h - 0.5).lineTo(x + 0.5, y + h - 0.5).lineTo(x + 0.5, y + h - L);
+    g.stroke({ width: 1.4, color: bc, alpha: 0.9 });
+  }
 }
 
-/** contorno tracejado de um retângulo arredondado (aproximado por segmentos nas retas) */
-function dashedRound(g: Graphics, x: number, y: number, w: number, h: number, r: number, color: number): void {
-  const dash = 5, gap = 4;
-  const line = (x0: number, y0: number, x1: number, y1: number): void => {
+/** contorno tracejado de um polígono */
+function dashedPoly(g: Graphics, pts: number[], color: number): void {
+  const dash = 4, gap = 4;
+  const n = pts.length / 2;
+  for (let i = 0; i < n; i++) {
+    const x0 = pts[i * 2], y0 = pts[i * 2 + 1], x1 = pts[((i + 1) % n) * 2], y1 = pts[((i + 1) % n) * 2 + 1];
     const len = Math.hypot(x1 - x0, y1 - y0);
+    if (len < 0.1) continue;
     const ux = (x1 - x0) / len, uy = (y1 - y0) / len;
     for (let d = 0; d < len; d += dash + gap) {
       const e = Math.min(len, d + dash);
       g.moveTo(x0 + ux * d, y0 + uy * d).lineTo(x0 + ux * e, y0 + uy * e);
     }
-  };
-  line(x + r, y, x + w - r, y);
-  line(x + w, y + r, x + w, y + h - r);
-  line(x + w - r, y + h, x + r, y + h);
-  line(x, y + h - r, x, y + r);
-  g.stroke({ width: 1.5, color, alpha: 0.8 });
-  for (const [cx, cy, a0] of [[x + r, y + r, Math.PI], [x + w - r, y + r, -Math.PI / 2], [x + w - r, y + h - r, 0], [x + r, y + h - r, Math.PI / 2]] as const)
-    g.moveTo(cx + Math.cos(a0) * r, cy + Math.sin(a0) * r).arc(cx, cy, r, a0, a0 + Math.PI / 2);
-  g.stroke({ width: 1.5, color, alpha: 0.8 });
+  }
+  g.stroke({ width: 1, color, alpha: 0.7 });
 }
 
 export type Tone = 'neutral' | 'go' | 'ice' | 'orange' | 'danger' | 'gold';
 
+/** cor do fio e do texto de cada tipo de botão */
 const TONE: Record<Tone, { face: number; ink: number }> = {
-  neutral: { face: 0x34306a, ink: C.ink },
-  go: { face: 0x3ed98a, ink: 0x06281a },
-  ice: { face: 0x66dff0, ink: 0x08303a },
-  orange: { face: 0xff8a3d, ink: 0x3a1500 },
-  danger: { face: 0x4a2f4f, ink: C.warn },
-  gold: { face: 0xffcf5a, ink: 0x3a2a00 },
+  neutral: { face: 0x3a6479, ink: C.ink },
+  go: { face: C.ok, ink: C.ok },
+  ice: { face: C.ice, ink: C.ice },
+  orange: { face: C.orange, ink: C.orange },
+  danger: { face: C.warn, ink: C.warn },
+  gold: { face: C.gold, ink: C.gold },
 };
 
 /**
- * Botão cartoon: corpo colorido com brilho em cima, "lábio" mais escuro embaixo. Apertado, o corpo desce e o lábio encolhe.
- * Registra o toque ao soltar dentro dele.
+ * Botão de painel técnico: fundo escuro, fio de 1 px na cor da função, chanfro num canto e texto em maiúsculas. Apertado, o
+ * fundo acende. Sem brilho nem sombra. Registra o toque ao soltar dentro dele.
  */
 export class PButton extends Container {
   private readonly g = new Graphics();
@@ -130,7 +145,7 @@ export class PButton extends Container {
   constructor(id: string, private readonly onTap: () => void) {
     super();
     this.id = id;
-    this.caption = txt('', { title: true, weight: '600', ax: 0.5, ay: 0.5, spacing: 0.3 });
+    this.caption = txt('', { title: true, weight: '600', ax: 0.5, ay: 0.5, spacing: 0.8 });
     this.iconSpr.anchor.set(0.5);
     this.iconSpr.visible = false;
     this.addChild(this.g, this.iconSpr, this.caption);
@@ -161,7 +176,7 @@ export class PButton extends Container {
   }
 
   setLabel(s: string): void {
-    setText(this.caption, s);
+    setText(this.caption, s.length > 2 ? s.toUpperCase() : s);
     fitWidth(this.caption, this.w - 14 - (this.iconSpr.visible ? this.iconSpr.width : 0));
   }
 
@@ -176,7 +191,7 @@ export class PButton extends Container {
     if (v === this.enabled) return;
     this.enabled = v;
     if (!v) this.pressed = false;
-    this.alpha = v ? 1 : 0.45;
+    this.alpha = v ? 1 : 0.4;
     this.cursor = v ? 'pointer' : 'default';
     this.draw();
   }
@@ -199,18 +214,17 @@ export class PButton extends Container {
     g.clear();
     if (this.w <= 0) return;
     const t = TONE[this.enabled ? this.tone : 'neutral'];
-    const r = Math.min(12, this.h / 2.4);
-    const lip = this.pressed ? 1 : 4;
-    const dy = this.pressed ? 3 : 0;
-    g.roundRect(0, dy + lip, this.w, this.h, r).fill({ color: shade(t.face, -0.55) });
-    g.roundRect(0, dy, this.w, this.h, r).fill({ color: t.face });
-    g.roundRect(3, dy + 2, this.w - 6, Math.max(4, this.h * 0.32), Math.max(2, r - 3)).fill({ color: 0xffffff, alpha: 0.22 });
-    g.roundRect(0, dy, this.w, this.h, r).stroke({ width: 1.2, color: shade(t.face, -0.35), alpha: 0.9 });
-    const ink = this.enabled ? t.ink : C.faint;
-    this.caption.style.fill = ink;
+    const strong = this.tone !== 'neutral' && this.tone !== 'danger' && this.enabled;
+    const pts = chamfer(0, 0, this.w, this.h, Math.min(6, this.h / 4));
+    g.poly(pts).fill({ color: this.pressed ? t.face : shade(t.face, -0.85), alpha: this.pressed ? 0.35 : strong ? 0.55 : 0.8 });
+    if (strong && !this.pressed) g.poly(pts).fill({ color: t.face, alpha: 0.12 });
+    g.poly(pts).stroke({ width: 1, color: t.face, alpha: this.enabled ? 0.9 : 0.5 });
+    // marca de função: um risco curto no canto de baixo à esquerda
+    if (this.w > 50) g.moveTo(3, this.h - 3.5).lineTo(10, this.h - 3.5).stroke({ width: 1.4, color: t.face, alpha: this.enabled ? 0.9 : 0.4 });
+    this.caption.style.fill = this.enabled ? t.ink : C.faint;
     const iw = this.iconSpr.visible ? this.iconSpr.width + 6 : 0;
-    this.caption.position.set(this.w / 2 + iw / 2, dy + this.h / 2 + 0.5);
-    this.iconSpr.position.set(this.w / 2 - this.caption.width / 2 - 2, dy + this.h / 2);
+    this.caption.position.set(this.w / 2 + iw / 2, this.h / 2 + 0.5);
+    this.iconSpr.position.set(this.w / 2 - this.caption.width / 2 - 2, this.h / 2);
     fitWidth(this.caption, this.w - 14 - iw);
   }
 }
