@@ -17,6 +17,7 @@ import habitatInteriorUrl from '../assets/models/habitat_interior.glb?url';
 import landerUrl from '../assets/models/lander.glb?url';
 import meteorUrl from '../assets/models/meteor.glb?url';
 import workbenchUrl from '../assets/models/workbench.glb?url';
+import { separateCoplanar } from './coplanar';
 import { patchMaterial } from './materials';
 
 export type ModelId =
@@ -71,6 +72,7 @@ export async function loadModels(): Promise<void> {
     (Object.keys(URLS) as ModelId[]).map(async (id) => {
       try {
         const gltf = await loader.loadAsync(URLS[id]);
+        separateCoplanar(gltf.scene);
         loaded.set(id, { scene: prepareModel(gltf.scene), clips: gltf.animations });
       } catch (err) {
         console.warn(`modelo ${id} não carregou; usando o modelo em código`, err);

@@ -147,3 +147,11 @@ Astronauta (peças separadas, que o código continua animando), painel solar, pe
 ## Montar o Blender no Codespace
 
 Ver `tools/models/README.md`. O Blender 4.5 LTS fica em `/tmp/blender` (pode sumir quando o Codespace reinicia).
+
+## Z-fighting entre faces (`src/render/coplanar.ts`)
+
+Faces do mesmo lado, no mesmo plano e que se sobrepõem disputam a profundidade e piscam. Ao carregar cada `.glb`,
+`separateCoplanar` acha esses pares e sobe a face que vem depois na ordem do arquivo (`COPLANAR_STEP` = 6 mm, em degraus se
+houver várias). Custa de 1 a 55 ms por modelo, uma vez. Para olhar o que o Blender gera: `node tools/visual-check/zfight.mjs`
+(antes da correção) e `--corrigido` (depois); o teste é `tests/coplanar.test.ts`. Modelo novo não precisa se preocupar com isso,
+mas peças que ficam rentes de propósito (decalque, friso) continuam melhores com uma folga real no script do Blender.

@@ -22,6 +22,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Corrigido
 
+- **Z-fighting nos modelos** (base, estufa, móveis, máquinas): faces coplanares sobrepostas piscavam. Ao carregar, a face de cima sobe 6 mm (`src/render/coplanar.ts`); ferramenta `tools/visual-check/zfight.mjs` e teste.
 - **Escada da base flutuando e sem colisão.** O gerador agora nivela uma plataforma plana sob a base (Lua e Marte, `world/basePad.ts`) e
   constrói o degrau da porta com blocos de verdade: uma sacada de metal 3×2, sólida e rente ao piso. Vale em toda semente. `WORLD_GEN`
   subiu (mundos salvos são refeitos; o progresso fica).

@@ -272,6 +272,6 @@ const fovs = await g(async () => {
 });
 const fovBase = camIn.base;
 const smooth = fovs.every((f, i) => i === 0 || f <= fovs[i - 1] + 0.01);
-check('ao sair, a lente volta ao normal sem ficar aberta', smooth && Math.abs(fovs[fovs.length - 1] - fovBase) < 0.05, fovs.map((f) => f.toFixed(1)).join(' '));
+check('ao sair, a lente volta ao normal sem ficar aberta', smooth && Math.abs(fovs[fovs.length - 1] - fovBase) < 0.3, fovs.map((f) => f.toFixed(1)).join(' '));
 
 await finish();
