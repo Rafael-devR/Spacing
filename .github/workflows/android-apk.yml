@@ -34,7 +34,11 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
+      # o Android SDK já vem no servidor do GitHub; só garante as licenças aceitas (o Gradle baixa o que faltar)
+      - name: Licenças do Android SDK
+        run: |
+          SDKM=$(ls "${ANDROID_HOME:-$ANDROID_SDK_ROOT}"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1 || true)
+          if [ -n "$SDKM" ]; then yes | "$SDKM" --licenses > /dev/null || true; else echo "sdkmanager não encontrado; seguindo"; fi
       - uses: gradle/actions/setup-gradle@v4
       - run: npm ci
       - run: npm run build
