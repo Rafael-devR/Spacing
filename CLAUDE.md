@@ -21,7 +21,7 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). **Sessão nova?
 - Antes de commitar: `npm run lint && npm run typecheck && npm test && npm run build`.
 - Siga o fluxo de [CONTRIBUTING.md](CONTRIBUTING.md): branches, Conventional Commits, PR.
 - Trabalhe numa **branch só** (hoje `perf/bloom-e-efeitos`); o dono não quer commits espalhados por várias branches.
-- Ações visíveis fora da máquina (criar repositório, abrir PR, push, release) só quando o dono pedir.
+- **Push na branch de trabalho: o dono já autorizou, em definitivo (2026-11-13).** Depois de commitar, envie sem perguntar (`git push -u origin <branch>`); ele testa pelo celular e quer o código no GitHub logo. Continua valendo pedir antes de ações maiores fora da máquina: criar repositório, abrir PR, release, apagar branch ou reescrever histórico.
 - Mudou decisão técnica, design, história ou arte? Atualize o documento ou escreva um ADR na mesma mudança.
 - Não reorganize a estrutura do código sem o dono pedir. Ela está descrita em
   [ARCHITECTURE.md](docs/ARCHITECTURE.md).
