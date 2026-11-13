@@ -5,6 +5,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Não lançado]
 
+### Adicionado
+
+- **Estufa, primeira parte** ([design/ESTUFA.md](docs/design/ESTUFA.md), [ADR 0016](docs/adr/0016-estufa-como-estrutura-com-holograma-e-qualidade-por-peca.md)).
+  Um **baú** na base (as caixas da parede sul) entrega o projeto e o material; lá fora, o projeto no modo construir mostra um
+  **holograma** da cápsula de vidro (verde assenta, vermelho não); a obra **nivela o terreno**, o botão de ação entrega o material
+  **peça por peça** (baixa qualidade) e **finaliza** (alta qualidade); a cápsula é sólida e tem porta. Salvamento v11. Sem plantio nem
+  fome ainda. Teste: `tools/visual-check/greenhouse.mjs` e a seção Estufa do modo de teste.
+
 ### Corrigido
 
 - **Escada da base flutuando e sem colisão.** O gerador agora nivela uma plataforma plana sob a base (Lua e Marte, `world/basePad.ts`) e

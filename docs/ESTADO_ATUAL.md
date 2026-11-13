@@ -99,6 +99,12 @@ Em ordem de execução, tudo com testes e documentação:
    inicial) liga um painel de depuração com salvamento próprio. **Use-o para testar o que você mexer**; o `testmode.mjs` roda tudo em
    menos de 1 minuto.
 
+## Estufa (objetivo de longo prazo do jogo: a comida)
+
+Primeira parte pronta em 2026-11-13: baú na base, holograma no terreno, construção peça por peça (baixa → alta qualidade), cápsula
+sólida com porta ([design/ESTUFA.md](design/ESTUFA.md), ADR 0016). **Falta:** plantar e colher, solo, água, luz, fome ligada. O dono
+ainda não testou no celular (conferir o holograma com o dedo, a etiqueta legível, entrar pela porta, o desempenho do vidro).
+
 ## O que o dono ainda **não viu** no celular
 
 - **O interior novo da base** (maior, móveis novos) e **as estações do Blender com animação**. Antes disso o dono viu o casco

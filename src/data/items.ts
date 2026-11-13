@@ -12,10 +12,12 @@ export type ItemId =
   // fabricados (docs/design/CRAFTING.md)
   | 'iron_bar' | 'brick' | 'glass' | 'basalt_fiber' | 'h2' | 'o2' | 'tio2' | 'titanium' | 'silicon' | 'circuit'
   // energia (docs/design/ENERGIA.md)
-  | 'solar_panel';
+  | 'solar_panel'
+  // estufa (docs/design/ESTUFA.md)
+  | 'greenhouse_plan';
 
 /** forma do modelo de um item fabricado (render/craftedModels.ts) */
-export type CraftedModel = 'ingot' | 'brick' | 'pane' | 'spool' | 'tank' | 'powder' | 'wafer' | 'chip';
+export type CraftedModel = 'ingot' | 'brick' | 'pane' | 'spool' | 'tank' | 'powder' | 'wafer' | 'chip' | 'plan';
 
 /**
  * Do que o item é feito, de 0 a 3. Entra na conta do tempo de fabricação (`recipeSeconds` em recipes.ts):
@@ -42,6 +44,8 @@ export interface ItemData {
   stack?: number;
   /** objeto que o item coloca no mundo no modo construir (ex.: painel solar) */
   place?: PropType;
+  /** projeto que abre um holograma no terreno no modo construir (ex.: a estufa); a obra tem regras próprias (systems/Greenhouse.ts) */
+  site?: 'greenhouse';
   /** comida (ainda sem uso: a energia vem da comida, docs/design/BASE.md) */
   food?: { energy: number };
   /** cor de destaque (partículas e linhas da tela das estações) */
@@ -170,6 +174,10 @@ export const ITEMS: Record<ItemId, ItemData> = {
     name: 'Painel solar', icon: { prop: 'solarPanel' }, place: 'solarPanel', traits: tr(1, 1, 2), tint: '#4f7fd8', stack: 8,
     about: 'Células de silício: transforma luz do sol em eletricidade para a base. Coloque no chão, ao sol e perto da base.',
   },
+  greenhouse_plan: {
+    name: 'Projeto da estufa', icon: { model: 'plan', color: '#2a6f95' }, site: 'greenhouse', traits: tr(0, 0, 3), tint: '#4fd1e8', stack: 1,
+    about: 'Planta de uma cápsula de vidro para plantar. Escolha no modo construir, mire o chão e veja o holograma. Verde assenta.',
+  },
 };
 
 /** ordem de referência dos itens (ícones, conversão de salvamentos antigos) */
@@ -177,7 +185,7 @@ export const ITEM_ORDER: ItemId[] = [
   'regolith', 'rock', 'basalt', 'ice', 'iron', 'ilmenite', 'gold', 'crystal', 'anorthosite',
   'marsdust', 'marsrock', 'darksand', 'sediment', 'volcanic', 'hematite', 'olivine', 'gypsum',
   'iron_bar', 'brick', 'glass', 'basalt_fiber', 'h2', 'o2', 'tio2', 'titanium', 'silicon', 'circuit',
-  'solar_panel',
+  'solar_panel', 'greenhouse_plan',
 ];
 
 export function isItemId(v: unknown): v is ItemId {

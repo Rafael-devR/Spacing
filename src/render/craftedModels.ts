@@ -103,8 +103,20 @@ function chip(color: string): THREE.BufferGeometry[] {
   return out;
 }
 
+/** prancheta: folha azul de projeto com linhas claras e um ponto de holograma */
+function plan(color: string): THREE.BufferGeometry[] {
+  const line = '#d7f0f5';
+  return [
+    part(new THREE.BoxGeometry(0.9, 0.05, 0.66), color, 0, 0.025, 0, 0.04),
+    part(new THREE.BoxGeometry(0.62, 0.02, 0.04), line, 0, 0.06, -0.14, 0),
+    part(new THREE.BoxGeometry(0.62, 0.02, 0.04), line, 0, 0.06, 0.02, 0),
+    part(new THREE.BoxGeometry(0.4, 0.02, 0.04), line, -0.11, 0.06, 0.18, 0),
+    part(new THREE.BoxGeometry(0.1, 0.03, 0.1), '#4fd1e8', 0.3, 0.07, 0.2, 0),
+  ];
+}
+
 const BUILDERS: Record<CraftedModel, (color: string) => THREE.BufferGeometry[]> = {
-  ingot, brick, pane, spool, tank, powder, wafer, chip,
+  ingot, brick, pane, spool, tank, powder, wafer, chip, plan,
 };
 
 /** geometria inteira do item (centrada em x e z, apoiada em y = 0) */

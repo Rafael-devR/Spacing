@@ -63,6 +63,19 @@ export const TEST_SECTIONS: TestSection[] = [
     ],
   },
   {
+    id: 'greenhouse',
+    title: 'Estufa',
+    controls: [
+      { kind: 'button', id: 'gh.chest', label: 'Abrir o baú da base', hint: 'o caminho de verdade (uma vez)' },
+      { kind: 'button', id: 'gh.kit', label: 'Projeto e material', hint: 'sem abrir o baú' },
+      { kind: 'button', id: 'gh.site', label: 'Assentar a obra aqui', hint: 'perto, em chão que serve' },
+      { kind: 'button', id: 'gh.step', label: 'Entregar a próxima peça', hint: 'de graça; depois finaliza' },
+      { kind: 'button', id: 'gh.build', label: 'Construir tudo' },
+      { kind: 'button', id: 'gh.remove', label: 'Desmontar a obra', hint: 'devolve o projeto' },
+      { kind: 'button', id: 'tp.greenhouse', label: 'Ir até a estufa' },
+    ],
+  },
+  {
     id: 'player',
     title: 'Astronauta',
     controls: [

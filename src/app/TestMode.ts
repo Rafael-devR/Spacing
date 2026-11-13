@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import type { Sfx } from '../audio/Sfx';
 import { leaveTestMode } from '../core/testmode';
+import { CHEST, GH } from '../data/greenhouse';
 import { METEOR } from '../data/meteors';
 import { ITEMS, ITEM_ORDER, isItemId } from '../data/items';
 import { PROPS, PROP_DEBRIS, PROP_TYPES, type PropType } from '../data/props';
@@ -22,11 +23,13 @@ import type { Exploration } from '../systems/Exploration';
 import type { Inventory } from '../systems/Inventory';
 import type { Missions } from '../systems/Missions';
 import type { Power } from '../systems/Power';
+import type { Greenhouse } from '../systems/Greenhouse';
 import type { Survival } from '../systems/Survival';
 import type { Hud } from '../ui/Hud';
 import { LANDER } from '../world/terrain';
 import type { World } from '../world/World';
 import type { BaseDirector } from './BaseDirector';
+import type { GreenhouseDirector } from './GreenhouseDirector';
 
 export interface TestModeDeps {
   world: World;
@@ -44,6 +47,8 @@ export interface TestModeDeps {
   loot: LootPiles;
   drops: ItemDrops;
   base: BaseDirector;
+  greenhouse: GreenhouseDirector;
+  greenhouseState: Greenhouse;
   hud: Hud;
   sfx: Sfx;
   /** escala do tempo do jogo (1 = normal, 0 = parado) */
@@ -92,6 +97,13 @@ export class TestMode {
         case 'player.immortal': return this.immortal();
         case 'player.hurt': return this.hurt(30);
         case 'player.kill': return this.kill();
+        case 'gh.chest': return this.ghChest();
+        case 'gh.kit': return this.ghKit();
+        case 'gh.site': return this.ghSite();
+        case 'gh.step': return this.ghStep();
+        case 'gh.build': return this.ghBuild();
+        case 'gh.remove': return this.d.greenhouse.testRemove() ? ok('Obra desmontada') : no('Não há obra');
+        case 'tp.greenhouse': return this.tpGreenhouse();
         case 'tp.lander': return this.tpLander();
         case 'tp.door': return this.tpDoor();
         case 'tp.inside': return this.tpInside();
@@ -157,6 +169,46 @@ export class TestMode {
   /** só deixa agir fora da base (as ações de mundo não valem lá dentro) */
   private ensureOutside(): void {
     if (this.d.base.mode !== 'outside') this.d.base.leaveInstant();
+  }
+
+  // ---------- estufa ----------
+
+  private ghChest(): TestResult {
+    const before = this.d.inventory.count('greenhouse_plan');
+    this.d.greenhouse.openChest();
+    return this.d.inventory.count('greenhouse_plan') > before ? ok('Baú aberto') : no('Baú já aberto (ou mochila cheia)');
+  }
+
+  private ghKit(): TestResult {
+    for (const c of CHEST) this.d.inventory.add(c.item, c.n, false);
+    return ok('Projeto e material na mochila');
+  }
+
+  private ghSite(): TestResult {
+    this.ensureOutside();
+    const p = this.ahead(10);
+    const msg = this.d.greenhouse.testPlace(Math.floor(p.x), Math.floor(p.z));
+    return this.d.greenhouse.site ? ok(msg) : no(msg);
+  }
+
+  private ghStep(): TestResult {
+    const msg = this.d.greenhouse.testStep();
+    return /Entregue|finalizada/.test(msg) ? ok(msg) : no(msg);
+  }
+
+  private ghBuild(): TestResult {
+    if (!this.d.greenhouse.site) return no('Sem obra: assente uma primeiro');
+    for (let i = 0; i < 12 && !this.d.greenhouseState.done; i++) this.d.greenhouse.testStep();
+    return this.d.greenhouseState.done ? ok('Estufa finalizada') : no('Não terminou');
+  }
+
+  private tpGreenhouse(): TestResult {
+    const s = this.d.greenhouse.site;
+    if (!s) return no('Sem obra');
+    this.ensureOutside();
+    const x = s.x + GH.doorAt + 0.5, z = s.z + GH.size + 2.5;
+    this.teleport(x, this.d.world.topY(Math.floor(x), Math.floor(z)) + 1.05, z);
+    return ok('Na porta da estufa');
   }
 
   // ---------- itens e equipamento ----------

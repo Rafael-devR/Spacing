@@ -1,6 +1,6 @@
 // Salvamento com versão e migração. Toda mudança de formato ganha uma versão nova,
 // uma função de migração e um teste (tests/save.test.ts).
-import { isItemId } from '../data/items';
+import { isItemId, type ItemId } from '../data/items';
 import type { EquipmentSave } from '../systems/Equipment';
 import { EQUIP_SLOTS, EQUIPMENT, isEquipId } from '../data/equipment';
 import type { PropType } from '../data/props';
@@ -12,12 +12,13 @@ import type { ExplorationSave } from '../systems/Exploration';
 import type { CraftingSave, JobSave } from '../systems/Crafting';
 import type { PowerSave } from '../systems/Power';
 import { isStationId, STATIONS } from '../data/stations';
+import { PART_IDS, partDef, type GreenhouseSave, type PartId } from '../data/greenhouse';
 
 export const SAVE_KEY = 'spacing.save';
 /** chave usada pela v0.1, sem campo de versão */
 export const LEGACY_SAVE_KEY = 'spacing.save.v1';
 export const PREFS_KEY = 'spacing.prefs.v1';
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 
 export interface ExtraPropSave {
   wx: number;
@@ -61,6 +62,8 @@ export interface SaveData {
   crafting: CraftingSave;
   /** energia da base (v8): carga da bateria; null = cheia */
   power: PowerSave | null;
+  /** estufa (v11): baú aberto e a obra no terreno, se houver */
+  greenhouse: GreenhouseSave;
 }
 
 export interface BaseSave {
@@ -237,6 +240,24 @@ function cleanCrafting(v: unknown, version: number): CraftingSave {
   return { built: built as CraftingSave['built'], jobs };
 }
 
+/** v11: o baú e a obra da estufa; peças desconhecidas ou repetidas somem, e uma obra sem posição válida some. */
+function cleanGreenhouse(v: unknown): GreenhouseSave {
+  const g = isObj(v) ? v : {};
+  const out: GreenhouseSave = { chestOpened: g.chestOpened === true, site: null };
+  const s = g.site;
+  if (isObj(s) && Number.isFinite(s.x) && Number.isFinite(s.z) && Number.isFinite(s.floorY)) {
+    const parts: PartId[] = [];
+    // as peças valem na ordem de entrega
+    const given = Array.isArray(s.parts) ? s.parts : [];
+    for (const id of PART_IDS) if (given.includes(id)) parts.push(id);
+    out.site = {
+      x: Math.floor(num(s.x, 0)), z: Math.floor(num(s.z, 0)), floorY: Math.floor(num(s.floorY, 1)),
+      parts, done: s.done === true && parts.length === PART_IDS.length,
+    };
+  }
+  return out;
+}
+
 /**
  * Receitas novas da v7 (docs/design/CRAFTING.md): o Mapa passou a pedir uma placa de circuito. Quem ainda não
  * tem o Mapa recebe a placa "aproveitada do módulo de pouso", como num jogo novo.
@@ -261,6 +282,7 @@ export function withStarterCircuit(inv: InventorySave, equipment: EquipmentSave)
  * v8: trabalhos com vaga e lote; `power` (bateria da base).
  * v9: trabalhos com preparo e tempo por unidade (`prep`, `unit`), o que já foi pego (`taken`), pausa e sobras de cancelamento.
  * v10: `worldGen` (versão do gerador do mundo). Antes disso, gerador 1.
+ * v11: `greenhouse` (baú da base e a obra da estufa). Antes disso, baú fechado e sem obra.
  */
 export function migrate(raw: unknown, seed: number): SaveData | null {
   if (!isObj(raw)) return null;
@@ -286,6 +308,7 @@ export function migrate(raw: unknown, seed: number): SaveData | null {
     explored: version >= 6 ? cleanExplored(raw.explored) : {},
     crafting: version >= 7 ? cleanCrafting(raw.crafting, version) : { built: [], jobs: [] },
     power: version >= 8 && isObj(raw.power) && Number.isFinite(raw.power.battery) ? { battery: Math.max(0, num(raw.power.battery, 0)) } : null,
+    greenhouse: version >= 11 ? cleanGreenhouse(raw.greenhouse) : { chestOpened: false, site: null },
   };
 }
 
@@ -298,8 +321,16 @@ export function renewWorld(save: SaveData, seed: number, worldGen: number): Save
   const inv = new Inventory(undefined, save.inventory);
   const gone = new Set(save.world.removedProps);
   for (const e of save.world.extraProps) if (e.type === 'solarPanel' && !gone.has(e.key)) inv.add('solar_panel', 1, false);
+  // a estufa fica no mundo que some: o projeto e o material entregue voltam para a mochila e o baú continua aberto
+  let greenhouse = save.greenhouse;
+  if (greenhouse.site) {
+    inv.add('greenhouse_plan', 1, false);
+    for (const id of greenhouse.site.parts) for (const [k, n] of Object.entries(partDef(id).cost) as [ItemId, number][]) inv.add(k, n, false);
+    greenhouse = { ...greenhouse, site: null };
+  }
   return {
     ...save,
+    greenhouse,
     seed,
     worldGen,
     world: { edits: {}, removedProps: [], extraProps: [] },

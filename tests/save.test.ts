@@ -7,6 +7,7 @@ import {
   migrate,
   writeSave,
   type KeyValueStore,
+  type SaveData,
   renewWorld,
 } from '../src/core/save';
 import { Inventory, type InventorySave } from '../src/systems/Inventory';
@@ -160,12 +161,14 @@ describe('salvamento', () => {
         jobs: [{ station: 'furnace' as const, slot: 2, recipe: 'glass', batch: 4, prep: 1, unit: 2.5, done: 6, taken: { glass: 1 }, paused: true }],
       },
       power: { battery: 300 },
+      greenhouse: { chestOpened: true, site: { x: 10, z: -3, floorY: 31, parts: ['floor' as const, 'wallS' as const], done: false } },
     };
     expect(writeSave(store, data)).toBe(true);
     const back = loadSave(store, 3);
     expect(back?.inventory).toEqual(slots({ ice: 2 }));
     expect(back?.player).toBeNull();
     expect(back?.savedAt).toBeGreaterThan(0);
+    expect(back?.greenhouse).toEqual(data.greenhouse);
     expect(back?.suit).toEqual({ suit: 'emergency', o2: 40, battery: 10, integrity: 75 });
     expect(back?.loot).toEqual([{ item: 'iron', amount: 3, x: 1, y: 18, z: 2, pile: 1 }]);
     expect(back?.equipment).toEqual({ map: 'map' });
@@ -216,6 +219,7 @@ describe('salvamento', () => {
       worldGen: 1, world: { edits: {}, removedProps: [], extraProps: [] }, inventory: slots({}), player: null,
         missions: { step: 0, count: 0 }, suit: null, loot: [], equipment: {},
         base: { inside: false, respawn: 'lander', visited: false }, explored: {}, crafting: { built: [], jobs: [] }, power: null,
+        greenhouse: { chestOpened: false, site: null },
       }),
     ).toBe(false);
   });
@@ -252,5 +256,36 @@ describe('salvamento', () => {
     expect(inv.count('iron')).toBe(new Inventory(undefined, old.inventory).count('iron'));
     expect(fresh.equipment).toEqual(old.equipment);
     expect(fresh.crafting).toEqual(old.crafting);
+  });
+});
+
+describe('salvamento v11: estufa', () => {
+  const base = { version: 10, seed: 5, worldGen: 1, world: { edits: {}, removedProps: [], extraProps: [] } };
+
+  it('antes da v11: baú fechado e sem obra', () => {
+    expect(migrate(base, 5)?.greenhouse).toEqual({ chestOpened: false, site: null });
+  });
+
+  it('limpa a obra: peças desconhecidas somem, a ordem é a de entrega e "pronta" só com todas as peças', () => {
+    const g = migrate(
+      { ...base, version: 11, greenhouse: { chestOpened: true, site: { x: 1.7, z: 2, floorY: 30, parts: ['wallS', 'glass', 'floor', 'xxx'], done: true } } },
+      5,
+    )?.greenhouse;
+    expect(g?.chestOpened).toBe(true);
+    expect(g?.site).toEqual({ x: 1, z: 2, floorY: 30, parts: ['floor', 'wallS', 'glass'], done: false });
+    expect(migrate({ ...base, version: 11, greenhouse: { site: { x: 'a' } } }, 5)?.greenhouse.site).toBeNull();
+  });
+
+  it('mundo refeito: o projeto e o material entregue voltam para a mochila', () => {
+    const save = migrate(
+      { ...base, version: 11, greenhouse: { chestOpened: true, site: { x: 0, z: 0, floorY: 30, parts: ['floor', 'wallS'], done: false } } },
+      5,
+    ) as SaveData;
+    const renewed = renewWorld(save, 9, 4);
+    expect(renewed.greenhouse).toEqual({ chestOpened: true, site: null });
+    const inv = new Inventory(undefined, renewed.inventory);
+    expect(inv.count('greenhouse_plan')).toBe(1);
+    expect(inv.count('brick')).toBe(10); // piso 8 + parede sul 2
+    expect(inv.count('iron_bar')).toBe(3);
   });
 });

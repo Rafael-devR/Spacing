@@ -12,8 +12,9 @@ de 11×9 blocos por fora (9×7 por dentro, 3 de altura), sobre uma **plataforma 
 solar que ficou embaixo da base nova volta para o inventário ao carregar.
 
 Dentro: bancada, estante e armário na parede norte, horta hidropônica no canto; beliche na oeste; console, forno solar,
-eletrolisador e tanque de água na leste; mesa e caixas na sul. Estante, horta, mesa, tanque e caixas são enfeite (ocupam
-lugar, sem botão de usar).
+eletrolisador e tanque de água na leste; mesa e caixas na sul. Estante, horta, mesa e tanque são enfeite (ocupam
+lugar, sem botão de usar). As **caixas** são o **baú de suprimentos**: abre uma vez e entrega o projeto da estufa e o material
+([ESTUFA.md](ESTUFA.md)).
 
 ## Plataforma e degrau
 

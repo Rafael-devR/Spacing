@@ -179,3 +179,5 @@ não mudam** (nem ao terminar nem ao cancelar) e que voltar ao jogo recarrega no
 
 **Os números dali NÃO valem para o celular:** o Chromium daqui roda o WebGL por software e é um navegador automatizado (o
 painel avisa). A medição de verdade é no celular de 120 Hz, pelo menu de pausa. O `npm run dev` precisa estar rodando.
+
+- `greenhouse.mjs <url> <pasta>`: a estufa ([design/ESTUFA.md](../../docs/design/ESTUFA.md)): baú, holograma e assentamento, entrega pelo botão, colisão, finalização, entrar, salvamento e as ações do modo de teste; tira 5 capturas.

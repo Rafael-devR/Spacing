@@ -66,6 +66,9 @@ import { FixedStep } from './FixedStep';
 import { MarsDirector } from './MarsDirector';
 import { SurvivalDirector } from './SurvivalDirector';
 import { BaseDirector } from './BaseDirector';
+import { GreenhouseDirector } from './GreenhouseDirector';
+import { Greenhouse } from '../systems/Greenhouse';
+import { greenhouseStructure } from '../world/greenhouseLayout';
 import { HAB_MODULE } from '../data/base';
 import { EQUIPMENT, type EquipId } from '../data/equipment';
 import { drillForTier } from '../data/drills';
@@ -159,6 +162,9 @@ export class Game {
   private revealT = 0;
   readonly crafting: Crafting;
   readonly base: BaseDirector;
+  /** estufa: regras e estado (salvos) e a experiência no mundo (docs/design/ESTUFA.md) */
+  readonly greenhouseState: Greenhouse;
+  readonly greenhouse: GreenhouseDirector;
   readonly baseModel: BaseModel;
   /** ambiente de dentro da base: câmera, luz e fundo (render/indoors.ts) */
   private readonly indoors: IndoorView;
@@ -265,6 +271,10 @@ export class Game {
     // base: a estrutura entra no mundo antes de gerar os chunks (as pedras soltas respeitam a área)
     const baseLayout = layoutModule(HAB_MODULE, this.world.terrain);
     this.world.addStructure(baseLayout.structure);
+    // estufa já assentada: a estrutura também entra antes dos chunks
+    this.greenhouseState = new Greenhouse(this.save?.greenhouse ?? null);
+    const ghStructure = this.greenhouseState.site ? greenhouseStructure(this.greenhouseState.site) : null;
+    if (ghStructure) this.world.addStructure(ghStructure);
     this.inventory = new Inventory(events, this.save?.inventory);
     // painel solar que ficou embaixo da base (ela cresceu) volta para o inventário
     const bb = baseLayout.structure.box;
@@ -366,12 +376,18 @@ export class Game {
     const terrain = this.world.terrain;
     this.baseModel = new BaseModel(baseLayout, (x, z) => terrain.column(Math.floor(x), Math.floor(z)).h + 1, model('habitat'), model('habitat_interior'));
     scene.add(this.baseModel.group);
+    this.greenhouse = new GreenhouseDirector({
+      scene, events, world: this.world, state: this.greenhouseState, structure: ghStructure, inventory: this.inventory,
+      interaction: this.interaction, hud: this.hud, sfx: this.sfx, haptics: this.haptics, particles: this.particles,
+      baseBox: baseLayout.structure.box, player: () => this.player.pos, getState: () => this.state, persist: () => this.persist(),
+    });
     this.base = new BaseDirector(
       {
         events, scene: () => this.indoors.scene, world: this.world, layout: baseLayout, model: this.baseModel, player: this.player, rig: this.rig,
         input: this.input, interaction: this.interaction, survival: this.survival, crafting: this.crafting,
         craftPanel: this.craftPanel, powerPanel: this.powerPanel, hud: this.hud, baseHud: this.baseHud, sfx: this.sfx, haptics: this.haptics,
         particles: this.particles, itemModels: this.itemModels, getState: () => this.state, persist: () => this.persist(),
+        greenhouse: this.greenhouse, chest: { open: () => this.greenhouse.openChest(), opened: () => this.greenhouse.chestOpened() },
       },
       this.save?.base ?? null,
     );
@@ -485,7 +501,8 @@ export class Game {
       ? new TestMode({
         world: this.world, player: this.player, rig: this.rig, inventory: this.inventory, equipment: this.equipment,
         crafting: this.crafting, power: this.power, missions: this.missions, survival: this.survival, exploration: this.exploration,
-        meteors: this.meteors, debris: this.debris, loot: this.loot, drops: this.drops, base: this.base, hud: this.hud, sfx: this.sfx,
+        meteors: this.meteors, debris: this.debris, loot: this.loot, drops: this.drops, base: this.base, greenhouse: this.greenhouse, greenhouseState: this.greenhouseState,
+        hud: this.hud, sfx: this.sfx,
         setTimeScale: (k) => (this.testScale = Math.max(1e-6, k)),
         hitStop: (seconds) => (this.hitStop = Math.max(this.hitStop, seconds)),
         slowMotion: (seconds, scale) => (this.slowMo = { t: seconds, scale }),
@@ -1215,6 +1232,7 @@ export class Game {
       base: this.base.serialize(),
       crafting: this.crafting.serialize(),
       power: this.power.serialize(),
+      greenhouse: this.greenhouseState.serialize(),
     }, SAVE_KEY_NOW);
   }
 
@@ -1391,6 +1409,7 @@ export class Game {
     this.sfx.setListener(player.model.root.position, rig.forward());
     p?.begin(SUB.entities);
     this.baseModel.update(dt, time, this.camera.position);
+    this.greenhouse.update(dt, time);
     p?.end(SUB.entities);
 
     world.radius = THREE.MathUtils.clamp(Math.ceil((1.05 * rig.distTarget + 10) / 16), 2, 5);

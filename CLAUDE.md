@@ -66,6 +66,9 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). **Sessão nova?
   `src/ui/TestPanel.ts`. **Para testar uma mudança, provoque a situação com `window.spacing.testMode.run('…')` em vez de jogar até ela**; o
   `tools/visual-check/testmode.mjs` roda todas as ações em menos de 1 min, e `lib.mjs` é o arranque comum dos testes novos. Ação nova no jogo?
   Acrescente ao catálogo, quando fizer sentido testá-la na hora.
+- Estufa ([design/ESTUFA.md](docs/design/ESTUFA.md), ADR 0016): dados em `src/data/greenhouse.ts`, regras em `src/systems/Greenhouse.ts`, colisão em
+  `src/world/greenhouseLayout.ts` (uma `Structure`), desenho em `src/render/greenhouseModel.ts`, experiência em `src/app/GreenhouseDirector.ts`
+  (o botão de ação vem do `BaseDirector`); teste `tools/visual-check/greenhouse.mjs`. Plantio e fome ainda não existem.
 - Meteoros ([design/METEOROS.md](docs/design/METEOROS.md), ADR 0014): números em `src/data/meteors.ts`; lógica em `src/entities/Meteors.ts`;
   visual em `src/render/meteorFx.ts` e `puffs.ts`; **onda de choque que entorta a imagem** em `src/render/shockwave.ts` + `FX_SHOCK` na passada
   final de `post.ts`; som, câmera, pausa e clarão em `src/app/MeteorDirector.ts`; teste `tools/visual-check/meteors.mjs`.

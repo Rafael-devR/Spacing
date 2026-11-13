@@ -106,6 +106,8 @@ export class Interaction {
    * O interior é um ambiente separado (docs/adr/0006-interior-da-base-como-camada-isolada.md).
    */
   private locked = false;
+  /** o projeto na mão pede um lugar (a estufa: app/GreenhouseDirector.ts); recebe o bloco tocado */
+  onSite: ((x: number, y: number, z: number) => boolean) | null = null;
   private walkGoal: WalkGoal | null = null;
   private readonly mine: { key: string | null; progress: number; tick: number } = { key: null, progress: 0, tick: 0 };
   private stuck = 0;
@@ -213,6 +215,10 @@ export class Interaction {
     const item = inventory.selectedItem();
     if (!item) {
       events.emit('action:denied', { reason: 'emptySlot' });
+      return;
+    }
+    if (ITEMS[item].site) {
+      this.onSite?.(t.x, t.y, t.z);
       return;
     }
     const placeType = ITEMS[item].place;

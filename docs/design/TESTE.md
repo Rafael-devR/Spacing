@@ -25,6 +25,7 @@ Fecha no ✕. Cada toque mostra uma frase com o resultado, no alto do painel.
 | **Meteoros** | meteoro agora, **impacto já** (sem esperar o voo), grande, pequeno, chuva de 5, perto (dá dano), ligar e desligar o sorteio |
 | **Itens** | a quantidade (1, 10, 64) e um botão para **cada item**; um de cada; esvaziar a mochila |
 | **Equipamento e estações** | mapa, brocas, **instalar as estações**, **concluir fabricações** sem esperar, bateria da base cheia |
+| **Estufa** | abrir o baú da base, dar o projeto e o material, **assentar a obra** perto, entregar a próxima peça (de graça), **construir tudo**, desmontar a obra, ir até a estufa ([ESTUFA.md](ESTUFA.md)) |
 | **Astronauta** | encher o traje, imortal, dano, **morrer**, ir ao módulo, à porta, **entrar e sair da base já**, 30 blocos à frente, subir 25 (queda) |
 | **Mundo** | soltar cada objeto (pedra, ouro, cristal, meteorito, painel solar…), explosão de destroços, pilha de itens, itens saltando, revelar o mapa, limpar destroços |
 | **Tempo, câmera e efeitos** | velocidade do jogo (parado, 0,25×, 1×, 2×, 4×), tremor, soco de zoom, pausa de impacto, câmera lenta, avisos |

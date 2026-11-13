@@ -61,9 +61,13 @@ export interface BaseDirectorDeps {
   itemModels: ItemModels;
   getState(): GameState;
   persist(): void;
+  /** a obra da estufa lá fora (o botão de ação dela concorre com o da base) */
+  greenhouse: { useOption(): { label: string; dist: number } | null; use(): void };
+  /** o baú de suprimentos da base: abre uma vez e dá o kit da estufa */
+  chest: { open(): void; opened(): boolean };
 }
 
-type UseKind = 'enter' | 'exit' | 'bed' | 'console' | StationId;
+type UseKind = 'enter' | 'exit' | 'bed' | 'console' | 'chest' | 'site' | StationId;
 
 const isStationUse = (k: UseKind): k is StationId => k in STATIONS;
 
@@ -247,6 +251,8 @@ export class BaseDirector {
     else if (kind === 'exit') this.beginExit();
     else if (kind === 'bed') this.beginRest();
     else if (kind === 'console') this.d.powerPanel.show();
+    else if (kind === 'chest') this.d.chest.open();
+    else if (kind === 'site') this.d.greenhouse.use();
     else if (isStationUse(kind)) this.d.craftPanel.show(kind);
   }
 
@@ -563,14 +569,22 @@ export class BaseDirector {
         return dd < r && Math.abs(p.y - q.y) < 2.2 ? dd : Infinity;
       };
       const options: [UseKind, number][] = [];
-      if (this.mode === 'outside') options.push(['enter', near(d.layout.outside, 1.6)]);
-      else if (this.mode === 'inside') {
+      let siteLabel: string | null = null;
+      if (this.mode === 'outside') {
+        options.push(['enter', near(d.layout.outside, 1.6)]);
+        const g = d.greenhouse.useOption();
+        if (g) {
+          options.push(['site', g.dist]);
+          siteLabel = g.label;
+        }
+      } else if (this.mode === 'inside') {
         options.push(['exit', near(d.layout.inside)]);
         for (const f of d.layout.furniture) {
           const station = STATION_FURNITURE[f.def.kind];
           if (station) options.push([station, near(f.use)]);
           if (f.def.kind === 'bed') options.push(['bed', near(f.use)]);
           if (f.def.kind === 'console') options.push(['console', near(f.use)]);
+          if (f.def.kind === 'crates' && !d.chest.opened()) options.push(['chest', near(f.use)]);
         }
       }
       const best = options.filter(([, dd]) => dd < Infinity).sort((a, b) => a[1] - b[1])[0];
@@ -583,7 +597,8 @@ export class BaseDirector {
             : d.crafting.hasReady(kind)
               ? t('base.stationReady', { name })
               : t('base.station', { name });
-        } else label = t(kind === 'enter' ? 'base.enter' : kind === 'exit' ? 'base.exit' : kind === 'console' ? 'base.console' : 'base.bed');
+        } else if (kind === 'site') label = siteLabel;
+        else label = t(kind === 'enter' ? 'base.enter' : kind === 'exit' ? 'base.exit' : kind === 'console' ? 'base.console' : kind === 'chest' ? 'gh.chest' : 'base.bed');
       }
       // primeira vez perto da base: a IA explica
       if (!this.visited && this.mode === 'outside' && Math.hypot(p.x - d.layout.center.x, p.z - d.layout.center.z) < 11) {
