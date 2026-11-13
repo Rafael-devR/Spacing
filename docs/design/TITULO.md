@@ -4,7 +4,11 @@
 > mundo inteiro antes de mostrar o botão "Começar".
 
 Pedido do dono: uma tela de título "de jogo de verdade", simples mas funcional: nome do jogo, versão embaixo, os botões de sempre, e
-no fundo o planeta (Lua ou Marte) num céu estrelado cinematográfico, com os planetas feitos no Blender em estilo voxel. A escolha do
+no fundo o planeta (Lua ou Marte) num céu estrelado cinematográfico, com os planetas feitos no Blender em estilo voxel.
+
+Segunda volta (mesmo dia), depois de ver no celular: planeta **com mais tamanho** ("impressão de grandeza"), mais detalhe, **misturado
+com low poly**, com atmosfera e efeitos; a interface **simples e charmosa, de jogo**, no jeito do HUD e do menu de pausa antigos (não
+"site espacial"); e **tela cheia no primeiro toque**. A escolha do
 planeta (provisória, até existir a viagem) vai para as configurações. A tela de título **não carrega o jogo**; só "Jogar" carrega, numa
 tela de carregamento que faz tudo certinho antes do primeiro quadro.
 
@@ -12,38 +16,57 @@ tela de carregamento que faz tudo certinho antes do primeiro quadro.
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│ MISSÃO 01 · CRATERA SHACKLETON              ░░░▓▓▓▓▓▓▓▓▓▓▓ │
-│ SPACING                                    ░░▓▓▓ planeta ▓▓│
-│ versão 0.3.0 · acesso antecipado           ░▓▓▓  voxel   ▓▓│
-│ [ CONTINUAR MISSÃO ]                       ░▓▓▓  girando ▓▓│
-│ │ NOVO JOGO                                 ░▓▓▓▓▓▓▓▓▓▓▓▓▓▓│
-│ │ CONFIGURAÇÕES                              ░░▓▓▓▓▓▓▓▓▓▓▓▓│
-│ │ CONTROLES                     ·   estrelas    ·   ░░▓▓▓▓▓▓│
-│ │ MODO DE TESTE                                            │
-│ DESTINO: LUA                                               │
+│ MISSÃO 01 · CRATERA SHACKLETON (laranja)           ◉ Terra │
+│ Spacing                                     ___________    │
+│ versão 0.3.0 · acesso antecipado        __/  horizonte  \_ │
+│ ( Continuar missão )                  _/   do planeta     \│
+│ [ Novo jogo ]                        /  enorme, cortado    │
+│ [ Configurações ] [ Controles ]     |   pela borda         │
+│ Modo de teste                       |                      │
+│ Destino: Lua                        |                      │
 └────────────────────────────────────────────────────────────┘
 ```
 
 - **Botões:** Começar missão (ou **Continuar missão**, se há jogo salvo do planeta escolhido), **Novo jogo** (só com jogo salvo; pede
-  um segundo toque e apaga **só** o salvamento daquele planeta), **Configurações**, **Controles** (a ajuda de sempre), **Modo de
-  teste** (ou Sair do modo de teste). Enter joga; Esc fecha as configurações.
-- **Configurações** (as que fazem sentido antes de jogar): **Planeta** (Lua ou Marte, provisório), **Gráficos** (Auto, Baixa, Média,
-  Alta), **Som**, **Vibração**. Gravam nas preferências de sempre (`spacing.prefs.v1`) e na escolha do planeta (`spacing.planet`).
-  Trocar o planeta troca o fundo na hora, sem recarregar. O resto (tremor, mira, gráficos avançados) fica no menu de pausa.
-- **Fundo:** o planeta em cubos, grande e cortado pela borda da direita (em pé, embaixo), girando devagar; o sol fora da tela à
-  esquerda deixa a noite na borda; luz de contorno azulada por trás; contorno de atmosfera (forte em Marte, um fio na Lua); 2.600
-  estrelas que cintilam, duas nebulosas muito fracas e o brilho do sol; a câmera respira devagar.
-- **Visual:** o mesmo da tela de itens ([INVENTARIO.md](INVENTARIO.md)): Chakra Petch no nome e nos botões, JetBrains Mono nos
-  textos pequenos, fios finos, um botão claro para a ação principal.
+  um segundo toque e apaga **só** o salvamento daquele planeta), **Configurações** e **Controles** lado a lado, **Modo de teste** (ou
+  Sair do modo de teste) como um link discreto. Enter joga; Esc fecha as configurações.
+- **Configurações** (as que fazem sentido antes de jogar): **Planeta** (Lua ou Marte, provisório), **Gráficos** (Automática, Baixa,
+  Média, Alta), **Som**, **Vibração** e, no celular, **Tela cheia**. Gravam nas preferências de sempre (`spacing.prefs.v1`) e na escolha
+  do planeta (`spacing.planet`). Trocar o planeta troca o fundo na hora, sem recarregar. O resto (tremor, mira, gráficos avançados)
+  fica no menu de pausa.
+- **Tela cheia:** no celular, o primeiro toque na tela de título (e o toque em Jogar) põe em tela cheia, deitada, como o jogo já fazia;
+  a preferência `fullscreen` desliga, e `orientation: 'free'` não trava deitado.
+- **Visual:** o do HUD e do menu de pausa: Fredoka no nome (grande, redondo), Rubik nos textos, a linha de cima em laranja do traje,
+  botão principal claro com brilho laranja, os outros em cartões escuros arredondados e translúcidos; as configurações usam o mesmo
+  cartão e os mesmos botões do menu de pausa (`.pause-card`, `.setting`, `.seg`, `.toggle`).
 
-## Planetas voxel (Blender)
+## Fundo (`titleScene.ts`)
 
-`tools/models/planet_moon.py` e `planet_mars.py`, com `lib.voxel_planet`: uma esfera de cubos de raio 15, só as faces de fora, uma cor
-por cubo e uma oclusão simples por face (os cubos em volta escurecem a face). Crateras com fundo escuro e borda clara (`lib.craters`).
+Para dar **tamanho**, o planeta fica perto e enorme, com o centro abaixo da tela: só a calota de cima aparece, com a curva do horizonte
+(deitado, à direita, atrás do menu; em pé, na metade de baixo). Gira devagar (coisa grande parece lenta).
 
-- **Lua:** terras altas claras, mares escuros (ruído de baixa frequência), 16 crateras.
-- **Marte:** poeira vermelha, terras escuras, um cânion torto perto do equador, um vulcão enorme, calotas polares, poucas crateras.
-- Cerca de 9 mil triângulos cada (`tests/models.test.ts`). Só a tela de título usa; o jogo não carrega.
+- **Luz:** o sol fora da tela, à esquerda e baixo (luz rasante: o relevo e as crateras aparecem), com um brilho no canto; pouca luz no
+  lado da noite.
+- **Atmosfera:** uma casca desenhada só pela frente; para cada pixel, a distância do raio de visão ao centro do planeta diz quanto ar
+  ele atravessa: borda acesa rente ao chão do lado do sol, véu fino sobre o chão perto da beira. Perto da noite a cor puxa para o
+  poente (azulado em Marte). Marte tem atmosfera grossa e **manchas de poeira** que andam um pouco mais rápido que o chão; a Lua, só um
+  fio.
+- **Céu:** 3.600 estrelas que cintilam, boa parte numa faixa (Via Láctea), três nebulosas fracas. No céu da Lua, **a Terra** pequena
+  (oceano, continentes, nuvens, borda azul); no de Marte, **Fobos** atravessando devagar.
+- A câmera respira de leve. `?tituloT=segundos` adianta a animação (capturas de outro lado do planeta).
+
+## Planetas (Blender)
+
+`tools/models/planet_moon.py` e `planet_mars.py`. **Corpo low poly** (`lib.lowpoly_planet`: icosfera de 20 mil triângulos deslocada,
+facetada) com **blocos por cima** (`lib.surface_blocks`): o jeito do jogo, mundo de blocos, sem virar um planeta inteiro de cubos.
+Cor por vértice compartilhada e **sem normais** (o jogo desenha facetado pela derivada): arquivo bem menor.
+
+- **Lua:** terras altas claras, mares escuros, ~46 crateras com fundo escuro, borda clara e pico central nas grandes, duas crateras
+  novas com raios claros; **anéis de blocos** nas bordas das crateras grandes (`lib.crater_ring`), pedras em volta, montes em degraus
+  nas terras altas (`lib.terraces`).
+- **Marte:** poeira vermelha, terras escuras, planícies baixas do norte, cânion largo perto do equador, calotas polares; **o vulcão
+  enorme e os três de Tharsis em degraus de blocos**, gelo em blocos na beira das calotas, anéis nas crateras grandes, pedras.
+- Teto em `tests/models.test.ts` (Lua ~52 mil triângulos, ~1 MB; Marte ~33 mil, ~0,6 MB). Só a tela de título usa; o jogo não carrega.
 
 ## Carregamento
 

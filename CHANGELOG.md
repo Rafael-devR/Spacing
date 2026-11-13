@@ -9,8 +9,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 - **Tela de título e tela de carregamento** ([design/TITULO.md](docs/design/TITULO.md), [ADR 0020](docs/adr/0020-titulo-leve-e-carregamento-em-etapas.md)).
   Nome do jogo, versão, Começar/Continuar, Novo jogo (com confirmação), Configurações (planeta provisório, gráficos, som, vibração),
-  Controles e Modo de teste. No fundo, a **Lua ou Marte em cubos, feitos no Blender**, girando num céu estrelado, com luz de contorno e
-  atmosfera. O título **não carrega o jogo**: depois de "Jogar", o carregamento passa por etapas (código, modelos, mundo e semente,
+  Controles e Modo de teste, no jeito do HUD e do menu de pausa (letras redondas, cartões arredondados); no celular, o primeiro toque
+  põe em tela cheia. No fundo, a **Lua ou Marte feitos no Blender, low poly com blocos por cima** (crateras com anéis de blocos,
+  vulcões em degraus), enormes e cortados pela borda, com atmosfera (borda acesa, poente azulado e poeira em Marte), a Terra no céu da
+  Lua, Fobos no de Marte e a Via Láctea. O título **não carrega o jogo**: depois de "Jogar", o carregamento passa por etapas (código, modelos, mundo e semente,
   terreno, base, materiais e sombras, itens, som, primeiros quadros) com barra e dicas. Trocar de planeta não recarrega mais a página.
 - **Inventário e estações refeitos numa tela só** ([design/INVENTARIO.md](docs/design/INVENTARIO.md), [design/ESTACOES.md](docs/design/ESTACOES.md),
   [ADR 0019](docs/adr/0019-inventario-e-estacoes-em-html.md)). Visual minimalista e espacial (fundo escuro, fios finos, cantoneiras,

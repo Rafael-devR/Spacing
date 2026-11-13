@@ -11,8 +11,8 @@ const GLBS = import.meta.glob('../src/assets/models/*.glb', { query: '?inline', 
 const BUDGET: Record<string, number> = {
   lander: 3000, habitat: 4000, habitat_interior: 4500, furniture: 4000, workbench: 1500, furnace: 1500, electrolyzer: 1200, meteor: 1500,
   greenhouse: 7000, farm: 3000, astronaut: 4000,
-  // planetas da tela de título (só aparecem lá, sem o mundo por trás): cubos com faces de fora só
-  planet_moon: 9000, planet_mars: 9000,
+  // planetas da tela de título (só aparecem lá, sem o mundo por trás): corpo low poly e blocos por cima
+  planet_moon: 54000, planet_mars: 38000,
 };
 /** pontos que o código procura em cada modelo */
 const MARKERS: Record<string, string[]> = {
@@ -61,6 +61,9 @@ function readGlb(dataUrl: string): Gltf {
   return JSON.parse(text(20, 20 + len)) as Gltf;
 }
 
+/** sem normais: o jogo desenha facetado pela derivada da posição (vértices compartilhados, arquivo menor) */
+const FLAT = ['planet_moon', 'planet_mars'];
+
 const files = Object.keys(GLBS).map((p) => p.slice(p.lastIndexOf('/') + 1));
 const fileOf = (f: string): string => GLBS[Object.keys(GLBS).find((p) => p.endsWith('/' + f)) as string];
 
@@ -78,7 +81,7 @@ describe('modelos do Blender', () => {
       for (const p of m.primitives) {
         tris += (p.indices !== undefined ? g.accessors[p.indices].count : g.accessors[p.attributes.POSITION].count) / 3;
         expect(p.attributes.COLOR_0, `${id}: ${m.name} sem cor por vértice`).toBeDefined();
-        expect(p.attributes.NORMAL).toBeDefined();
+        if (!FLAT.includes(id)) expect(p.attributes.NORMAL).toBeDefined();
       }
     expect(tris).toBeLessThanOrEqual(BUDGET[id]);
     expect(g.materials ?? []).toHaveLength(0);

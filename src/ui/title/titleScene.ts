@@ -1,7 +1,9 @@
-// O fundo da tela de título (docs/design/TITULO.md): céu estrelado e o planeta escolhido (Lua ou Marte), feitos de cubos no Blender
-// (tools/models/planet_moon.py, planet_mars.py). Cinematográfico e barato: estrelas como pontos que cintilam, duas nebulosas muito
-// fracas, o sol fora da tela à esquerda (o planeta fica com o lado da noite no escuro), um contorno de luz na borda, e em Marte uma
-// atmosfera fina. O planeta gira devagar e a câmera respira. Nada do jogo é carregado aqui.
+// O fundo da tela de título (docs/design/TITULO.md): céu estrelado e o planeta escolhido (Lua ou Marte), feitos no Blender
+// (tools/models/planet_moon.py, planet_mars.py: corpo low poly facetado com blocos por cima). Para dar tamanho, o planeta fica
+// enorme e perto, cortado pela borda da tela (só a calota de cima aparece, com a curva do horizonte), e gira devagar. Em volta:
+// atmosfera calculada pela distância do raio de visão ao centro (borda acesa do lado do sol; em Marte, azulada no poente),
+// poeira em Marte, a Terra pequena no céu da Lua e Fobos passando no de Marte, a Via Láctea e o brilho do sol no canto.
+// Nada do jogo é carregado aqui.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { PlanetId } from '../../data/planets';
@@ -9,30 +11,79 @@ import marsUrl from '../../assets/models/planet_mars.glb?url';
 import moonUrl from '../../assets/models/planet_moon.glb?url';
 
 const URL_OF: Record<PlanetId, string> = { lua: moonUrl, marte: marsUrl };
-/** raio do planeta na cena (a câmera fica a 58) */
+/** raio do planeta na cena */
 const RADIUS = 16;
 
-/** como cada planeta aparece */
-const LOOK: Record<PlanetId, { tilt: number; spin: number; rim: string; atmo: string | null; atmoPower: number; nebula: [string, string]; sun: string }> = {
-  lua: { tilt: 0.32, spin: 0.03, rim: '#9fb4ff', atmo: '#8fa6ff', atmoPower: 0.25, nebula: ['#2a2f6e', '#3b1f5c'], sun: '#fff3e0' },
-  marte: { tilt: 0.44, spin: 0.04, rim: '#ffb08a', atmo: '#ff9b6a', atmoPower: 0.9, nebula: ['#4a1f2e', '#20306a'], sun: '#fff0e2' },
+interface Look {
+  tilt: number;
+  /** giro, em radianos por segundo (devagar: coisa grande parece lenta) */
+  spin: number;
+  /** cor da borda iluminada e força dela; espessura da atmosfera (fração do raio) */
+  atmo: string;
+  atmoStrength: number;
+  atmoHeight: number;
+  /** cor da borda perto da noite (em Marte o poente é azulado) */
+  dusk: string;
+  /** véu de poeira sobre o chão (0 = nenhum) */
+  dust: number;
+  nebula: [string, string];
+  sun: string;
+  /** luz que sobra no lado da noite */
+  night: string;
+}
+
+const LOOK: Record<PlanetId, Look> = {
+  lua: {
+    tilt: -0.6, spin: 0.012, atmo: '#a9bcff', atmoStrength: 0.35, atmoHeight: 0.03, dusk: '#6a7cff', dust: 0,
+    nebula: ['#26306e', '#3b1f5c'], sun: '#fff6e8', night: '#26305a',
+  },
+  marte: {
+    tilt: -0.85, spin: 0.014, atmo: '#ffad80', atmoStrength: 1.0, atmoHeight: 0.07, dusk: '#7fb2ff', dust: 0.32,
+    nebula: ['#4a1f2e', '#20306a'], sun: '#fff1e2', night: '#3a1e2a',
+  },
 };
 
-/** estrelas: pontos com tamanho, cor e ritmo de cintilar próprios */
-function stars(n: number): THREE.Points {
+/** direção do sol (fora da tela, à esquerda, em cima, um pouco à frente) */
+const SUN_DIR = new THREE.Vector3(-0.85, 0.45, 0.22).normalize();
+
+/** ruído de valor 3D barato, para poeira, nuvens e continentes nos shaders */
+const NOISE_GLSL = /* glsl */ `
+  float h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+  float vnoise(vec3 x) {
+    vec3 i = floor(x), f = fract(x);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(mix(h3(i), h3(i + vec3(1, 0, 0)), f.x), mix(h3(i + vec3(0, 1, 0)), h3(i + vec3(1, 1, 0)), f.x), f.y),
+               mix(mix(h3(i + vec3(0, 0, 1)), h3(i + vec3(1, 0, 1)), f.x), mix(h3(i + vec3(0, 1, 1)), h3(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+  }
+  float fbm(vec3 p) { return vnoise(p) * 0.55 + vnoise(p * 2.1) * 0.3 + vnoise(p * 4.3) * 0.15; }
+`;
+
+/** estrelas: pontos com tamanho, cor e ritmo de cintilar próprios; boa parte junto da faixa da Via Láctea */
+function stars(n: number, band: THREE.Vector3): THREE.Points {
   const pos = new Float32Array(n * 3), size = new Float32Array(n), seed = new Float32Array(n), col = new Float32Array(n * 3);
   const c = new THREE.Color();
+  // base da faixa: dois vetores no plano perpendicular a `band`
+  const t = new THREE.Vector3(0, 1, 0).cross(band).normalize(), b = band.clone().cross(t);
+  const v = new THREE.Vector3();
   for (let i = 0; i < n; i++) {
-    // esfera grande em volta da câmera
-    const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, r = 380 + Math.random() * 60;
-    const s = Math.sqrt(1 - u * u);
-    pos.set([Math.cos(a) * s * r, u * r, Math.sin(a) * s * r], i * 3);
-    // poucas estrelas grandes, muitas pequenas
+    const inBand = i % 5 < 2;
+    if (inBand) {
+      const a = Math.random() * Math.PI * 2;
+      // espalhamento estreito em volta do grande círculo
+      const lat = (Math.random() + Math.random() + Math.random() - 1.5) * 0.16;
+      v.copy(t).multiplyScalar(Math.cos(a)).addScaledVector(b, Math.sin(a)).addScaledVector(band, lat).normalize();
+    } else {
+      const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, s = Math.sqrt(1 - u * u);
+      v.set(Math.cos(a) * s, u, Math.sin(a) * s);
+    }
+    v.multiplyScalar(380 + Math.random() * 60);
+    pos.set([v.x, v.y, v.z], i * 3);
     const k = Math.random();
-    size[i] = k > 0.985 ? 3.4 + Math.random() * 1.6 : k > 0.9 ? 2 + Math.random() : 0.9 + Math.random() * 0.9;
+    size[i] = inBand ? 0.7 + Math.random() * 0.9 : k > 0.985 ? 3.4 + Math.random() * 1.6 : k > 0.9 ? 2 + Math.random() : 0.9 + Math.random() * 0.9;
     seed[i] = Math.random() * 100;
-    const t = Math.random();
-    c.set(t < 0.15 ? '#ffd9b0' : t < 0.32 ? '#b9cbff' : '#ffffff');
+    const r = Math.random();
+    c.set(r < 0.15 ? '#ffd9b0' : r < 0.32 ? '#b9cbff' : '#ffffff');
+    if (inBand) c.multiplyScalar(0.75);
     col.set([c.r, c.g, c.b], i * 3);
   }
   const g = new THREE.BufferGeometry();
@@ -55,8 +106,7 @@ function stars(n: number): THREE.Points {
     fragmentShader: /* glsl */ `
       varying vec3 vCol; varying float vA;
       void main() {
-        vec2 p = gl_PointCoord - 0.5;
-        float d = length(p);
+        float d = length(gl_PointCoord - 0.5);
         float a = smoothstep(0.5, 0.0, d);
         gl_FragColor = vec4(vCol, a * a * vA);
       }`,
@@ -68,91 +118,168 @@ function stars(n: number): THREE.Points {
 }
 
 /** mancha de luz suave (nebulosa, brilho do sol): textura de gradiente radial */
-function glowTexture(color: string): THREE.Texture {
+function glowTexture(stops: [number, string][], size = 128): THREE.Texture {
   const cv = document.createElement('canvas');
-  cv.width = cv.height = 128;
+  cv.width = cv.height = size;
   const g = cv.getContext('2d') as CanvasRenderingContext2D;
-  const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-  gr.addColorStop(0, color);
-  gr.addColorStop(1, 'rgba(0,0,0,0)');
+  const h = size / 2;
+  const gr = g.createRadialGradient(h, h, 0, h, h, h);
+  for (const [o, c] of stops) gr.addColorStop(o, c);
   g.fillStyle = gr;
-  g.fillRect(0, 0, 128, 128);
+  g.fillRect(0, 0, size, size);
   const t = new THREE.CanvasTexture(cv);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
 
 function sprite(tex: THREE.Texture, opacity: number, scale: number): THREE.Sprite {
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
   s.scale.setScalar(scale);
   return s;
 }
 
-/** brilho de borda (fresnel): uma casca um pouco maior, só a parte de trás, mais forte na beira */
-function rimShell(radius: number, color: string, power: number, strength: number): THREE.Mesh {
+/**
+ * Atmosfera: uma casca maior que o planeta, desenhada só pela frente (cobre o disco todo). Para cada pixel, o raio de visão
+ * passa a uma distância `b` do centro: fora do planeta (b > R) é a borda que brilha, mais forte rente ao chão; dentro, um véu que
+ * engrossa perto da beira. Acende do lado do sol; perto da noite puxa para `dusk`. Em Marte, manchas de poeira passam por cima.
+ */
+function atmosphere(look: Look): THREE.Mesh {
+  const top = RADIUS * (1 + look.atmoHeight);
   const m = new THREE.ShaderMaterial({
-    uniforms: { uColor: { value: new THREE.Color(color) }, uPower: { value: power }, uStrength: { value: strength }, uSun: { value: new THREE.Vector3() } },
+    uniforms: {
+      uColor: { value: new THREE.Color(look.atmo) },
+      uDusk: { value: new THREE.Color(look.dusk) },
+      uStrength: { value: look.atmoStrength },
+      uDust: { value: look.dust },
+      uSun: { value: SUN_DIR.clone() },
+      uCenter: { value: new THREE.Vector3() },
+      uR: { value: RADIUS },
+      uTop: { value: top },
+      uTime: { value: 0 },
+      uSpin: { value: new THREE.Matrix3() },
+    },
     vertexShader: /* glsl */ `
-      varying vec3 vN; varying vec3 vV; varying vec3 vW;
+      varying vec3 vW;
       void main() {
         vec4 w = modelMatrix * vec4(position, 1.0);
-        vW = normalize(w.xyz);
-        vN = normalize(mat3(modelMatrix) * normal);
-        vV = normalize(cameraPosition - w.xyz);
+        vW = w.xyz;
         gl_Position = projectionMatrix * viewMatrix * w;
       }`,
     fragmentShader: /* glsl */ `
-      uniform vec3 uColor; uniform float uPower; uniform float uStrength; uniform vec3 uSun;
-      varying vec3 vN; varying vec3 vV; varying vec3 vW;
+      uniform vec3 uColor; uniform vec3 uDusk; uniform float uStrength; uniform float uDust; uniform vec3 uSun; uniform vec3 uCenter;
+      uniform float uR; uniform float uTop; uniform float uTime; uniform mat3 uSpin;
+      varying vec3 vW;
+      ${NOISE_GLSL}
       void main() {
-        float f = pow(1.0 - abs(dot(vN, vV)), uPower);
-        // só acende do lado do sol (um pouco além, como luz que contorna a atmosfera)
-        float lit = smoothstep(-0.35, 0.6, dot(vW, uSun));
-        gl_FragColor = vec4(uColor * f * uStrength * lit, f * lit);
+        vec3 V = normalize(vW - cameraPosition);
+        vec3 oc = uCenter - cameraPosition;
+        float tc = dot(oc, V);
+        vec3 P = cameraPosition + V * tc;
+        float b = length(P - uCenter);
+        float a; vec3 n;
+        if (b > uR) {
+          // borda: forte rente ao chão, some no topo da atmosfera
+          float k = clamp((uTop - b) / (uTop - uR), 0.0, 1.0);
+          a = pow(k, 2.2);
+          n = normalize(P - uCenter);
+        } else {
+          // véu sobre o chão: só perto da beira (onde o raio atravessa muito ar)
+          float th = tc - sqrt(uR * uR - b * b);
+          n = normalize(cameraPosition + V * th - uCenter);
+          a = pow(b / uR, 6.0) * 0.55;
+        }
+        float sun = dot(n, uSun);
+        float lit = smoothstep(-0.3, 0.45, sun);
+        vec3 col = mix(uDusk, uColor, smoothstep(-0.1, 0.35, sun));
+        float dust = 0.0;
+        if (uDust > 0.0 && b < uR) {
+          // poeira presa ao chão (gira com o planeta) e correndo um pouco mais rápido que ele
+          vec3 q = uSpin * n;
+          float d = fbm(q * 3.2 + vec3(uTime * 0.02, 0.0, uTime * 0.013));
+          dust = smoothstep(0.52, 0.8, d) * uDust * lit;
+        }
+        float i = a * uStrength * lit;
+        gl_FragColor = vec4(col * i + vec3(1.0, 0.78, 0.62) * dust * 0.55, i + dust * 0.5);
       }`,
     transparent: true,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
-    side: THREE.BackSide,
   });
-  return new THREE.Mesh(new THREE.SphereGeometry(radius, 48, 32), m);
+  return new THREE.Mesh(new THREE.SphereGeometry(top, 96, 64), m);
 }
 
-/** raio médio dos vértices do modelo (centro na origem) */
-function meanRadius(root: THREE.Object3D): number {
-  let sum = 0, n = 0;
-  const v = new THREE.Vector3();
-  root.traverse((o) => {
-    const m = o as THREE.Mesh;
-    if (!m.isMesh) return;
-    const p = m.geometry.getAttribute('position');
-    for (let i = 0; i < p.count; i += 3) {
-      sum += v.fromBufferAttribute(p, i).length();
-      n++;
-    }
+/** a Terra vista da Lua: oceano, continentes, nuvens e uma borda azul, acesa pelo mesmo sol */
+function earth(): THREE.Mesh {
+  const m = new THREE.ShaderMaterial({
+    uniforms: { uSun: { value: SUN_DIR.clone() }, uTime: { value: 0 } },
+    vertexShader: /* glsl */ `
+      varying vec3 vN; varying vec3 vP; varying vec3 vV;
+      void main() {
+        vP = position;
+        vN = normalize(mat3(modelMatrix) * normal);
+        vec4 w = modelMatrix * vec4(position, 1.0);
+        vV = normalize(cameraPosition - w.xyz);
+        gl_Position = projectionMatrix * viewMatrix * w;
+      }`,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uSun; uniform float uTime;
+      varying vec3 vN; varying vec3 vP; varying vec3 vV;
+      ${NOISE_GLSL}
+      void main() {
+        vec3 p = normalize(vP);
+        float land = smoothstep(0.55, 0.6, fbm(p * 2.2 + 4.0));
+        vec3 col = mix(vec3(0.05, 0.16, 0.42), mix(vec3(0.22, 0.42, 0.18), vec3(0.55, 0.45, 0.28), vnoise(p * 6.0)), land);
+        col = mix(col, vec3(0.95), smoothstep(0.82, 0.9, abs(p.y)));
+        float cl = smoothstep(0.5, 0.75, fbm(p * 3.5 + vec3(uTime * 0.01, 0.0, 0.0)));
+        col = mix(col, vec3(1.0), cl * 0.85);
+        float l = max(dot(vN, uSun), 0.0);
+        float rim = pow(1.0 - max(dot(vN, vV), 0.0), 3.0);
+        gl_FragColor = vec4(col * (0.03 + l * 1.1) + vec3(0.35, 0.55, 1.0) * rim * smoothstep(-0.2, 0.4, dot(vN, uSun)) * 0.9, 1.0);
+      }`,
   });
-  return n ? sum / n : 1;
+  return new THREE.Mesh(new THREE.SphereGeometry(1, 40, 28), m);
+}
+
+/** Fobos: pedra torta, facetada, escura */
+function phobos(material: THREE.Material): THREE.Mesh {
+  const g = new THREE.IcosahedronGeometry(1, 2);
+  const p = g.getAttribute('position');
+  const v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i);
+    const k = 1 + Math.sin(v.x * 3.1 + v.y * 1.7) * 0.12 + Math.sin(v.z * 4.3 - v.x * 2.2) * 0.08;
+    v.multiply(new THREE.Vector3(1.35, 0.95, 1.05)).multiplyScalar(k);
+    p.setXYZ(i, v.x, v.y, v.z);
+  }
+  const cols = new Float32Array(p.count * 3);
+  for (let i = 0; i < p.count; i++) {
+    const s = 0.82 + ((i * 7919) % 13) / 60;
+    cols.set([0.36 * s, 0.3 * s, 0.27 * s], i * 3);
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+  return new THREE.Mesh(g, material);
 }
 
 export class TitleScene {
   private readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.PerspectiveCamera(32, 1, 0.1, 1200);
-  private readonly stars = stars(2600);
+  private readonly camera = new THREE.PerspectiveCamera(40, 1, 0.1, 1500);
+  private readonly stars: THREE.Points;
   private readonly holder = new THREE.Group();
   private readonly spin = new THREE.Group();
-  private readonly sun = new THREE.DirectionalLight('#ffffff', 2.2);
-  /** luz de contorno vinda de trás, do outro lado: desenha a borda da noite */
-  private readonly back = new THREE.DirectionalLight('#9fb4ff', 1.1);
-  private readonly fill = new THREE.HemisphereLight('#6a78b0', '#1a1420', 1.0);
+  private readonly sun = new THREE.DirectionalLight('#ffffff', 3.0);
+  private readonly fill = new THREE.HemisphereLight('#26305a', '#0b0a12', 0.6);
   private readonly nebulae: THREE.Sprite[] = [];
   private readonly sunGlow: THREE.Sprite;
+  private readonly sunCore: THREE.Sprite;
+  private readonly earth = earth();
+  private readonly phobos: THREE.Mesh;
   private planet: THREE.Object3D | null = null;
-  private rim: THREE.Mesh | null = null;
   private atmo: THREE.Mesh | null = null;
   private id: PlanetId | null = null;
   private loading = 0;
   private raf = 0;
-  private t0 = performance.now();
+  /** `?tituloT=segundos` adianta a animação (para as capturas mostrarem outro lado do planeta) */
+  private t0 = performance.now() - Number(new URLSearchParams(location.search).get('tituloT') ?? 0) * 1000;
   private readonly material = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
   private readonly loader = new GLTFLoader();
   private readonly cache = new Map<PlanetId, THREE.Object3D>();
@@ -161,20 +288,33 @@ export class TitleScene {
 
   constructor(private readonly renderer: THREE.WebGLRenderer) {
     this.scene.background = new THREE.Color('#020309');
-    this.scene.add(this.stars, this.holder, this.sun, this.back, this.fill);
+    const band = new THREE.Vector3(0.35, 0.8, -0.5).normalize();
+    this.stars = stars(3600, band);
+    this.scene.add(this.stars, this.holder, this.sun, this.fill);
     this.holder.add(this.spin);
-    // o sol fica fora da tela, à esquerda, em cima e à frente: a maior parte do disco acende e a noite fica na borda da direita
-    this.sun.position.set(-0.62, 0.48, 0.62).multiplyScalar(100);
-    this.back.position.set(0.9, 0.15, -0.7).multiplyScalar(100);
-    this.sunGlow = sprite(glowTexture('rgba(255,236,210,0.9)'), 0.18, 260);
-    this.sunGlow.position.set(-300, 110, -160);
-    this.scene.add(this.sunGlow);
-    for (let i = 0; i < 2; i++) {
-      const n = sprite(glowTexture('#ffffff'), 0.12, 520);
-      n.position.set(i ? 260 : -120, i ? -160 : 140, -420);
+    this.sun.position.copy(SUN_DIR).multiplyScalar(100);
+    // o sol: um núcleo pequeno e um brilho grande, longe, na direção da luz (fica no canto, quase fora da tela)
+    const far = SUN_DIR.clone().multiplyScalar(900);
+    this.sunGlow = sprite(glowTexture([[0, 'rgba(255,236,210,0.9)'], [0.25, 'rgba(255,214,170,0.25)'], [1, 'rgba(0,0,0,0)']]), 0.55, 900);
+    this.sunCore = sprite(glowTexture([[0, 'rgba(255,255,255,1)'], [0.2, 'rgba(255,248,235,0.9)'], [1, 'rgba(0,0,0,0)']]), 1, 90);
+    this.sunGlow.position.copy(far);
+    this.sunCore.position.copy(far);
+    this.scene.add(this.sunGlow, this.sunCore);
+    // nebulosas fracas ao longo da Via Láctea
+    const neb = glowTexture([[0, '#ffffff'], [1, 'rgba(0,0,0,0)']]);
+    for (let i = 0; i < 3; i++) {
+      const n = sprite(neb, 0.1, 480 + i * 120);
       this.nebulae.push(n);
       this.scene.add(n);
     }
+    this.nebulae[0].position.set(-160, 170, -420);
+    this.nebulae[1].position.set(260, -60, -440);
+    this.nebulae[2].position.set(60, 300, -380);
+    this.earth.scale.setScalar(7);
+    this.earth.visible = false;
+    this.phobos = phobos(this.material);
+    this.phobos.visible = false;
+    this.scene.add(this.earth, this.phobos);
   }
 
   /** Mostra o planeta (carrega o modelo na primeira vez). */
@@ -200,31 +340,25 @@ export class TitleScene {
     if (this.planet) this.spin.remove(this.planet);
     this.planet = model;
     this.spin.add(model);
-    // o raio do modelo (cubos do Blender) vira RADIUS unidades aqui
-    // (raio médio da superfície: os montes e o vulcão não entram na conta, senão a atmosfera descola do chão)
-    this.spin.scale.setScalar(RADIUS / meanRadius(model));
-    this.holder.rotation.set(look.tilt, 0, -0.18);
+    // o raio do modelo (unidades do Blender) vira RADIUS aqui; R = 15 nos scripts
+    this.spin.scale.setScalar(RADIUS / 15);
+    this.holder.rotation.set(look.tilt, 0, -0.2);
     this.sun.color.set(look.sun);
-    this.back.color.set(look.rim);
-    this.disposeShell(this.rim);
-    this.disposeShell(this.atmo);
-    this.rim = rimShell(RADIUS * 1.02, look.rim, 3.0, 1.2);
-    this.holder.add(this.rim);
-    this.atmo = look.atmo ? rimShell(RADIUS * 1.08, look.atmo, 2.2, look.atmoPower) : null;
-    if (this.atmo) this.holder.add(this.atmo);
-    const sunDir = this.sun.position.clone().normalize();
-    for (const s of [this.rim, this.atmo]) if (s) ((s.material as THREE.ShaderMaterial).uniforms.uSun.value as THREE.Vector3).copy(sunDir);
+    this.fill.color.set(look.night);
+    if (this.atmo) {
+      this.atmo.removeFromParent();
+      this.atmo.geometry.dispose();
+      (this.atmo.material as THREE.Material).dispose();
+    }
+    this.atmo = atmosphere(look);
+    this.scene.add(this.atmo);
     this.nebulae[0].material.color.set(look.nebula[0]);
     this.nebulae[1].material.color.set(look.nebula[1]);
+    this.nebulae[2].material.color.set(look.nebula[0]);
+    this.earth.visible = id === 'lua';
+    this.phobos.visible = id === 'marte';
     this.onReady?.();
     this.onReady = null;
-  }
-
-  private disposeShell(m: THREE.Mesh | null): void {
-    if (!m) return;
-    m.removeFromParent();
-    m.geometry.dispose();
-    (m.material as THREE.Material).dispose();
   }
 
   start(): void {
@@ -241,6 +375,12 @@ export class TitleScene {
     this.raf = 0;
   }
 
+  /** ponto da tela (coordenadas de -1 a 1) a uma distância da câmera */
+  private at(x: number, y: number, dist: number, out: THREE.Vector3): THREE.Vector3 {
+    const cam = this.camera;
+    return out.set(x, y, 0.5).unproject(cam).sub(cam.position).normalize().multiplyScalar(dist).add(cam.position);
+  }
+
   private frame(): void {
     const t = (performance.now() - this.t0) / 1000;
     const r = this.renderer;
@@ -250,26 +390,45 @@ export class TitleScene {
     if (size.x !== w || size.y !== h) r.setSize(w, h, false);
     const cam = this.camera;
     cam.aspect = w / h;
-    // deitado, o planeta fica à direita e grande (o menu à esquerda); em pé, embaixo
     const portrait = h > w;
-    cam.fov = portrait ? 44 : 32;
+    cam.fov = portrait ? 62 : 40;
+    // a câmera respira devagar, sem girar o enquadramento
+    cam.position.set(Math.sin(t * 0.05) * 0.5, Math.sin(t * 0.037) * 0.35, 0);
+    cam.rotation.set(0, 0, 0);
     cam.updateProjectionMatrix();
-    // grande, cortado pela borda: o planeta é o cenário, não um objeto no meio da tela
-    if (portrait) {
-      this.holder.scale.setScalar(0.7);
-      this.holder.position.set(3, -17, 0);
-    } else {
-      this.holder.scale.setScalar(1);
-      this.holder.position.set(16 * Math.min(1.35, w / h / 1.6), -5, 0);
+    cam.updateMatrixWorld();
+    // o planeta enorme, perto, com o centro abaixo da tela: só a calota de cima aparece (deitado: à direita; em pé: embaixo)
+    if (portrait) this.at(0.15, -1.0, 34, this.holder.position);
+    else this.at(0.5, -1.25, 33, this.holder.position);
+    this.spin.rotation.y = t * (this.id ? LOOK[this.id].spin : 0.012);
+    if (this.atmo) {
+      const u = (this.atmo.material as THREE.ShaderMaterial).uniforms;
+      this.atmo.position.copy(this.holder.position);
+      (u.uCenter.value as THREE.Vector3).copy(this.holder.position);
+      u.uTime.value = t;
+      // da direção no mundo para a do planeta girando (a poeira fica presa ao chão)
+      this.spin.updateMatrixWorld();
+      (u.uSpin.value as THREE.Matrix3).setFromMatrix4(this.spin.matrixWorld).invert();
     }
-    // a câmera respira devagar
-    cam.position.set(Math.sin(t * 0.07) * 1.6, 1.2 + Math.sin(t * 0.05) * 0.8, 58);
-    cam.lookAt(portrait ? 0 : 3, portrait ? -3 : 0, 0);
-    this.spin.rotation.y = t * (this.id ? LOOK[this.id].spin : 0.04);
-    this.stars.rotation.y = t * 0.004;
+    if (this.earth.visible) {
+      // a Terra pequena no alto, do outro lado do menu
+      this.at(portrait ? 0.7 : 0.62, portrait ? -0.05 : 0.6, 320, this.earth.position);
+      this.earth.rotation.y = t * 0.03;
+      (this.earth.material as THREE.ShaderMaterial).uniforms.uTime.value = t;
+    }
+    if (this.phobos.visible) {
+      // Fobos atravessa o céu devagar, por cima do planeta (volta a cada 120 s)
+      const k = (t % 120) / 120;
+      this.at(1.25 - k * 2.6, portrait ? 0.35 + k * 0.2 : 0.42 + k * 0.25, 90, this.phobos.position);
+      this.phobos.scale.setScalar(1.6);
+      this.phobos.rotation.set(t * 0.05, t * 0.08, 0);
+    }
+    this.stars.rotation.y = t * 0.003;
     const sm = this.stars.material as THREE.ShaderMaterial;
     sm.uniforms.uTime.value = t;
     sm.uniforms.uScale.value = r.getPixelRatio();
+    // o brilho do sol pulsa de leve
+    this.sunGlow.material.opacity = 0.5 + Math.sin(t * 0.6) * 0.04;
     r.render(this.scene, cam);
   }
 

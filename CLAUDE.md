@@ -73,7 +73,7 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). **Sessão nova?
 - Título e carregamento (ADR 0020, [design/TITULO.md](docs/design/TITULO.md)): `src/main.ts` mostra a tela de título (`src/ui/title/`:
   `TitleScreen.ts`, fundo `titleScene.ts`, `LoadingScreen.ts`) e **só importa o jogo depois de "Jogar"**, carregando em etapas
   (`Game.boot(report)`). O título **não pode importar `core/planet.ts`** (usa `core/planetChoice.ts` e `core/keys.ts`). Planetas voxel do
-  fundo: `tools/models/planet_moon.py`, `planet_mars.py` (`lib.voxel_planet`). `window.spacing` só existe depois de "Jogar"; teste
+  fundo: `tools/models/planet_moon.py`, `planet_mars.py` (low poly com blocos: `lib.lowpoly_planet`, `lib.surface_blocks`). `window.spacing` só existe depois de "Jogar"; teste
   `tools/visual-check/title.mjs`.
 - **Modo de teste** ([design/TESTE.md](docs/design/TESTE.md), ADR 0015): `?teste` liga um painel de depuração (dar itens, soltar meteoros,
   teleportar, parar o tempo…) com **salvamento próprio**. Catálogo em `src/data/testmode.ts`, executor em `src/app/TestMode.ts`, painel em

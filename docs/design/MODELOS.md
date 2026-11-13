@@ -150,9 +150,11 @@ da alta qualidade usa um material próprio da estufa, mais visível que o vidro 
 
 ## Planetas da tela de título
 
-`tools/models/planet_moon.py` e `planet_mars.py` (nós `moon` e `mars`), com `lib.voxel_planet`: esfera de cubos de raio 15, só as faces
-de fora, cor por cubo e oclusão simples por face; crateras com `lib.craters`. Cerca de 9 mil triângulos cada. Só a tela de título usa
-(carrega direto com o `GLTFLoader`, material próprio), o jogo não ([TITULO.md](TITULO.md)).
+`tools/models/planet_moon.py` e `planet_mars.py` (nós `moon`/`moon_blocks` e `mars`/`mars_blocks`): corpo low poly
+(`lib.lowpoly_planet`, icosfera deslocada) e blocos por cima (`lib.surface_blocks`, `lib.terraces`, `lib.crater_ring`), cor por vértice
+compartilhada e **sem normais** (`lib.export(normals=False)`; o teste aceita só nesses dois). Lua ~52 mil triângulos, Marte ~33 mil.
+Só a tela de título usa (carrega direto com o `GLTFLoader`, material próprio facetado), o jogo não ([TITULO.md](TITULO.md)).
+`lib.voxel_planet` (esfera inteira de cubos) ficou na biblioteca, sem uso.
 
 ## Próximos candidatos
 

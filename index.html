@@ -320,15 +320,17 @@
 <!-- tela de título (src/ui/title/, docs/design/TITULO.md): o fundo é o planeta escolhido, desenhado no canvas do jogo -->
 <div id="title" hidden>
   <div class="title-main">
-    <span class="title-kicker" id="title-region"></span>
+    <span class="kicker" id="title-region"></span>
     <h1 class="title-name">Spacing</h1>
     <span class="title-version" id="title-version"></span>
     <nav class="title-menu" aria-label="Menu principal">
-      <button class="title-btn primary" id="btn-start" type="button">Jogar</button>
+      <button class="cta" id="btn-start" type="button">Jogar</button>
       <button class="title-btn" id="btn-reset" type="button" hidden>Novo jogo</button>
-      <button class="title-btn" id="btn-settings" type="button">Configurações</button>
-      <button class="title-btn" id="btn-controls" type="button">Controles</button>
-      <button class="title-btn quiet" id="btn-testmode" type="button">Modo de teste</button>
+      <div class="title-pair">
+        <button class="title-btn" id="btn-settings" type="button">Configurações</button>
+        <button class="title-btn" id="btn-controls" type="button">Controles</button>
+      </div>
+      <button class="title-link" id="btn-testmode" type="button">Modo de teste</button>
     </nav>
     <p id="title-error" hidden></p>
   </div>
@@ -336,36 +338,40 @@
     <span id="title-planet"></span>
     <span id="rotate-hint"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M3 14a9 9 0 0 0 6 6"/></svg>Melhor deitado: gire o celular</span>
   </div>
-  <section id="title-settings" class="title-panel" hidden aria-labelledby="title-settings-h">
-    <header>
-      <button class="title-back" id="title-settings-back" type="button" aria-label="Voltar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
-      </button>
+  <section id="title-settings" class="pause-card title-card" hidden aria-labelledby="title-settings-h">
+    <div class="pause-head">
       <h2 id="title-settings-h">Configurações</h2>
-    </header>
-    <div class="title-row">
-      <span class="title-row-k">Planeta <small>provisório, até existir a viagem</small></span>
-      <div class="title-seg" role="group" aria-label="Planeta">
-        <button type="button" data-planet="lua">Lua</button>
-        <button type="button" data-planet="marte">Marte</button>
+      <button class="ghost-btn" id="title-settings-back" type="button">Voltar</button>
+    </div>
+    <div class="settings">
+      <div class="setting">
+        <span class="setting-label">Planeta <small>(provisório, até existir a viagem)</small></span>
+        <div class="seg" role="group" aria-label="Planeta">
+          <button type="button" data-planet="lua">Lua</button>
+          <button type="button" data-planet="marte">Marte</button>
+        </div>
       </div>
-    </div>
-    <div class="title-row">
-      <span class="title-row-k">Gráficos</span>
-      <div class="title-seg" role="group" aria-label="Gráficos">
-        <button type="button" data-quality="auto">Auto</button>
-        <button type="button" data-quality="baixo">Baixa</button>
-        <button type="button" data-quality="medio">Média</button>
-        <button type="button" data-quality="alto">Alta</button>
+      <div class="setting wide">
+        <span class="setting-label">Gráficos</span>
+        <div class="seg" role="group" aria-label="Gráficos">
+          <button type="button" data-quality="auto">Automática</button>
+          <button type="button" data-quality="baixo">Baixa</button>
+          <button type="button" data-quality="medio">Média</button>
+          <button type="button" data-quality="alto">Alta</button>
+        </div>
       </div>
-    </div>
-    <div class="title-row">
-      <span class="title-row-k">Som</span>
-      <div class="title-seg"><button type="button" id="title-sound">Ligado</button></div>
-    </div>
-    <div class="title-row">
-      <span class="title-row-k">Vibração</span>
-      <div class="title-seg"><button type="button" id="title-vibration">Ligado</button></div>
+      <div class="setting">
+        <span class="setting-label">Som</span>
+        <button type="button" class="toggle" id="title-sound" aria-pressed="true">Ligado</button>
+      </div>
+      <div class="setting">
+        <span class="setting-label">Vibração</span>
+        <button type="button" class="toggle" id="title-vibration" aria-pressed="true">Ligado</button>
+      </div>
+      <div class="setting only-touch-row" id="title-fullscreen-row">
+        <span class="setting-label">Tela cheia</span>
+        <button type="button" class="toggle" id="title-fullscreen" aria-pressed="true">Ligado</button>
+      </div>
     </div>
     <p class="title-note">Mais opções (tremor de tela, mira, gráficos avançados) ficam no menu de pausa, durante o jogo.</p>
   </section>
@@ -374,7 +380,7 @@
 <!-- tela de carregamento (src/ui/title/LoadingScreen.ts) -->
 <div id="boot" hidden role="status" aria-live="polite">
   <div class="boot-inner">
-    <span class="boot-k" id="boot-region"></span>
+    <span class="kicker" id="boot-region"></span>
     <strong class="boot-planet" id="boot-planet"></strong>
     <div class="boot-line"><span id="boot-step"></span><span id="boot-pct">0%</span></div>
     <div class="boot-track"><i id="boot-bar"></i></div>

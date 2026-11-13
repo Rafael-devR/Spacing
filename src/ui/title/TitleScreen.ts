@@ -6,6 +6,7 @@
 import type * as THREE from 'three';
 import { VERSION } from '../../app/config';
 import { primeAudio } from '../../audio/unlock';
+import { enterFullscreen, fullscreenSupported, isFullscreen } from '../../core/fullscreen';
 import { LEGACY_SAVE_KEY, PREFS_KEY } from '../../core/keys';
 import { currentPlanet, setPlanet } from '../../core/planetChoice';
 import { PLANETS, isPlanetId, type PlanetId } from '../../data/planets';
@@ -19,9 +20,11 @@ export interface PlayOptions {
 }
 
 const testMode = (): boolean => new URLSearchParams(location.search).has('teste');
+/** celular ou tablet (o mesmo teste do `Input` do jogo) */
+const isTouch = (): boolean => matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 
 /** preferências como estão guardadas (só os campos que esta tela mexe) */
-type RawPrefs = { quality?: string; muted?: boolean; vibration?: boolean } & Record<string, unknown>;
+type RawPrefs = { quality?: string; muted?: boolean; vibration?: boolean; fullscreen?: boolean; orientation?: string } & Record<string, unknown>;
 
 function readPrefs(): RawPrefs {
   try {
@@ -50,6 +53,8 @@ export class TitleScreen {
 
   constructor(private readonly renderer: THREE.WebGLRenderer) {
     this.scene = new TitleScene(renderer);
+    // as linhas "só no toque" (tela cheia, aviso de girar) já valem aqui; o jogo confirma depois
+    document.body.classList.toggle('touch', isTouch());
     el('#title-version').textContent = t('title.version', { v: VERSION });
     el('#btn-start').addEventListener('click', () => this.play(false));
     const reset = el<HTMLButtonElement>('#btn-reset');
@@ -93,14 +98,20 @@ export class TitleScreen {
         writePrefs(p);
         this.refresh();
       });
-    for (const [id, key] of [['#title-sound', 'muted'], ['#title-vibration', 'vibration']] as const)
+    for (const [id, key] of [['#title-sound', 'muted'], ['#title-vibration', 'vibration'], ['#title-fullscreen', 'fullscreen']] as const)
       el(id).addEventListener('click', () => {
         const p = readPrefs();
         if (key === 'muted') p.muted = !p.muted;
-        else p.vibration = p.vibration === false;
+        else p[key] = p[key] === false;
         writePrefs(p);
         this.refresh();
       });
+    el('#title-fullscreen-row').hidden = !fullscreenSupported;
+    // no celular, o primeiro toque já põe em tela cheia (o navegador só deixa depois de um gesto); igual ao jogo
+    document.addEventListener('pointerup', (e) => {
+      if (this.root.hidden || e.pointerType === 'mouse') return;
+      this.fullscreen();
+    });
     window.addEventListener('keydown', (e) => {
       if (this.root.hidden) return;
       if (e.key === 'Escape' && !this.settings.hidden) this.openSettings(false);
@@ -149,11 +160,21 @@ export class TitleScreen {
     for (const b of this.settings.querySelectorAll<HTMLButtonElement>('[data-planet]')) b.setAttribute('aria-pressed', String(b.dataset.planet === this.planet));
     const q = typeof p.quality === 'string' ? p.quality : 'auto';
     for (const b of this.settings.querySelectorAll<HTMLButtonElement>('[data-quality]')) b.setAttribute('aria-pressed', String(b.dataset.quality === q));
+    const fs = el('#title-fullscreen');
+    fs.setAttribute('aria-pressed', String(p.fullscreen !== false));
+    fs.textContent = p.fullscreen === false ? t('title.off') : t('title.on');
     const sound = el('#title-sound'), vib = el('#title-vibration');
     sound.setAttribute('aria-pressed', String(!p.muted));
     sound.textContent = p.muted ? t('title.off') : t('title.on');
     vib.setAttribute('aria-pressed', String(p.vibration !== false));
     vib.textContent = p.vibration === false ? t('title.off') : t('title.on');
+  }
+
+  /** tela cheia (se a preferência deixar), deitada se a preferência de orientação pedir */
+  private fullscreen(): void {
+    const p = readPrefs();
+    if (p.fullscreen === false || isFullscreen()) return;
+    void enterFullscreen(p.orientation !== 'free');
   }
 
   private openSettings(open: boolean): void {
@@ -166,6 +187,7 @@ export class TitleScreen {
     if (this.root.hidden) return;
     // o som só pode nascer dentro do toque: o contexto fica pronto para o jogo usar quando carregar
     primeAudio();
+    if (isTouch()) this.fullscreen();
     this.onPlay?.({ newGame });
   }
 

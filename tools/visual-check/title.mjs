@@ -13,6 +13,12 @@ check('o título não carrega o jogo', await g(() => !window.spacing && document
 check('nome e versão', /spacing/i.test(await page.textContent('.title-name')) && /\d+\.\d+\.\d+/.test(await page.textContent('#title-version')));
 check('sem jogo salvo: Começar missão e sem Novo jogo', /Começar/i.test(await page.textContent('#btn-start')) && !(await page.isVisible('#btn-reset')));
 await shot(S('1-lua'));
+// no celular, o primeiro toque põe em tela cheia
+await page.touchscreen.tap(600, 300);
+await page.waitForTimeout(500);
+check('tocar na tela põe em tela cheia', await g(() => !!document.fullscreenElement));
+await g(() => document.exitFullscreen());
+await page.waitForTimeout(300);
 
 await page.click('#btn-settings');
 check('configurações abrem', await page.isVisible('#title-settings'));
@@ -58,7 +64,9 @@ check('o salvamento da Lua não foi tocado', (await g(() => localStorage.getItem
 await page.waitForTimeout(800);
 await shot(S('5-jogo'));
 
-// em pé
+// em pé (sair da tela cheia antes: o navegador não muda o tamanho de uma janela em tela cheia)
+await g(() => document.fullscreenElement && document.exitFullscreen());
+await page.waitForTimeout(300);
 await page.setViewportSize({ width: 390, height: 844 });
 await g(() => localStorage.setItem('spacing.planet', 'lua'));
 await page.reload();

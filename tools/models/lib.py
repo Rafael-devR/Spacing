@@ -8,7 +8,7 @@ import sys
 
 import bmesh
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector, noise
 
 
 def args():
@@ -180,13 +180,14 @@ def stats(objs):
     return tris
 
 
-def export(path, anim=False):
-    """`anim`: exporta a linha do tempo da cena como uma animação só (o jogo toca em laço)"""
+def export(path, anim=False, normals=True):
+    """`anim`: exporta a linha do tempo da cena como uma animação só (o jogo toca em laço). `normals=False`: sem normais (o
+    jogo desenha facetado pela derivada da posição), e os vértices ficam compartilhados entre as faces: arquivo bem menor."""
     bpy.ops.object.select_all(action='DESELECT')
     extra = {'export_animation_mode': 'SCENE', 'export_force_sampling': True} if anim else {}
     bpy.ops.export_scene.gltf(
         filepath=path, export_format='GLB', export_materials='NONE', export_vertex_color='ACTIVE',
-        export_normals=True, export_texcoords=False, export_apply=True, export_yup=True,
+        export_normals=normals, export_texcoords=False, export_apply=True, export_yup=True,
         export_animations=anim, **extra,
     )
 
@@ -422,3 +423,124 @@ def crater_shape(d, list_, depth):
             dh += depth * 0.7 * (1 - (u - 1) / 0.3)
             kind = kind or 1
     return dh, kind
+
+
+# ---------- planetas low poly com blocos (tela de título, docs/design/TITULO.md) ----------
+# O corpo é uma icosfera deslocada (facetas grandes, low poly) e por cima vão blocos: pedras, montes em degraus, gelo. Cor por
+# vértice (POINT), para os vértices serem compartilhados e o arquivo ficar pequeno; o jogo desenha facetado.
+
+
+def lowpoly_planet(name, radius, subdiv, height, color):
+    """Icosfera de raio 1 deslocada: `height(dir)` dá o raio em cada direção; `color(dir, r)` dá a cor hex do vértice."""
+    me = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    bmesh.ops.create_icosphere(bm, subdivisions=subdiv, radius=1.0)
+    for v in bm.verts:
+        d = v.co.normalized()
+        v.co = d * height(d)
+    bm.to_mesh(me)
+    bm.free()
+    attr = me.color_attributes.new('Col', 'BYTE_COLOR', 'POINT')
+    for v in me.vertices:
+        attr.data[v.index].color_srgb = hex_rgb(color(v.co.normalized(), v.co.length)) + (1.0,)
+    me.color_attributes.active_color = attr
+    o = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(o)
+    return o
+
+
+def surface_blocks(name, blocks, shade=0.25):
+    """Blocos em pé na superfície: cada um é (centro, aresta, direção para cima, giro em radianos, cor hex). Os quatro cantos
+    de baixo escurecem (`shade`), o que dá volume sem sombra. Sem a face de baixo (fica enterrada)."""
+    me = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    cols = []
+    for c, s, up, yaw, hexc in blocks:
+        q = up.to_track_quat('Z', 'Y')
+        rot = q.to_matrix() @ Matrix.Rotation(yaw, 3, 'Z')
+        h = s / 2
+        vs = []
+        for z in (-h, h):
+            for x, y in ((-h, -h), (h, -h), (h, h), (-h, h)):
+                vs.append(bm.verts.new(c + rot @ Vector((x, y, z))))
+        base = hex_rgb(hexc)
+        for i, v in enumerate(vs):
+            k = 1 - shade if i < 4 else 1.0
+            cols.append(tuple(ch * k for ch in base) + (1.0,))
+        b0, b1, b2, b3, t0, t1, t2, t3 = vs
+        bm.faces.new((t0, t1, t2, t3))
+        for a, b, tb, ta in ((b0, b1, t1, t0), (b1, b2, t2, t1), (b2, b3, t3, t2), (b3, b0, t0, t3)):
+            bm.faces.new((a, b, tb, ta))
+    bm.to_mesh(me)
+    bm.free()
+    attr = me.color_attributes.new('Col', 'BYTE_COLOR', 'POINT')
+    for i, c in enumerate(cols):
+        attr.data[i].color_srgb = c
+    me.color_attributes.active_color = attr
+    o = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(o)
+    return o
+
+
+def fbm(p, octaves=4, lac=2.1, gain=0.5):
+    """ruído fractal (-1..1, aproximado)"""
+    s, a, f = 0.0, 1.0, 1.0
+    for _ in range(octaves):
+        s += noise.noise(p * f) * a
+        f *= lac
+        a *= gain
+    return s
+
+
+def tangent_basis(up):
+    """dois vetores perpendiculares a `up`"""
+    t = up.cross(Vector((0, 0, 1)) if abs(up.z) < 0.9 else Vector((1, 0, 0))).normalized()
+    return t, up.cross(t)
+
+
+def scatter_dir(rnd, center, ang):
+    """direção sorteada dentro de um ângulo `ang` (radianos) em volta de `center`"""
+    t, b = tangent_basis(center)
+    a = rnd.uniform(0, math.tau)
+    r = ang * math.sqrt(rnd.random())
+    return (center * math.cos(r) + (t * math.cos(a) + b * math.sin(a)) * math.sin(r)).normalized()
+
+
+def terraces(center, base, cube, layers, color, hole=0.0):
+    """Monte em degraus feito de blocos alinhados numa grade no plano tangente: `layers` é a lista de raios (em unidades), do
+    degrau de baixo para o de cima; cada degrau só põe blocos no anel que o de cima não cobre (o miolo não aparece).
+    `base` é o raio da superfície no centro; `color(k, i)` dá a cor do bloco `i` do degrau `k`; `hole`: cratera no topo."""
+    t, b = tangent_basis(center)
+    out = []
+    n = int(layers[0] / cube) + 1
+    for k, rad in enumerate(layers):
+        inner = layers[k + 1] - cube if k + 1 < len(layers) else hole
+        for i in range(-n, n + 1):
+            for j in range(-n, n + 1):
+                x, y = i * cube, j * cube
+                r = math.hypot(x, y)
+                if r > rad or r < inner:
+                    continue
+                # a superfície cai com a curvatura: o bloco desce junto
+                drop = r * r / (2 * base)
+                p = center * (base + (k + 0.35) * cube - drop) + t * x + b * y
+                out.append((p, cube * 1.02, center, 0.0, color(k, i * 31 + j)))
+    return out
+
+
+def crater_ring(center, ang, height, cube, colors, rnd, gap=0.15):
+    """Anel de blocos na borda de uma cratera (raio angular `ang`): um bloco a cada passo, alguns faltando, alguns dobrados."""
+    t, b = tangent_basis(center)
+    out = []
+    n = int(math.tau * ang * 15 / cube)
+    for i in range(n):
+        if rnd.random() < gap:
+            continue
+        a = math.tau * i / n
+        d = (center * math.cos(ang) + (t * math.cos(a) + b * math.sin(a)) * math.sin(ang)).normalized()
+        s = cube * rnd.uniform(0.8, 1.15)
+        col = rnd.choice(colors)
+        out.append((d * (height(d) + s * 0.2), s, d, a, col))
+        if rnd.random() < 0.25:
+            out.append((d * (height(d) + s * 1.1), s * 0.75, d, a + 0.3, col))
+    return out
