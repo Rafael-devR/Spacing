@@ -7,6 +7,9 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Corrigido
 
+- **Escada da base flutuando e sem colisão.** O gerador agora nivela uma plataforma plana sob a base (Lua e Marte, `world/basePad.ts`) e
+  constrói o degrau da porta com blocos de verdade: uma sacada de metal 3×2, sólida e rente ao piso. Vale em toda semente. `WORLD_GEN`
+  subiu (mundos salvos são refeitos; o progresso fica).
 - **Recorte que escondia blocos na sua frente.** Desligado (`CUT_SWITCH` em `render/cutaway.ts`): o bloco continua no lugar e
   bloqueia o caminho, sem sumir. O modo caverna (aproximar a câmera) só liga debaixo da terra (o terreno em volta fica acima dos
   pés), e não na superfície perto de borda ou de teto.

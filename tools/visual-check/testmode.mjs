@@ -132,13 +132,19 @@ const tB = await S(() => window.spacing.time);
 check('jogo parado: o tempo do jogo não anda', Math.abs(tB - tA) < 0.001, `${tA.toFixed(4)} -> ${tB.toFixed(4)}`);
 await run('time', 1);
 check('velocidade 1×: o tempo volta a andar', await advanced(tB));
-// 4×: um quadro normal avança no máximo 0,05 s (o tempo de um quadro é limitado); a 4× passa disso
+// 4×: um quadro normal avança no máximo 0,05 s (o tempo de um quadro é limitado); a 4× o maior avanço entre alguns quadros passa disso
 await run('time', 4);
-const tC = await S(() => window.spacing.time);
-await advanced(tC);
-const tD = await S(() => window.spacing.time);
+const maxStep = await g(() => new Promise((resolve) => {
+  const s = window.spacing;
+  let last = s.time, max = 0, n = 0;
+  const tick = () => {
+    if (s.time !== last) { max = Math.max(max, s.time - last); last = s.time; n++; }
+    if (n >= 8) resolve(max); else requestAnimationFrame(tick);
+  };
+  tick();
+}));
 await run('time', 1);
-check('4×: o tempo de um quadro passa do máximo de um quadro normal (0,05 s)', tD - tC > 0.055, `${(tD - tC).toFixed(3)} s num quadro`);
+check('4×: o tempo de um quadro passa do máximo de um quadro normal (0,05 s)', maxStep > 0.055, `maior avanço ${maxStep.toFixed(3)} s num quadro`);
 for (const id of ['fx.shake', 'fx.punch', 'fx.hitstop', 'fx.slowmo', 'fx.toast', 'fx.ai']) {
   r = await run(id);
   check(`efeito: ${id}`, r.ok, r.msg);

@@ -2,9 +2,10 @@
 // um cânion com paredes em camadas e veios de gipsita, gelo sob a poeira e um vulcão com caldeira e rios de lava.
 import { createNoise2D, createNoise3D, fbm2, hash2, mulberry32, smoothstep, type Noise2D, type Noise3D } from '../core/noise';
 import {
-  BEDROCK, DARK_SAND, GYPSUM, HEMATITE, ICE, LAVA, MARS_DUST, MARS_ROCK, OLIVINE, SEDIMENT, VOLCANIC, type BlockId,
+  BEDROCK, DARK_SAND, GYPSUM, HEMATITE, HULL, ICE, LAVA, MARS_DUST, MARS_ROCK, OLIVINE, SEDIMENT, VOLCANIC, type BlockId,
 } from '../data/blocks';
 import type { PropType } from '../data/props';
+import { applyBasePad, inPad, isLanding } from './basePad';
 import { CH, CS, LANDER, craterField, idx, type GeneratedChunk, type PropSpawn, type TerrainGen } from './terrain';
 
 /** o vulcão: centro, raio da base, altura do cone acima da planície, raio da caldeira e do lago de lava */
@@ -119,6 +120,7 @@ export class MarsTerrain implements TerrainGen {
     let h = c.h;
     const d = Math.hypot(x, z);
     if (d < 9) h = this.spawnH + (h - this.spawnH) * smoothstep(5, 9, d);
+    h = applyBasePad(h, x, z, Math.floor(this.spawnH)); // a plataforma plana da base (world/basePad.ts)
     c.h = Math.max(3, Math.min(CH - 6, Math.floor(h)));
     return c;
   }
@@ -146,6 +148,7 @@ export class MarsTerrain implements TerrainGen {
           const depth = h - y;
           let id: BlockId;
           if (y === 0) id = BEDROCK;
+          else if (depth === 0 && isLanding(wx, wz)) id = HULL; // a sacada do degrau da base: metal, sem minerar
           else if (depth === 0) {
             if (c.lava) id = LAVA;
             else if (volc) id = c.volcano < 0.35 && hash2(wx, wz, s + 5) < 0.3 ? MARS_DUST : VOLCANIC;
@@ -172,7 +175,7 @@ export class MarsTerrain implements TerrainGen {
         }
         // objetos soltos: pedras e esferas de hematita (nunca na lava nem na caldeira)
         const r = hash2(wx, wz, s + 77);
-        if (r < 0.014 && !c.lava && c.volcano < 0.8 && Math.hypot(wx - LANDER.x, wz - LANDER.z) > 4) {
+        if (r < 0.014 && !c.lava && c.volcano < 0.8 && Math.hypot(wx - LANDER.x, wz - LANDER.z) > 4 && !inPad(wx, wz)) {
           const t = hash2(wx, wz, s + 78);
           const type: PropType = volc || t < 0.62 ? 'marsBoulder' : 'blueberries';
           props.push({

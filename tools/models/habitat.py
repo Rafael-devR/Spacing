@@ -148,8 +148,6 @@ for x in (DOOR[0] - 0.34, DOOR[1] + 0.3):
         y = 1.2 + i * 0.5
         box('hazard', x, y, SZ + 0.1, x + 0.04, y + 0.22, SZ + 0.36, '#f2b233', vary=0.04)
 box('threshold', DOOR[0], 0.96, SZ - 1, DOOR[1], 1.0, SZ + 0.45, METAL, vary=0.04)
-box('step', DOOR[0] - 0.25, 0.0, SZ + 0.45, DOOR[1] + 0.25, 0.55, SZ + 1.0, METAL, bev=0.03)
-box('step_edge', DOOR[0] - 0.25, 0.55, SZ + 0.92, DOOR[1] + 0.25, 0.58, SZ + 1.0, ORANGE, vary=0.03)
 
 # ---- telhado: laje com beiral, abóbada com nervuras ----
 box('roof', -0.06, TOP, -0.06, SX + 0.06, TOP + 0.36, SZ + 0.06, HULL, bev=0.05, seed=11)

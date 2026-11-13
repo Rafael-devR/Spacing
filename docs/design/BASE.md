@@ -7,13 +7,24 @@ a base crescer depois.
 ## Onde fica
 
 No platô a nordeste do módulo de pouso, a uns 14 blocos dele, com a porta virada para o pouso. É um habitat
-de 11×9 blocos por fora (9×7 por dentro, 3 de altura), apoiado no ponto mais alto do terreno. Cresceu de 9×7 em
+de 11×9 blocos por fora (9×7 por dentro, 3 de altura), sobre uma **plataforma plana** que o gerador nivela em toda semente (ver abaixo). Cresceu de 9×7 em
 2026-11-12 (pedido do dono: interior um pouco maior e com mais detalhe); a porta ficou no mesmo lugar do mundo. Painel
 solar que ficou embaixo da base nova volta para o inventário ao carregar.
 
 Dentro: bancada, estante e armário na parede norte, horta hidropônica no canto; beliche na oeste; console, forno solar,
 eletrolisador e tanque de água na leste; mesa e caixas na sul. Estante, horta, mesa, tanque e caixas são enfeite (ocupam
 lugar, sem botão de usar).
+
+## Plataforma e degrau
+
+O terreno em volta da base varia com a semente (medido: de 0 a 2 blocos de desnível na Lua e até 4 em Marte), e o degrau da porta
+era uma caixa fixa, sem colisão, que ficava flutuando (2026-11-13). Agora o **gerador** (`Terrain` e `MarsTerrain`, via
+`src/world/basePad.ts`) nivela uma plataforma sob a base, na altura do planalto do pouso, com folga de 2 blocos em volta e uma faixa
+plana de 6 blocos em frente à porta; dali o relevo volta ao natural de forma suave (sem paredões: o teste confere). Em frente à porta
+há uma **sacada de 3×2 blocos de metal** (`HULL`: sólida, sem minerar), um bloco acima da plataforma e rente ao piso: é o degrau.
+Nenhum objeto solto nasce na plataforma. A conta só usa a semente e `HAB_MODULE`, então o worker dos chunks e o jogo chegam às mesmas
+alturas. Mudou o módulo (tamanho, origem, porta)? A plataforma e a sacada acompanham. `WORLD_GEN` subiu (Lua 3, Marte 2): mundos
+salvos são refeitos, o progresso fica. Testes: `tests/basepad.test.ts` (13 sementes × Lua e Marte).
 
 ## Entrada: câmara de pressurização
 

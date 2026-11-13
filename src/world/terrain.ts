@@ -2,16 +2,17 @@
 // minérios por profundidade, cavernas (world/caves.ts) e objetos soltos.
 import { createNoise2D, createNoise3D, mulberry32, hash2, fbm2, smoothstep, type Noise2D, type Noise3D } from '../core/noise';
 import {
-  AIR, ANORTHOSITE, BASALT, BEDROCK, BRECCIA, CRYSTAL, GLASSY_BASALT, GOLD_ORE, ICE, ILMENITE_ORE, IRON, NORITE, REGOLITH, ROCK,
+  AIR, ANORTHOSITE, BASALT, BEDROCK, BRECCIA, CRYSTAL, GLASSY_BASALT, GOLD_ORE, HULL, ICE, ILMENITE_ORE, IRON, NORITE, REGOLITH, ROCK,
   type BlockId,
 } from '../data/blocks';
+import { applyBasePad, inPad, isLanding } from './basePad';
 import { Caves, LINING, OPEN } from './caves';
 import type { PropType } from '../data/props';
 
 export const CS = 16; // largura do chunk (x, z)
 export const CH = 96; // altura do mundo
 /** versão do gerador de cada planeta: mudar o gerador muda este número, e o mundo dos salvamentos antigos é refeito */
-export const WORLD_GEN = { lua: 2, marte: 1 } as const;
+export const WORLD_GEN = { lua: 3, marte: 2 } as const;
 /** Lua: nível médio do terreno (há ~40 blocos para baixo e ~50 para cima) */
 export const SEA = 44;
 /** Lua: colunas com a superfície até esta altura ficam na sombra eterna e guardam gelo */
@@ -143,6 +144,8 @@ export class Terrain implements TerrainGen {
       h += (this.spawnH - h) * kc;
       h += crater(dc, HOME_CRATER.r, HOME_CRATER.depth, 0.12);
     }
+    // a plataforma plana da base (world/basePad.ts): por último, para ganhar do relevo e das crateras
+    h = applyBasePad(h, x, z, Math.floor(this.spawnH));
     return { h: Math.max(4, Math.min(CH - 6, Math.floor(h))), mare: raw.mare * (1 - k), high: raw.high * (1 - k) };
   }
 
@@ -210,11 +213,12 @@ export class Terrain implements TerrainGen {
           if (cave === OPEN) continue;
           let id = this.strata(y, h, isMare, high, wob);
           if (cave === LINING && id !== ICE) id = GLASSY_BASALT;
+          if (y === h && isLanding(wx, wz)) id = HULL; // a sacada do degrau da base: metal, sem minerar
           data[idx(lx, y, lz)] = y > 1 ? this.ore(id, wx, y, wz, h - y) : id;
         }
         // objetos soltos (ficam no chão que sobrou: World.spawnProp usa o topo real da coluna)
         const r = hash2(wx, wz, s + 77);
-        if (r < 0.013 && Math.hypot(wx - LANDER.x, wz - LANDER.z) > 4 && data[idx(lx, h, lz)] !== AIR) {
+        if (r < 0.013 && Math.hypot(wx - LANDER.x, wz - LANDER.z) > 4 && !inPad(wx, wz) && data[idx(lx, h, lz)] !== AIR) {
           const t = hash2(wx, wz, s + 78);
           const type: PropType = t < 0.42 ? 'boulder' : t < 0.68 ? 'ilmenite' : t < 0.86 ? 'crystal' : 'gold';
           props.push({

@@ -148,7 +148,8 @@ Vamos um por vez. Ainda sem detalhes do dono; a investigação começa quando el
    Texto original: blocos transparentes atrás do personagem (cavernas e relevo). O personagem não fica atrás dos blocos e eles aparecem
    transparentes. Acontece dentro de cavernas e também fora delas: o relevo do chão some atrás de uma cratera. Provável ligação
    com o corte da câmera (`src/render/cutaway.ts`) e com o material de corte dos chunks.
-2. **Escada da base.** Precisa de ajuste (o dono vai detalhar).
+2. **[Feito, 2026-11-13] Escada da base.** Plataforma plana nivelada pelo gerador e degrau de blocos de metal com colisão
+   (`world/basePad.ts`, design/BASE.md). Falta o dono conferir no celular (e que mundos antigos foram refeitos).
 
 ## Desempenho: quadros que oscilam (levantado pelo dono, 2026-11-13)
 
