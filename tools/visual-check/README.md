@@ -45,6 +45,15 @@ Câmera de perto e capturas em cada animação (parado, correndo, pulo, queda, p
 morte); confere o esqueleto do Blender, a poeira na corrida e que dentro da base não sobe poeira
 ([design/PERSONAGEM.md](../../docs/design/PERSONAGEM.md)).
 
+## Teste do menu de pausa e das configurações
+
+```bash
+node pause.mjs http://localhost:5173/ /tmp/shots
+```
+
+Pausa com Continuar, Salvar (grava), Configurações (as mudanças valem e ficam guardadas), Controles, Sair para o título (volta ao
+título com o jogo salvo) e Novo jogo (pede confirmação); capturas deitado e em pé ([design/PAUSA.md](../../docs/design/PAUSA.md)).
+
 ## Teste da tela de título e do carregamento
 
 ```bash

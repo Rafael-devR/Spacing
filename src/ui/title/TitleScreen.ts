@@ -1,17 +1,19 @@
 // Tela de título (docs/design/TITULO.md): nome do jogo, versão, os botões de sempre (Jogar ou Continuar, Novo jogo, Configurações,
 // Controles, Modo de teste) e, no fundo, o planeta escolhido girando num céu estrelado (titleScene.ts). Não carrega o jogo: só lê o
 // que precisa do armazenamento (há jogo salvo? qual planeta? preferências) e, em "Jogar", entrega para o carregamento (main.ts).
-// As configurações daqui são as que fazem sentido antes de jogar: planeta (provisório, até existir a viagem), gráficos, som e
-// vibração. O resto continua no menu de pausa.
+// As configurações são a tela única de `ui/settings` (a mesma da pausa); aqui ela ganha a escolha do planeta (provisória, até
+// existir a viagem) e grava as preferências sem o jogo carregado (`core/prefsLite.ts`).
 import type * as THREE from 'three';
 import { VERSION } from '../../app/config';
 import { primeAudio } from '../../audio/unlock';
-import { enterFullscreen, fullscreenSupported, isFullscreen } from '../../core/fullscreen';
-import { LEGACY_SAVE_KEY, PREFS_KEY } from '../../core/keys';
+import { enterFullscreen, isFullscreen } from '../../core/fullscreen';
+import { LEGACY_SAVE_KEY } from '../../core/keys';
+import { patchSettings, readSettings } from '../../core/prefsLite';
 import { currentPlanet, setPlanet } from '../../core/planetChoice';
 import { PLANETS, isPlanetId, type PlanetId } from '../../data/planets';
 import { t } from '../../i18n';
 import { el } from '../dom';
+import { SettingsPanel } from '../settings/SettingsPanel';
 import { TitleScene } from './titleScene';
 
 export interface PlayOptions {
@@ -23,31 +25,11 @@ const testMode = (): boolean => new URLSearchParams(location.search).has('teste'
 /** celular ou tablet (o mesmo teste do `Input` do jogo) */
 const isTouch = (): boolean => matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 
-/** preferências como estão guardadas (só os campos que esta tela mexe) */
-type RawPrefs = { quality?: string; muted?: boolean; vibration?: boolean; fullscreen?: boolean; orientation?: string } & Record<string, unknown>;
-
-function readPrefs(): RawPrefs {
-  try {
-    const raw = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') as unknown;
-    return raw && typeof raw === 'object' ? (raw as RawPrefs) : {};
-  } catch {
-    return {};
-  }
-}
-
-function writePrefs(p: RawPrefs): void {
-  try {
-    localStorage.setItem(PREFS_KEY, JSON.stringify(p));
-  } catch {
-    /* sem armazenamento */
-  }
-}
-
 export class TitleScreen {
   onPlay: ((o: PlayOptions) => void) | null = null;
   readonly scene: TitleScene;
   private readonly root = el('#title');
-  private readonly settings = el('#title-settings');
+  private readonly settings: SettingsPanel;
   private planet: PlanetId = currentPlanet();
   private confirmNew = false;
 
@@ -68,7 +50,6 @@ export class TitleScreen {
       this.play(true);
     });
     el('#btn-settings').addEventListener('click', () => this.openSettings(true));
-    el('#title-settings-back').addEventListener('click', () => this.openSettings(false));
     el('#btn-controls').addEventListener('click', () => (el('#help').hidden = false));
     el('#help').addEventListener('pointerdown', () => (el('#help').hidden = true));
     const tm = el('#btn-testmode');
@@ -79,43 +60,36 @@ export class TitleScreen {
       else u.searchParams.set('teste', '');
       location.assign(u.toString());
     });
-    // configurações
-    for (const b of this.settings.querySelectorAll<HTMLButtonElement>('[data-planet]'))
-      b.addEventListener('click', () => {
-        const id = b.dataset.planet;
+    this.settings = new SettingsPanel({
+      onQuality: (q) => this.change({ quality: q }),
+      onMuted: (muted) => this.change({ muted }),
+      onShake: (shake) => this.change({ shake }),
+      onVibration: (vibration) => this.change({ vibration }),
+      onTouchAim: (touchAim) => this.change({ touchAim }),
+      onFullscreen: (fullscreen) => {
+        this.change({ fullscreen });
+        if (fullscreen) this.fullscreen();
+      },
+      onOrientation: (orientation) => this.change({ orientation }),
+      onPlanet: (id) => {
         if (isPlanetId(id) && id !== this.planet) {
           setPlanet(id);
           this.planet = id;
           this.refresh();
           void this.scene.show(id);
         }
-      });
-    for (const b of this.settings.querySelectorAll<HTMLButtonElement>('[data-quality]'))
-      b.addEventListener('click', () => {
-        const p = readPrefs();
-        if (b.dataset.quality === 'auto') delete p.quality;
-        else p.quality = b.dataset.quality;
-        writePrefs(p);
-        this.refresh();
-      });
-    for (const [id, key] of [['#title-sound', 'muted'], ['#title-vibration', 'vibration'], ['#title-fullscreen', 'fullscreen']] as const)
-      el(id).addEventListener('click', () => {
-        const p = readPrefs();
-        if (key === 'muted') p.muted = !p.muted;
-        else p[key] = p[key] === false;
-        writePrefs(p);
-        this.refresh();
-      });
-    el('#title-fullscreen-row').hidden = !fullscreenSupported;
+      },
+      onBack: () => this.openSettings(false),
+    });
     // no celular, o primeiro toque já põe em tela cheia (o navegador só deixa depois de um gesto); igual ao jogo
     document.addEventListener('pointerup', (e) => {
-      if (this.root.hidden || e.pointerType === 'mouse') return;
+      if (this.root.hidden || e.pointerType === 'mouse' || this.settings.open) return;
       this.fullscreen();
     });
     window.addEventListener('keydown', (e) => {
       if (this.root.hidden) return;
-      if (e.key === 'Escape' && !this.settings.hidden) this.openSettings(false);
-      else if (e.key === 'Enter' && this.settings.hidden && el('#help').hidden) this.play(false);
+      if (e.key === 'Escape' && this.settings.open) this.openSettings(false);
+      else if (e.key === 'Enter' && !this.settings.open && el('#help').hidden) this.play(false);
     });
   }
 
@@ -140,6 +114,7 @@ export class TitleScreen {
   /** some com a tela (o carregamento começa) e devolve o canvas para o jogo */
   hide(): void {
     this.root.hidden = true;
+    this.settings.dispose();
     this.scene.dispose();
     this.renderer.domElement.classList.remove('title-canvas');
   }
@@ -156,30 +131,23 @@ export class TitleScreen {
     reset.textContent = t('title.newGame');
     reset.classList.remove('danger');
     el('#title-planet').textContent = t('title.planetLine', { name: def.name });
-    const p = readPrefs();
-    for (const b of this.settings.querySelectorAll<HTMLButtonElement>('[data-planet]')) b.setAttribute('aria-pressed', String(b.dataset.planet === this.planet));
-    const q = typeof p.quality === 'string' ? p.quality : 'auto';
-    for (const b of this.settings.querySelectorAll<HTMLButtonElement>('[data-quality]')) b.setAttribute('aria-pressed', String(b.dataset.quality === q));
-    const fs = el('#title-fullscreen');
-    fs.setAttribute('aria-pressed', String(p.fullscreen !== false));
-    fs.textContent = p.fullscreen === false ? t('title.off') : t('title.on');
-    const sound = el('#title-sound'), vib = el('#title-vibration');
-    sound.setAttribute('aria-pressed', String(!p.muted));
-    sound.textContent = p.muted ? t('title.off') : t('title.on');
-    vib.setAttribute('aria-pressed', String(p.vibration !== false));
-    vib.textContent = p.vibration === false ? t('title.off') : t('title.on');
   }
 
   /** tela cheia (se a preferência deixar), deitada se a preferência de orientação pedir */
   private fullscreen(): void {
-    const p = readPrefs();
-    if (p.fullscreen === false || isFullscreen()) return;
+    const p = readSettings();
+    if (!p.fullscreen || isFullscreen()) return;
     void enterFullscreen(p.orientation !== 'free');
   }
 
+  private change(patch: Parameters<typeof patchSettings>[0]): void {
+    patchSettings(patch);
+    this.settings.render(readSettings(), this.planet);
+  }
+
   private openSettings(open: boolean): void {
-    this.settings.hidden = !open;
-    this.root.classList.toggle('settings-open', open);
+    if (open) this.settings.show(readSettings(), { where: 'title', planet: this.planet });
+    else this.settings.hide();
     this.refresh();
   }
 

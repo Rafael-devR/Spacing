@@ -7,6 +7,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Adicionado
 
+- **Menu de pausa refeito** ([design/PAUSA.md](docs/design/PAUSA.md), [ADR 0021](docs/adr/0021-configuracoes-unicas-e-pausa-com-salvar-e-sair.md)):
+  Continuar, **Salvar** (grava na hora e confirma), Configurações, Controles, Teste de desempenho, **Sair para o título** e Novo jogo, no jeito
+  do título (cartões arredondados). As configurações viraram **uma tela só**, a mesma no título e na pausa (planeta só no título, gráficos
+  avançados só no jogo), e as linhas antigas da pausa saíram.
 - **Tela de título e tela de carregamento** ([design/TITULO.md](docs/design/TITULO.md), [ADR 0020](docs/adr/0020-titulo-leve-e-carregamento-em-etapas.md)).
   Nome do jogo, versão, Começar/Continuar, Novo jogo (com confirmação), Configurações (planeta provisório, gráficos, som, vibração),
   Controles e Modo de teste, no jeito do HUD e do menu de pausa (letras redondas, cartões arredondados); no celular, o primeiro toque

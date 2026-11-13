@@ -212,17 +212,36 @@
       </div>
     </div>
     <button class="cta" id="pause-resume" type="button">Continuar</button>
-    <button class="ghost-btn gfx-open" id="pause-gfx" type="button"></button>
-    <div class="bench-box">
-      <div class="bench-box-text">
-        <span class="bench-box-hint" id="pause-bench-hint"></span>
-      </div>
-      <div class="bench-box-actions">
-        <button class="ghost-btn bench-go" id="pause-bench" type="button"></button>
-      </div>
+    <div class="pause-grid">
+      <button class="menu-btn" id="pause-save" type="button">Salvar</button>
+      <button class="menu-btn" id="pause-settings" type="button">Configurações</button>
+      <button class="menu-btn" id="pause-controls" type="button">Controles</button>
+      <button class="menu-btn" id="pause-bench" type="button">Teste de desempenho</button>
+    </div>
+    <div class="pause-leave">
+      <button class="menu-btn" id="pause-exit" type="button">Sair para o título</button>
+      <button class="menu-btn" id="pause-new" type="button">Novo jogo</button>
+    </div>
+    <p id="pause-status"><span id="pause-saved"></span><span id="pause-version"></span></p>
+  </div>
+</div>
+
+<!-- configurações: a mesma tela no título e na pausa (src/ui/settings/SettingsPanel.ts) -->
+<div id="settings" hidden role="dialog" aria-modal="true" aria-labelledby="settings-h">
+  <div class="pause-card settings-card">
+    <div class="pause-head">
+      <h2 id="settings-h">Configurações</h2>
+      <button class="ghost-btn" id="settings-back" type="button">Voltar</button>
     </div>
     <div class="settings">
-      <div class="setting">
+      <div class="setting wide" data-only="title">
+        <span class="setting-label">Planeta <small>(provisório, até existir a viagem)</small></span>
+        <div class="seg" role="group" aria-label="Planeta">
+          <button type="button" data-planet="lua">Lua</button>
+          <button type="button" data-planet="marte">Marte</button>
+        </div>
+      </div>
+      <div class="setting wide">
         <span class="setting-label">Gráficos</span>
         <div class="seg" role="group" aria-label="Gráficos">
           <button type="button" data-quality="auto">Automática</button>
@@ -230,10 +249,15 @@
           <button type="button" data-quality="medio">Média</button>
           <button type="button" data-quality="alto">Alta</button>
         </div>
+        <button class="ghost-btn" id="set-advanced" data-only="game" type="button">Gráficos avançados…</button>
       </div>
       <div class="setting">
         <span class="setting-label">Som</span>
-        <button type="button" class="toggle" id="pause-sound" aria-pressed="true">Ligado</button>
+        <button type="button" class="toggle" id="set-sound" aria-pressed="true">Ligado</button>
+      </div>
+      <div class="setting" id="set-vibration-row">
+        <span class="setting-label">Vibração</span>
+        <button type="button" class="toggle" id="set-vibration" aria-pressed="true">Ligado</button>
       </div>
       <div class="setting">
         <span class="setting-label">Tremor de tela</span>
@@ -243,34 +267,25 @@
           <button type="button" data-shake="normal">Normal</button>
         </div>
       </div>
-      <div class="setting only-touch-row" id="pause-aim-row">
+      <div class="setting only-touch-row">
         <span class="setting-label">Mira ao segurar</span>
         <div class="seg" role="group" aria-label="Mira ao segurar">
           <button type="button" data-aim="offset">Acima do dedo</button>
           <button type="button" data-aim="finger">No dedo</button>
         </div>
       </div>
-      <div class="setting" id="pause-fullscreen-row">
+      <div class="setting" id="set-fullscreen-row">
         <span class="setting-label">Tela cheia</span>
-        <button type="button" class="toggle" id="pause-fullscreen" aria-pressed="true">Ligado</button>
+        <button type="button" class="toggle" id="set-fullscreen" aria-pressed="true">Ligado</button>
       </div>
-      <div class="setting only-touch-row" id="pause-orientation-row">
+      <div class="setting only-touch-row" id="set-orientation-row">
         <span class="setting-label">Tela em tela cheia</span>
         <div class="seg" role="group" aria-label="Orientação da tela">
           <button type="button" data-orientation="landscape">Deitada</button>
           <button type="button" data-orientation="free">Livre</button>
         </div>
       </div>
-      <div class="setting" id="pause-vibration-row">
-        <span class="setting-label">Vibração</span>
-        <button type="button" class="toggle" id="pause-vibration" aria-pressed="true">Ligado</button>
-      </div>
     </div>
-    <div class="pause-actions">
-      <button class="ghost-btn" id="pause-controls" type="button">Controles</button>
-      <button class="ghost-btn" id="pause-new" type="button">Novo jogo</button>
-    </div>
-    <span id="pause-version"></span>
   </div>
 </div>
 
@@ -338,43 +353,6 @@
     <span id="title-planet"></span>
     <span id="rotate-hint"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M3 14a9 9 0 0 0 6 6"/></svg>Melhor deitado: gire o celular</span>
   </div>
-  <section id="title-settings" class="pause-card title-card" hidden aria-labelledby="title-settings-h">
-    <div class="pause-head">
-      <h2 id="title-settings-h">Configurações</h2>
-      <button class="ghost-btn" id="title-settings-back" type="button">Voltar</button>
-    </div>
-    <div class="settings">
-      <div class="setting">
-        <span class="setting-label">Planeta <small>(provisório, até existir a viagem)</small></span>
-        <div class="seg" role="group" aria-label="Planeta">
-          <button type="button" data-planet="lua">Lua</button>
-          <button type="button" data-planet="marte">Marte</button>
-        </div>
-      </div>
-      <div class="setting wide">
-        <span class="setting-label">Gráficos</span>
-        <div class="seg" role="group" aria-label="Gráficos">
-          <button type="button" data-quality="auto">Automática</button>
-          <button type="button" data-quality="baixo">Baixa</button>
-          <button type="button" data-quality="medio">Média</button>
-          <button type="button" data-quality="alto">Alta</button>
-        </div>
-      </div>
-      <div class="setting">
-        <span class="setting-label">Som</span>
-        <button type="button" class="toggle" id="title-sound" aria-pressed="true">Ligado</button>
-      </div>
-      <div class="setting">
-        <span class="setting-label">Vibração</span>
-        <button type="button" class="toggle" id="title-vibration" aria-pressed="true">Ligado</button>
-      </div>
-      <div class="setting only-touch-row" id="title-fullscreen-row">
-        <span class="setting-label">Tela cheia</span>
-        <button type="button" class="toggle" id="title-fullscreen" aria-pressed="true">Ligado</button>
-      </div>
-    </div>
-    <p class="title-note">Mais opções (tremor de tela, mira, gráficos avançados) ficam no menu de pausa, durante o jogo.</p>
-  </section>
 </div>
 
 <!-- tela de carregamento (src/ui/title/LoadingScreen.ts) -->

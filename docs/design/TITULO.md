@@ -30,10 +30,9 @@ tela de carregamento que faz tudo certinho antes do primeiro quadro.
 - **Botões:** Começar missão (ou **Continuar missão**, se há jogo salvo do planeta escolhido), **Novo jogo** (só com jogo salvo; pede
   um segundo toque e apaga **só** o salvamento daquele planeta), **Configurações** e **Controles** lado a lado, **Modo de teste** (ou
   Sair do modo de teste) como um link discreto. Enter joga; Esc fecha as configurações.
-- **Configurações** (as que fazem sentido antes de jogar): **Planeta** (Lua ou Marte, provisório), **Gráficos** (Automática, Baixa,
-  Média, Alta), **Som**, **Vibração** e, no celular, **Tela cheia**. Gravam nas preferências de sempre (`spacing.prefs.v1`) e na escolha
-  do planeta (`spacing.planet`). Trocar o planeta troca o fundo na hora, sem recarregar. O resto (tremor, mira, gráficos avançados)
-  fica no menu de pausa.
+- **Configurações:** a tela única de [PAUSA.md](PAUSA.md) (a mesma da pausa), aqui com a escolha do **Planeta** (Lua ou Marte,
+  provisório) e sem os gráficos avançados. Grava nas preferências de sempre (`spacing.prefs.v1`) e na escolha do planeta
+  (`spacing.planet`). Trocar o planeta troca o fundo na hora, sem recarregar.
 - **Tela cheia:** no celular, o primeiro toque na tela de título (e o toque em Jogar) põe em tela cheia, deitada, como o jogo já fazia;
   a preferência `fullscreen` desliga, e `orientation: 'free'` não trava deitado.
 - **Visual:** o do HUD e do menu de pausa: Fredoka no nome (grande, redondo), Rubik nos textos, a linha de cima em laranja do traje,
@@ -97,5 +96,4 @@ A barra só anda para a frente. Em desenvolvimento, o console mostra quanto cada
 
 ## Em aberto
 
-- A tela de configurações completa (hoje metade fica no menu de pausa), a próxima a ser refeita.
 - A viagem entre planetas (quando existir, a escolha sai das configurações).

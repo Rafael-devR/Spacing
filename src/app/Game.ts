@@ -58,6 +58,7 @@ import { FrameCap } from '../core/framecap';
 import { TestPanel } from '../ui/TestPanel';
 import { GraphicsMenu } from '../ui/GraphicsMenu';
 import { PauseMenu } from '../ui/PauseMenu';
+import { SettingsPanel } from '../ui/settings/SettingsPanel';
 import { CH, LANDER, SPAWN, WORLD_GEN } from '../world/terrain';
 import { World } from '../world/World';
 import { AUTOSAVE_MS, FIXED_STEP, MAX_STEPS_PER_FRAME, MINE_SHAKE, TOUCH_AIM_OFFSET, VERSION } from './config';
@@ -164,6 +165,7 @@ export class Game {
 
   private readonly hud = new Hud();
   private readonly pauseMenu: PauseMenu;
+  private readonly settings: SettingsPanel;
   private readonly graphicsMenu: GraphicsMenu;
   private readonly bag: Bag;
   readonly equipment: Equipment;
@@ -443,57 +445,69 @@ export class Game {
     this.pauseMenu = new PauseMenu(
       {
         onResume: () => this.resume(),
-        onQuality: (q) => {
-          this.prefs.quality = q;
-          this.applyQuality(q ?? this.defaultQuality());
-          this.changedPrefs();
-        },
-        onMuted: (muted) => {
-          this.prefs.muted = muted;
-          this.sfx.setMuted(muted);
-          this.changedPrefs();
-        },
-        onShake: (level) => {
-          this.prefs.shake = level;
-          this.rig.shakeScale = SHAKE_SCALE[level];
-          this.changedPrefs();
-        },
-        onVibration: (on) => {
-          this.prefs.vibration = on;
-          this.haptics.enabled = on;
-          this.haptics.play('medium');
-          this.changedPrefs();
-        },
-        onTouchAim: (aim) => {
-          this.prefs.touchAim = aim;
-          this.input.aimOffset = aim === 'offset' ? TOUCH_AIM_OFFSET : 0;
-          this.changedPrefs();
-        },
-        onFullscreen: (on) => {
-          this.prefs.fullscreen = on;
-          void (on ? enterFullscreen(this.prefs.orientation === 'landscape') : exitFullscreen());
-          this.changedPrefs();
-        },
-        onOrientation: (o) => {
-          this.prefs.orientation = o;
-          void applyOrientation(o === 'landscape');
-          this.changedPrefs();
+        onSave: () => this.persist(),
+        onSettings: () => {
+          this.pauseMenu.hide();
+          this.settings.show(this.prefs, { where: 'game' });
         },
         onControls: () => (el('#help').hidden = false),
-        onGraphics: () => {
-          this.pauseMenu.hide();
-          this.graphicsMenu.show(this.prefs, this.graphicsInfo());
-        },
-        onNewGame: () => this.newGame(),
         onBenchmark: () => this.openBenchmark(),
+        onExit: () => this.exitToTitle(),
+        onNewGame: () => this.newGame(),
       },
       VERSION,
     );
+    this.settings = new SettingsPanel({
+      onQuality: (q) => {
+        this.prefs.quality = q;
+        this.applyQuality(q ?? this.defaultQuality());
+        this.changedPrefs();
+      },
+      onMuted: (muted) => {
+        this.prefs.muted = muted;
+        this.sfx.setMuted(muted);
+        this.changedPrefs();
+      },
+      onShake: (level) => {
+        this.prefs.shake = level;
+        this.rig.shakeScale = SHAKE_SCALE[level];
+        this.changedPrefs();
+      },
+      onVibration: (on) => {
+        this.prefs.vibration = on;
+        this.haptics.enabled = on;
+        this.haptics.play('medium');
+        this.changedPrefs();
+      },
+      onTouchAim: (aim) => {
+        this.prefs.touchAim = aim;
+        this.input.aimOffset = aim === 'offset' ? TOUCH_AIM_OFFSET : 0;
+        this.changedPrefs();
+      },
+      onFullscreen: (on) => {
+        this.prefs.fullscreen = on;
+        void (on ? enterFullscreen(this.prefs.orientation === 'landscape') : exitFullscreen());
+        this.changedPrefs();
+      },
+      onOrientation: (o) => {
+        this.prefs.orientation = o;
+        void applyOrientation(o === 'landscape');
+        this.changedPrefs();
+      },
+      onAdvanced: () => {
+        this.settings.hide();
+        this.graphicsMenu.show(this.prefs, this.graphicsInfo());
+      },
+      onBack: () => {
+        this.settings.hide();
+        this.pauseMenu.show();
+      },
+    });
     this.graphicsMenu = new GraphicsMenu({
       onChange: (next) => this.setGfx(next),
       onBack: () => {
         this.graphicsMenu.hide();
-        this.pauseMenu.show(this.prefs);
+        this.settings.show(this.prefs, { where: 'game' });
       },
     });
 
@@ -579,7 +593,7 @@ export class Game {
     this.benchUi.onShowLast = () => this.benchUi.showResult(this.benchHistory, 0, false);
     this.benchUi.onClose = (after) => {
       if (after) location.reload(); // volta ao progresso salvo: o teste alterou o mundo na memória
-      else this.pauseMenu.show(this.prefs);
+      else this.pauseMenu.show();
     };
 
     this.wireEvents();
@@ -752,13 +766,14 @@ export class Game {
     this.craftPanel.close();
     this.powerPanel.close();
     this.sfx.setPaused(true);
-    this.pauseMenu.show(this.prefs);
-    this.persist();
+    this.pauseMenu.markSaved(this.persist());
+    this.pauseMenu.show();
   }
 
   resume(): void {
     if (this.state !== 'paused') return;
     this.pauseMenu.hide();
+    this.settings.hide();
     this.graphicsMenu.hide();
     el('#help').hidden = true;
     this.sfx.setPaused(false);
@@ -775,7 +790,12 @@ export class Game {
     }
     if (this.graphicsMenu.open) {
       this.graphicsMenu.hide();
-      this.pauseMenu.show(this.prefs);
+      this.settings.show(this.prefs, { where: 'game' });
+      return;
+    }
+    if (this.settings.open) {
+      this.settings.hide();
+      this.pauseMenu.show();
       return;
     }
     if (this.benchUi.open) {
@@ -847,7 +867,7 @@ export class Game {
     if (!ok || this.bench !== runner || this.state !== 'paused') {
       this.bench = null;
       this.benchUi.hideRunning();
-      this.pauseMenu.show(this.prefs);
+      this.pauseMenu.show();
       if (!ok && document.hidden) this.hud.toast(t('bench.cancelledHidden'));
       return;
     }
@@ -893,6 +913,13 @@ export class Game {
       this.benchUi.hideRunning();
       location.reload();
     } else r.cancel(); // ainda medindo a tela: o início do teste desfaz o resto
+  }
+
+  /** "Sair para o título": grava e recarrega a página, que abre na tela de título */
+  private exitToTitle(): void {
+    this.persist();
+    this.resetting = true; // nada grava depois (o fechamento da página não regrava por cima)
+    location.reload();
   }
 
   private newGame(): void {
@@ -1129,7 +1156,7 @@ export class Game {
       (e) => {
         if (!input.touch || e.pointerType === 'mouse' || !this.prefs.fullscreen || isFullscreen()) return;
         if (this.state !== 'menu' && this.state !== 'playing') return;
-        if ((e.target as Element | null)?.closest?.('#pause, #btn-fullscreen')) return;
+        if ((e.target as Element | null)?.closest?.('#pause, #settings, #btn-fullscreen')) return;
         void enterFullscreen(this.prefs.orientation === 'landscape');
       },
       true,
@@ -1246,7 +1273,7 @@ export class Game {
 
   private changedPrefs(): void {
     savePrefs(this.store, this.prefs);
-    this.pauseMenu.render(this.prefs);
+    this.settings.render(this.prefs);
   }
 
   private resize(): void {
@@ -1334,10 +1361,11 @@ export class Game {
 
   // ---------- salvar ----------
 
-  private persist(): void {
-    if (this.resetting || this.persistLocked || this.state === 'loading' || this.state === 'menu') return;
+  /** grava o jogo; devolve se gravou (falha com o armazenamento cheio ou bloqueado, ou fora de hora) */
+  private persist(): boolean {
+    if (this.resetting || this.persistLocked || this.state === 'loading' || this.state === 'menu') return false;
     const p = this.player.pos;
-    writeSave(this.store, {
+    return writeSave(this.store, {
       seed: this.seed,
       worldGen: WORLD_GEN[PLANET.id],
       world: this.world.serialize(),

@@ -349,7 +349,6 @@ body.touch .actions.controls { display: block !important; }
 .gfx-info { margin: 0; font-size: 12px; line-height: 1.4; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 .gfx-group { margin: 8px 0 0; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--suit); font-weight: 500; }
 .setting-hint { font-size: 11px; line-height: 1.35; color: var(--ink-dim); }
-.gfx-open { width: 100%; }
 /* medidor de desempenho no estilo RTSS: embaixo dos botões da câmera, à direita */
 #fps-meter {
   position: fixed; z-index: 7; right: calc(8px + env(safe-area-inset-right, 0px)); top: 150px; width: 144px;
@@ -436,16 +435,6 @@ body.touch .only-desk { display: none; }
 }
 #rotate-hint { display: none; font-size: 12px; color: var(--ice); align-items: center; gap: 6px; }
 @media (orientation: portrait) { body.touch #rotate-hint { display: inline-flex; } }
-/* configurações: o cartão do menu de pausa, por cima do menu */
-#title.settings-open .title-main { visibility: hidden; }
-.title-card {
-  position: absolute; left: max(20px, env(safe-area-inset-left, 0px)); top: 50%; transform: translateY(-50%);
-  width: min(440px, calc(100vw - 40px)); max-width: none; max-height: calc(100% - 32px); box-sizing: border-box;
-  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-}
-.title-card[hidden] { display: none; }
-.title-card .setting-label small { text-transform: none; letter-spacing: 0; opacity: 0.8; }
-.title-note { margin: 0; font-size: 12px; color: var(--ink-dim); grid-column: 1 / -1; }
 @media (max-height: 440px) {
   .title-main { gap: 2px; }
   .title-name { font-size: clamp(44px, 16vh, 76px); }
@@ -453,10 +442,6 @@ body.touch .only-desk { display: none; }
   .title-menu { gap: 6px; }
   .title-menu .cta { height: 44px; }
   .title-btn { height: 38px; }
-  .title-card { gap: 10px; padding: 14px 18px; width: min(640px, calc(100vw - 40px)); }
-  .title-card .settings { grid-template-columns: 1fr 1fr; gap: 10px 18px; }
-  .title-card .setting.wide { grid-column: 1 / -1; }
-  .title-card .seg button, .title-card .toggle { min-height: 34px; }
 }
 @media (orientation: portrait) {
   #title { justify-content: flex-start; padding-top: max(56px, env(safe-area-inset-top, 0px)); background: linear-gradient(180deg, rgba(14, 11, 32, 0.75) 0%, rgba(14, 11, 32, 0.3) 46%, rgba(14, 11, 32, 0) 66%); }
@@ -521,14 +506,35 @@ body.touch .only-touch-row { display: grid; }
 .pause-actions .ghost-btn { flex: 1 1 auto; }
 .ghost-btn.danger { border-color: rgba(255, 154, 133, 0.6); color: var(--warn); }
 #pause-version { font-size: 11px; color: var(--ink-dim); text-align: center; }
+/* botões do menu de pausa */
+.menu-btn {
+  height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.05);
+  font-size: 14px; font-weight: 500; color: var(--ink); cursor: pointer; transition: background-color 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+}
+.menu-btn:hover, .menu-btn:focus-visible { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.4); outline: none; }
+.menu-btn:active { transform: scale(0.97); }
+.menu-btn.done { border-color: var(--ice); color: var(--ice); }
+.menu-btn.danger { border-color: rgba(255, 154, 133, 0.7); color: var(--warn); }
+.pause-grid, .pause-leave { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pause-leave { padding-top: 14px; border-top: 1px solid var(--line); }
+#pause-status { margin: 0; display: flex; justify-content: space-between; gap: 12px; font-size: 11px; color: var(--ink-dim); }
+#pause-saved:empty { display: none; }
+/* configurações: a mesma tela no título e na pausa */
+#settings {
+  position: fixed; inset: 0; z-index: 11; display: grid; place-items: center; padding: 16px;
+  background: rgba(10, 8, 26, 0.6); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+}
+.settings-card .setting-label small { text-transform: none; letter-spacing: 0; opacity: 0.8; }
+.settings-card .setting.wide { grid-column: 1 / -1; }
+.settings-card .setting .ghost-btn { justify-self: start; margin-top: 2px; }
 @media (max-height: 520px) and (min-width: 600px) {
-  .pause-card { max-width: 700px; gap: 10px; padding: 14px 18px; grid-template-columns: 1fr 1fr; align-items: start; }
-  .pause-head, .pause-card .cta, #pause-version, .bench-box { grid-column: 1 / -1; }
-  .pause-card h2 { font-size: 20px; }
+  .pause-card { max-width: 640px; gap: 10px; padding: 14px 18px; }
   .pause-card .cta { height: 42px; }
-  .settings { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+  .pause-grid { grid-template-columns: repeat(4, 1fr); }
+  .menu-btn { height: 40px; }
+  .settings-card { max-width: 780px; }
+  .settings-card .settings { grid-template-columns: repeat(3, 1fr); gap: 10px 18px; }
   .seg button, .toggle { min-height: 34px; }
-  .pause-actions { grid-column: 1 / -1; }
 }
 
 /* medidores do traje */
@@ -729,16 +735,6 @@ body.map-open #hud * { pointer-events: none !important; }
 }
 
 /* ---- teste de desempenho (docs/design/BENCHMARK.md) ---- */
-.bench-box {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px;
-  padding: 10px 12px; border-radius: 10px;
-  border: 1px solid rgba(127, 231, 255, 0.3); background: rgba(127, 231, 255, 0.06);
-}
-.bench-box-text { display: grid; gap: 3px; flex: 1 1 220px; min-width: 0; }
-.bench-box-hint { font-size: 11px; line-height: 1.35; color: var(--ink-dim); }
-.bench-box-actions { display: flex; flex-wrap: wrap; gap: 8px; flex: 0 1 auto; }
-.bench-go { border-color: var(--ice); color: var(--ice); font-weight: 600; }
-
 /* acompanhamento: um cartão pequeno no alto, sem atrapalhar a imagem que está sendo medida */
 #bench {
   position: fixed; z-index: 8; left: 50%; top: calc(8px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);

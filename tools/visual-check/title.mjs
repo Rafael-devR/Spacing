@@ -17,20 +17,20 @@ await shot(S('1-lua'));
 await page.touchscreen.tap(600, 300);
 await page.waitForTimeout(500);
 check('tocar na tela põe em tela cheia', await g(() => !!document.fullscreenElement));
-await g(() => document.exitFullscreen());
+await g(() => document.exitFullscreen().catch(() => {}));
 await page.waitForTimeout(300);
 
 await page.click('#btn-settings');
-check('configurações abrem', await page.isVisible('#title-settings'));
-await page.click('#title-settings [data-planet="marte"]');
-await page.click('#title-settings [data-quality="medio"]');
-await page.click('#title-sound');
+check('configurações abrem', await page.isVisible('#settings'));
+await page.click('#settings [data-planet="marte"]');
+await page.click('#settings [data-quality="medio"]');
+await page.click('#set-sound');
 await page.waitForTimeout(2000);
 const st = await g(() => ({ planet: localStorage.getItem('spacing.planet'), prefs: JSON.parse(localStorage.getItem('spacing.prefs.v1')) }));
 check('trocar o planeta guarda a escolha, sem recarregar', st.planet === 'marte' && /Elysium/.test(await page.textContent('#title-region')) && (await g(() => !window.spacing)));
 check('gráficos e som vão para as preferências', st.prefs.quality === 'medio' && st.prefs.muted === false, JSON.stringify(st.prefs));
 await shot(S('2-configuracoes'));
-await page.click('#title-settings-back');
+await page.click('#settings-back');
 await shot(S('3-marte'));
 
 // um salvamento de Marte falso: aparece Continuar e Novo jogo; o da Lua não é tocado
@@ -39,9 +39,9 @@ await g(() => {
   localStorage.setItem('spacing.save', '{"marca":"lua"}');
 });
 await page.click('#btn-settings');
-await page.click('#title-settings [data-planet="lua"]');
-await page.click('#title-settings [data-planet="marte"]');
-await page.click('#title-settings-back');
+await page.click('#settings [data-planet="lua"]');
+await page.click('#settings [data-planet="marte"]');
+await page.click('#settings-back');
 check('com jogo salvo: Continuar e Novo jogo', /Continuar/i.test(await page.textContent('#btn-start')) && (await page.isVisible('#btn-reset')));
 await page.click('#btn-reset');
 check('Novo jogo pede confirmação', /de novo/i.test(await page.textContent('#btn-reset')) && (await g(() => !window.spacing)));
@@ -65,7 +65,7 @@ await page.waitForTimeout(800);
 await shot(S('5-jogo'));
 
 // em pé (sair da tela cheia antes: o navegador não muda o tamanho de uma janela em tela cheia)
-await g(() => document.fullscreenElement && document.exitFullscreen());
+await g(() => document.fullscreenElement && document.exitFullscreen().catch(() => {}));
 await page.waitForTimeout(300);
 await page.setViewportSize({ width: 390, height: 844 });
 await g(() => localStorage.setItem('spacing.planet', 'lua'));

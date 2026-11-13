@@ -33,7 +33,9 @@ const base = url.includes('?') ? `${url}&planeta=marte` : `${url}?planeta=marte`
 await page.goto(base);
 await page.waitForSelector('#btn-start:not([disabled])', { timeout: 120000 });
 check('a tela inicial é de Marte', /Elysium/.test(await page.textContent('#title-region')));
-check('o botão Marte está marcado', (await page.getAttribute('#title-settings [data-planet="marte"]', 'aria-pressed')) === 'true');
+await page.click('#btn-settings');
+check('o botão Marte está marcado', (await page.getAttribute('#settings [data-planet="marte"]', 'aria-pressed')) === 'true');
+await page.click('#settings-back');
 await page.click('#btn-start');
 await page.waitForFunction(() => document.body.dataset.state === 'playing', null, { timeout: 180000 });
 await page.waitForTimeout(4000);
