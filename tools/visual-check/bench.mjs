@@ -7,6 +7,9 @@
 // O tempo é encurtado com `?benchEscala=` (só para este teste; ver Game.benchScale). Usa `window.spacing` (só em `npm run dev`).
 // Uso: node bench.mjs <url> <pasta-de-saída>
 import { readFileSync } from 'node:fs';
+
+// a versão do cenário sai da constante do jogo (src/data/bench.ts), para o teste não ficar para trás a cada subida
+const BENCH_VERSION = Number(readFileSync(new URL('../../src/data/bench.ts', import.meta.url), 'utf8').match(/BENCH_VERSION = (\d+)/)[1]);
 import chromium from '@sparticuz/chromium';
 import { chromium as pw } from 'playwright-core';
 
@@ -98,7 +101,7 @@ await page.screenshot({ path: `${out}/bench-3-resultado.png` });
 
 const entries1 = await history();
 const r1 = entries1[0];
-check('guardou 1 resultado, em chave própria', entries1.length === 1 && r1.mode === 'quick' && r1.version === 3, `${entries1.length} resultado(s)`);
+check('guardou 1 resultado, em chave própria', entries1.length === 1 && r1.mode === 'quick' && r1.version === BENCH_VERSION, `${entries1.length} resultado(s)`);
 check('a taxa da tela foi detectada e arredondada para 60/90/120/144', r1 && [60, 90, 120, 144].includes(r1.refresh.hz), r1 && `${r1.refresh.hz} Hz (medida ${r1.refresh.rawHz.toFixed(1)})`);
 check('mediu os 15 cenários, todos com quadros', r1?.scenarios.length === 15 && r1.scenarios.every((s) => s.summary.frames > 0), r1?.scenarios.map((s) => `${s.id}:${s.summary.frames}`).join(' '));
 const o = r1?.overall;
