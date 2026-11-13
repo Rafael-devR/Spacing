@@ -27,7 +27,7 @@ const g = (fn, arg) => page.evaluate(fn, arg);
 const shot = (n) => page.screenshot({ path: `${out}/st-${n}.png` });
 /** toca no botão `id` que a tela desenhou neste quadro */
 const tap = async (panel, id) => {
-  const r = await g(([p, i]) => window.spacing[p].hits.find((h) => h.id === i) ?? null, [panel, id]);
+  const r = await g(([p, i]) => (p === 'craftPanel' ? window.spacing.craftPanel.craft : window.spacing[p]).hits.find((h) => h.id === i) ?? null, [panel, id]);
   if (!r) return false;
   await page.mouse.click(r.x + r.w / 2, r.y + r.h / 2);
   await page.waitForTimeout(250);
@@ -62,42 +62,7 @@ check('forno instalado', await g(() => window.spacing.crafting.isBuilt('furnace'
 await tap('craftPanel', 'back');
 check('voltar fecha a tela', await g(() => !window.spacing.craftPanel.open));
 
-// forno: três vagas, lote de ferro
-await g(() => {
-  const s = window.spacing;
-  s.crafting.start(s.crafting.recipes('furnace').find((r) => r.id === 'brick'), 2);
-  s.crafting.start(s.crafting.recipes('furnace').find((r) => r.id === 'glass'), 3);
-  s.craftPanel.show('furnace');
-});
-await page.waitForTimeout(500);
-await tap('craftPanel', 'r:iron_bar');
-await tap('craftPanel', 'max');
-const batch = await g(() => window.spacing.craftPanel.batch);
-check('forno: "Tudo" põe o lote máximo de ferro (10 minérios → 5 barras)', batch === 5, String(batch));
-await tap('craftPanel', 'make');
-await g(() => window.spacing.crafting.update(12));
-await page.waitForTimeout(2500);
-await shot('4-forno-3-vagas');
-const shares = await g(() => window.spacing.crafting.slots('furnace').map((j) => j && +j.share.toFixed(2)));
-check('forno: três trabalhos dividindo o calor', shares.every((x) => x === 0.33), JSON.stringify(shares));
-// vaga escolhida: pegar o que já ficou pronto, pausar e cancelar
-await tap('craftPanel', 'slot:2');
-await page.waitForTimeout(300);
-await shot('4b-vaga');
-const before = await g(() => window.spacing.inventory.count('iron_bar'));
-check('pega as barras que já ficaram prontas, sem esperar o lote', await tap('craftPanel', 'take-slot'));
-const after = await g(() => window.spacing.inventory.count('iron_bar'));
-check('as barras prontas entraram na mochila', after > before, `${before} → ${after}`);
-await tap('craftPanel', 'pause');
-check('pausa a vaga', await g(() => window.spacing.crafting.slots('furnace')[2]?.paused === true));
-await tap('craftPanel', 'pause');
-await tap('craftPanel', 'cancel');
-await tap('craftPanel', 'cancel');
-check('cancela (com confirmação) e devolve os minérios', await g(() => window.spacing.crafting.slots('furnace')[2] === null && window.spacing.inventory.count('iron') > 0));
-await tap('craftPanel', 'info');
-await page.waitForTimeout(400);
-await shot('5-forno-ciencia');
-await tap('craftPanel', 'back');
+// o forno agora é uma tela em PixiJS, com teste próprio: furnace.mjs
 
 // eletrolisador sem energia: bateria vazia e muito consumo
 await g(() => {
@@ -125,7 +90,7 @@ check('energia fecha no voltar', await g(() => !window.spacing.powerPanel.open))
 
 // retrato
 await page.setViewportSize({ width: +H, height: +W });
-await g(() => window.spacing.craftPanel.show('furnace'));
+await g(() => window.spacing.craftPanel.show('workbench'));
 await page.waitForTimeout(1500);
 await shot('8-retrato');
 

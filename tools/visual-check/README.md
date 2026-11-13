@@ -45,6 +45,16 @@ Câmera de perto e capturas em cada animação (parado, correndo, pulo, queda, p
 morte); confere o esqueleto do Blender, a poeira na corrida e que dentro da base não sobe poeira
 ([design/PERSONAGEM.md](../../docs/design/PERSONAGEM.md)).
 
+## Teste do forno (PixiJS)
+
+```bash
+node furnace.mjs http://localhost:5173/ /tmp/shots
+```
+
+Abre o forno (carrega o Pixi sob demanda), toca nos botões e cartões de verdade (`craftPanel.furnace.targets()` devolve onde estão),
+confere calor, ventoinha, partículas, bandeja e o esfriar, rola a lista com o arrasto e tira capturas, inclusive em pé
+([design/FORNO.md](../../docs/design/FORNO.md)).
+
 ## Teste dos meteoros
 
 ```bash

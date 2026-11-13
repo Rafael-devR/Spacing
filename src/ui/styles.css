@@ -622,6 +622,10 @@ body[data-state="dead"] #btn-use { display: none; }
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 .screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+/* o forno (Pixi) carrega na primeira vez que abre: um aviso simples no lugar da tela */
+#furnace.loading { background: #120f26; }
+#furnace.loading canvas { visibility: hidden; }
+#furnace.loading::after { content: 'Acendendo o forno…'; position: absolute; inset: 0; display: grid; place-items: center; font: 600 18px var(--font-display); color: var(--ink-dim); letter-spacing: 0.04em; }
 
 /* ---- trabalhos das estações no HUD (coluna da esquerda, abaixo do objetivo) ---- */
 #jobs { display: flex; flex-wrap: wrap; gap: 5px; pointer-events: none; }

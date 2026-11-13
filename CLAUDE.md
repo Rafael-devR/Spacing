@@ -64,6 +64,10 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). **Sessão nova?
 - Personagem ([design/PERSONAGEM.md](docs/design/PERSONAGEM.md), ADR 0017): modelo `tools/models/astronaut.py` (voxel chibi, um nó por
   junta), esqueleto e item na mão em `src/render/astronaut.ts`, animação procedural pura em `src/render/astronautAnim.ts` (testada em
   `tests/astronautAnim.test.ts`), poeira dos pés em `src/render/dustFx.ts`; teste `tools/visual-check/astronaut.mjs`.
+- Forno em PixiJS ([design/FORNO.md](docs/design/FORNO.md), ADR 0018): `src/ui/FurnacePanel.ts` (painel), `src/ui/furnace/` (`furnaceScene.ts` a máquina,
+  `furnaceModel.ts` calor e ventoinha **sem Pixi**, testado em `tests/furnaceModel.test.ts`, `pixiKit.ts` botão/lista/ícones, `particles.ts`),
+  fachada `src/ui/StationPanel.ts` (o forno carrega sob demanda; bancada e eletrolisador seguem em `CraftPanel`); teste `tools/visual-check/furnace.mjs`.
+  O dono quer as telas técnicas refeitas **uma por vez** (hoje só o forno), com a direção de arte do Spacing.
 - **Modo de teste** ([design/TESTE.md](docs/design/TESTE.md), ADR 0015): `?teste` liga um painel de depuração (dar itens, soltar meteoros,
   teleportar, parar o tempo…) com **salvamento próprio**. Catálogo em `src/data/testmode.ts`, executor em `src/app/TestMode.ts`, painel em
   `src/ui/TestPanel.ts`. **Para testar uma mudança, provoque a situação com `window.spacing.testMode.run('…')` em vez de jogar até ela**; o

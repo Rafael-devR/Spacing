@@ -92,7 +92,7 @@ import { createEquipModel } from '../render/equipModels';
 import { Crafting } from '../systems/Crafting';
 import { Equipment } from '../systems/Equipment';
 import { BaseHud } from '../ui/BaseHud';
-import { CraftPanel } from '../ui/CraftPanel';
+import { StationPanel } from '../ui/StationPanel';
 import { JobsChip } from '../ui/JobsChip';
 import { PowerPanel } from '../ui/PowerPanel';
 import { Power, type Load } from '../systems/Power';
@@ -180,7 +180,7 @@ export class Game {
   private tabletOnly = false;
   /** cena vazia: com o mapa em tela cheia o mundo não é desenhado */
   private readonly blankScene = new THREE.Scene();
-  private readonly craftPanel: CraftPanel;
+  private readonly craftPanel: StationPanel;
   private readonly powerPanel: PowerPanel;
   readonly power: Power;
   private readonly jobsChip: JobsChip;
@@ -321,7 +321,7 @@ export class Game {
       },
       this.save?.crafting,
     );
-    this.craftPanel = new CraftPanel(this.crafting, {
+    this.craftPanel = new StationPanel(this.crafting, {
       speed: (id) => (STATIONS[id].energy === 'sun' ? this.power.sun : this.power.satisfaction),
       battery: () => this.power.battery / this.power.capacity,
     });

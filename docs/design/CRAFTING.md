@@ -188,6 +188,8 @@ pontos de um item = 1 + 0,6 × calor + 0,4 × peso + 0,8 × raridade
 
 ## Tela da estação (Canvas, tela cheia, painel técnico)
 
+> **O forno** tem tela própria em PixiJS desde 2026-11-13 ([FORNO.md](FORNO.md), ADR 0018); o que segue vale para a bancada e o eletrolisador.
+
 Desenhada em Canvas 2D na resolução do aparelho (`ui/canvasScreen.ts` + `ui/CraftPanel.ts`). Referência visual do dono:
 o jogo **Idle CPU** (servidor montado peça por peça, com energia e dados correndo, simplificado). Letras de painel em
 **JetBrains Mono** maiúscula com espaço entre as letras; molduras finas na cor da estação.

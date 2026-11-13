@@ -60,7 +60,7 @@ pouco vai para os cantos de cima.**
   (`src/ui/canvasScreen.ts`). Voltar no canto de cima à esquerda. Estações: receitas **à direita** (perto do polegar; no
   retrato, faixa embaixo), máquina com módulos, barramento e vagas em grade de células, e a receita ou a vaga escolhida
   embaixo ([CRAFTING.md](CRAFTING.md)). Estilo de painel técnico (referência: o jogo Idle CPU), letras JetBrains Mono.
-  Energia: sol → painéis → bateria → consumidores ([ENERGIA.md](ENERGIA.md)). Regra: poucos números; cor, barra,
+  **O forno é a exceção:** tela em PixiJS ([FORNO.md](FORNO.md)). Energia: sol → painéis → bateria → consumidores ([ENERGIA.md](ENERGIA.md)). Regra: poucos números; cor, barra,
   palavra e movimento que significa algo de verdade. O HTML fica só para o HUD e os menus simples.
 - Nome do lugar e coordenadas saíram do HUD e foram para o cabeçalho do menu de pausa.
 - O HUD fica escondido no menu inicial e na pausa. Na tela de morte só ficam os medidores.
