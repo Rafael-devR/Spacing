@@ -35,6 +35,16 @@ uma (item, meteoro, teleporte, tempo, morte, salvamento separado…). Menos de 1
 rápido é provocar a situação por `window.spacing.testMode.run('meteor.instant')` em vez de jogar até ela
 ([design/TESTE.md](../../docs/design/TESTE.md)). `lib.mjs` é o arranque comum (`boot({ test: true })`) dos scripts novos.
 
+## Teste do astronauta
+
+```bash
+node astronaut.mjs http://localhost:5173/ /tmp/shots
+```
+
+Câmera de perto e capturas em cada animação (parado, correndo, pulo, queda, pouso, item na mão, comer, dano, minerar, à toa,
+morte); confere o esqueleto do Blender, a poeira na corrida e que dentro da base não sobe poeira
+([design/PERSONAGEM.md](../../docs/design/PERSONAGEM.md)).
+
 ## Teste dos meteoros
 
 ```bash

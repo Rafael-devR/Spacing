@@ -14,7 +14,7 @@ import { BASALT, DARK_SAND, ICE, MARS_DUST, REGOLITH } from '../data/blocks';
 
 /** chão macio que guarda pegadas (Lua e Marte) */
 const FOOTPRINT_BLOCKS: ReadonlySet<number> = new Set([REGOLITH, BASALT, ICE, MARS_DUST, DARK_SAND]);
-import { ITEMS, ITEM_ORDER, type ItemId } from '../data/items';
+import { ITEMS, ITEM_ORDER, itemBlock, type ItemId } from '../data/items';
 import { Debris } from '../entities/Debris';
 import { ItemDrops } from '../entities/ItemDrops';
 import { LootPiles } from '../entities/LootPiles';
@@ -23,6 +23,7 @@ import { Player } from '../entities/Player';
 import { t } from '../i18n';
 import { BlockFx } from '../render/BlockFx';
 import { Footprints } from '../render/Footprints';
+import { DustFx, dustOf, type Dust } from '../render/dustFx';
 import { renderIcon } from '../render/icons';
 import { createStationModel } from '../render/stationModels';
 import { STATION_ORDER, STATIONS, type StationId } from '../data/stations';
@@ -37,7 +38,8 @@ const CAVE_MIN_DEPTH = 3;
 import { ResolutionScaler } from '../render/scaler';
 import { createChunkWorkers } from '../world/workerPool';
 import { model } from '../render/gltfModels';
-import { PropFactory, createLander, createWaypoint, setDrillLook, type Lander, type Waypoint } from '../render/models';
+import { PropFactory, createLander, createWaypoint, type Lander, type Waypoint } from '../render/models';
+import { setDrillLook } from '../render/astronaut';
 import { Particles, createMotes, type Motes } from '../render/particles';
 import { MeteorFx } from '../render/meteorFx';
 import { Puffs } from '../render/puffs';
@@ -141,6 +143,8 @@ export class Game {
   private readonly drops: ItemDrops;
   private readonly footprints: Footprints;
   private readonly itemModels: ItemModels;
+  /** item que o astronauta tem na mão agora (undefined = ainda não conferiu) */
+  private heldItem: ItemId | null | undefined = undefined;
   private readonly interaction: Interaction;
   private readonly meteors: Meteors;
   private readonly missions: Missions;
@@ -187,6 +191,8 @@ export class Game {
   private readonly haptics = new Haptics();
   /** baforadas de fogo e fumaça (render/puffs.ts) e o visual dos meteoros (render/meteorFx.ts) */
   private readonly puffs: Puffs;
+  /** poeira dos pés (render/dustFx.ts) */
+  private readonly dust: DustFx;
   private readonly meteorFx: MeteorFx;
   /** a experiência do meteoro: som, câmera, tempo, clarão e ondas de choque (app/MeteorDirector.ts) */
   private readonly meteorDirector: MeteorDirector;
@@ -325,6 +331,7 @@ export class Game {
     this.rig = new IsoRig(this.camera);
     this.particles = new Particles(scene);
     this.puffs = new Puffs(scene);
+    this.dust = new DustFx(this.puffs, this.particles, PLANET.physics.gravity);
     this.meteorFx = new MeteorFx(scene, this.puffs, this.particles);
     this.motes = createMotes(scene);
     this.input = new Input(renderer.domElement, { base: maybeEl('#joystick'), knob: maybeEl('#knob') });
@@ -401,6 +408,7 @@ export class Game {
             const it = this.inventory.selectedItem();
             if (!it || !this.survival.eat(it)) return;
             this.inventory.removeSelected(1);
+            this.player.gesture('eat');
             this.sfx.play('pop', 0.8);
             this.haptics.play('success');
             this.hud.bumpMeter('energy');
@@ -839,21 +847,27 @@ export class Game {
   // ---------- eventos ----------
 
   private wireEvents(): void {
-    const { events: e, sfx, particles, rig, hud, haptics, inventory, footprints, debris, missions, lander } = this;
+    const { events: e, sfx, rig, hud, haptics, inventory, footprints, debris, missions, lander } = this;
     e.on('player:step', (p) => {
       sfx.play('step', 1, p);
-      particles.dust(p.x, p.y, p.z, 2);
+      const d = this.groundDust();
+      if (d) {
+        const v = this.player.vel;
+        this.dust.step(p.x, p.y, p.z, v.x, v.z, d, Math.max(0, Math.min(1, (Math.hypot(v.x, v.z) - 2) / 2.4)));
+      }
       this.footstep(false);
     });
     e.on('player:land', (p) => {
       sfx.play('land', 1, p);
-      particles.dust(p.x, p.y, p.z, 10, 0.4);
+      const d = this.groundDust();
+      if (d) this.dust.land(p.x, p.y, p.z, d, Math.min(1, (p.speed - 7) / 8));
       this.footstep(true);
       rig.shake(0.12);
     });
     e.on('player:jump', (p) => {
       sfx.play('jump', 1, p);
-      particles.dust(p.x, p.y, p.z, 4);
+      const d = this.groundDust();
+      if (d) this.dust.jump(p.x, p.y, p.z, d);
     });
     e.on('debris:clink', (p) => sfx.play('clink', 1, p));
     e.on('debris:kick', (p) => sfx.play('kick', 1, p));
@@ -881,6 +895,7 @@ export class Game {
     e.on('block:placed', (b) => {
       sfx.play('place', 1, { x: b.x + 0.5, y: b.y + 0.5, z: b.z + 0.5 });
       this.blockFx.placed(b.x, b.y, b.z, b.id);
+      this.player.gesture('place');
       rig.shake(0.05);
     });
     e.on('action:denied', ({ reason, item }) => {
@@ -890,6 +905,7 @@ export class Game {
       else if (reason === 'noItems' && item) hud.toast(t('deny.noItems', { item: ITEMS[item].name.toLowerCase() }), true);
     });
     e.on('prop:placed', ({ x, z, type }) => {
+      this.player.gesture('place');
       if (type !== 'solarPanel') return;
       const c = this.base.center;
       const far = Math.hypot(x + 0.5 - c.x, z + 0.5 - c.z) > POWER.cableReach;
@@ -1219,8 +1235,7 @@ export class Game {
     const { rig } = this;
     const site = this.greenhouseState.site;
     const n = GH.size;
-    const inside = !!site && site.done && rp.x >= site.x && rp.x <= site.x + n && rp.z >= site.z && rp.z <= site.z + n && rp.y >= site.floorY && rp.y < site.floorY + GH.wallHeight;
-    if (!inside || !site) {
+    if (!this.insideGreenhouse(rp) || !site) {
       rig.watch = null;
       return;
     }
@@ -1230,6 +1245,13 @@ export class Game {
     w.pos.set(cx + sx * off, site.floorY + GH.camHeight, cz + sz * off);
     w.fov = this.camera.aspect >= 1 ? GH.camFov : GH.camFovTall;
     rig.watch = w;
+  }
+
+  /** dentro da estufa pronta? */
+  private insideGreenhouse(rp: THREE.Vector3): boolean {
+    const site = this.greenhouseState.site;
+    const n = GH.size;
+    return !!site && site.done && rp.x >= site.x && rp.x <= site.x + n && rp.z >= site.z && rp.z <= site.z + n && rp.y >= site.floorY && rp.y < site.floorY + GH.wallHeight;
   }
 
   private updateCover(dt: number): void {
@@ -1276,6 +1298,31 @@ export class Game {
       power: this.power.serialize(),
       greenhouse: this.greenhouseState.serialize(),
     }, SAVE_KEY_NOW);
+  }
+
+  // ---------- item na mão ----------
+
+  /** O astronauta segura o item selecionado na barra (docs/design/PERSONAGEM.md). Só refaz a malha quando o item muda. */
+  private syncHeld(): void {
+    const item = this.inventory.selectedItem();
+    if (item === this.heldItem) return;
+    this.heldItem = item;
+    if (!item) {
+      this.player.setHeld(null);
+      return;
+    }
+    // blocos ficam um cubinho; minérios e peças, do tamanho da luva
+    const block = itemBlock(item) !== undefined;
+    this.player.setHeld(this.itemModels.create(item), block ? 0.2 : 0.26);
+  }
+
+  /** A poeira do chão sob os pés, ou null: dentro da base e da estufa, e em chão que não é solto, não sobe poeira. */
+  private groundDust(): Dust | null {
+    const p = this.player.pos;
+    if (this.base.inside || this.insideGreenhouse(p)) return null;
+    // o chão sob os pés (o astronauta pode estar um tico acima no fim de um degrau)
+    const x = Math.floor(p.x), z = Math.floor(p.z), y = Math.round(p.y) - 1;
+    return dustOf(this.world.peekBlock(x, y, z));
   }
 
   // ---------- pegadas ----------
@@ -1395,6 +1442,7 @@ export class Game {
       p?.end(SUB.debris);
     }
     p?.begin(SUB.sim);
+    this.syncHeld();
     player.animate(dt, this.fixed.alpha);
     p?.end(SUB.sim);
 

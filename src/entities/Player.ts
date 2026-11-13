@@ -3,7 +3,8 @@
 import * as THREE from 'three';
 import { PLANET } from '../core/planet';
 import type { GameBus } from '../app/events';
-import { createAstronaut, type AstronautModel } from '../render/models';
+import { applyPose, createAstronaut, holdDrill, holdItem, type AstronautModel } from '../render/astronaut';
+import { AstronautAnimator, type Gesture } from '../render/astronautAnim';
 import type { IsoRig } from '../render/IsoRig';
 import { LANDER, SPAWN } from '../world/terrain';
 import type { World } from '../world/World';
@@ -27,6 +28,8 @@ type Axis = 'x' | 'y' | 'z';
 
 export class Player {
   readonly model: AstronautModel;
+  /** animação procedural (render/astronautAnim.ts) */
+  readonly anim = new AstronautAnimator();
   readonly pos = new THREE.Vector3(0.5, 30, 0.5);
   /** posição no passo anterior (para interpolar a renderização) */
   readonly prevPos = new THREE.Vector3(0.5, 30, 0.5);
@@ -47,9 +50,8 @@ export class Player {
   /** caminhada roteirizada (entrar e sair da base): sem física, em linha reta */
   private script: { from: THREE.Vector3; to: THREE.Vector3; t: number; dur: number; done?: () => void } | null = null;
   private flash = 0;
-  private squash = 0;
-  private deadPose = 0;
-  private walk = 0;
+  /** segura um item na luva direita (o item da barra selecionado) */
+  private holding = false;
   private stepOffset = 0;
   private stepTimer = 0;
   private time = 0;
@@ -173,6 +175,7 @@ export class Player {
     if (input.jump && this.onGround && !this.dead) {
       this.vel.y = JUMP;
       this.onGround = false;
+      this.anim.jump();
       this.events?.emit('player:jump', { x: p.x, y: p.y, z: p.z });
     }
     input.jump = false;
@@ -189,10 +192,8 @@ export class Player {
     if (this.moveAxis('y', vy * dt)) {
       if (vy < 0) {
         this.onGround = true;
-        if (!wasGround && vy < -7) {
-          this.squash = Math.min(1, -vy / 14);
-          this.events?.emit('player:land', { x: p.x, y: p.y, z: p.z, speed: -vy });
-        }
+        if (!wasGround && vy < -2.5) this.anim.landed(Math.min(1, (-vy - 2.5) / 12));
+        if (!wasGround && vy < -7) this.events?.emit('player:land', { x: p.x, y: p.y, z: p.z, speed: -vy });
       }
       this.vel.y = 0;
     }
@@ -221,50 +222,48 @@ export class Player {
   animate(dt: number, alpha = 1): void {
     this.time += dt;
     const speed = Math.hypot(this.vel.x, this.vel.z);
+    const before = this.facing;
     if (speed > 0.3) this.facing = lerpAngle(this.facing, Math.atan2(this.vel.x, this.vel.z), 1 - Math.exp(-12 * dt));
     if (this.faceTarget !== undefined) this.facing = lerpAngle(this.facing, this.faceTarget, 1 - Math.exp(-14 * dt));
-    this.walk += speed * dt * 2.2;
+    const turn = dt > 0 ? angleDiff(this.facing, before) / dt : 0;
     this.stepOffset *= Math.exp(-14 * dt);
 
     const m = this.model;
     const rp = this.renderPos.lerpVectors(this.prevPos, this.pos, alpha);
     m.root.position.set(rp.x, rp.y + this.stepOffset, rp.z);
     m.root.rotation.y = this.facing;
-    const swing = this.onGround ? Math.sin(this.walk) * Math.min(1, speed / SPEED) : 0;
-    m.legL.rotation.x = this.onGround ? swing * 0.7 : -0.45;
-    m.legR.rotation.x = this.onGround ? -swing * 0.7 : 0.25;
-    m.armL.rotation.x = this.onGround ? -swing * 0.6 : -0.9;
-    m.body.position.y = this.onGround ? Math.abs(Math.sin(this.walk)) * 0.06 * Math.min(1, speed / 2) : 0;
-    if (this.mining) {
-      m.armR.rotation.x = -1.35 + Math.sin(this.time * 30) * 0.12;
-      m.bit.rotation.y += dt * 40;
-    } else {
-      m.armR.rotation.x = this.onGround ? swing * 0.6 : -0.9;
-    }
-    m.body.rotation.z = this.onGround ? Math.sin(this.walk) * 0.04 * Math.min(1, speed / 2) : 0;
-    m.beacon.visible = Math.sin(this.time * 4) > 0;
-
-    // achata ao pousar e volta com mola
-    this.squash = Math.max(0, this.squash - dt * 5);
-    const sq = Math.sin(this.squash * Math.PI) * 0.22 * this.squash;
-    m.body.scale.set(1 + sq * 0.6, 1 - sq, 1 + sq * 0.6);
+    const pose = this.anim.update(dt, {
+      speed, maxSpeed: SPEED, onGround: this.onGround || this.scripted, vy: this.vel.y, turn,
+      mining: this.mining, holding: this.holding, dead: this.dead,
+    });
+    applyPose(m, pose);
+    // broca na luva só minerando; o item da mão some enquanto isso
+    holdDrill(m, this.mining);
+    if (m.grip) for (const c of m.grip.children) if (c !== m.drill) c.visible = !this.mining;
+    if (this.mining && m.bit) m.bit.rotation.y += dt * 40;
+    if (m.beacon) m.beacon.visible = Math.sin(this.time * 4) > 0;
     // pisca vermelho ao levar dano
     this.flash = Math.max(0, this.flash - dt * 4);
     m.suitMat.emissive.setRGB(this.flash * 0.9, this.flash * 0.1, this.flash * 0.05);
-    // invulnerável: pisca; morto: cai de costas
+    // invulnerável: pisca
     m.root.visible = !this.blinking || Math.sin(this.time * 40) > -0.3;
-    this.deadPose += ((this.dead ? 1 : 0) - this.deadPose) * (1 - Math.exp(-6 * dt));
-    if (this.deadPose > 0.001) {
-      m.body.rotation.x = -1.35 * this.deadPose;
-      m.body.position.y += 0.25 * this.deadPose;
-      m.legL.rotation.x *= 1 - this.deadPose;
-      m.legR.rotation.x *= 1 - this.deadPose;
-    } else m.body.rotation.x = 0;
+  }
+
+  /** Item na luva direita (null = mão vazia). `size` em blocos. */
+  setHeld(mesh: THREE.Object3D | null, size?: number): void {
+    holdItem(this.model, mesh, size);
+    this.holding = !!mesh && !!this.model.grip;
+  }
+
+  /** Gesto curto (pôr bloco, comer, pegar). */
+  gesture(g: Gesture): void {
+    if (!this.dead) this.anim.play(g);
   }
 
   /** Retorno visual de dano. */
   hurt(): void {
     this.flash = 1;
+    if (!this.dead) this.anim.play('hurt');
   }
 
   intersectsBlock(x: number, y: number, z: number): boolean {
@@ -275,6 +274,14 @@ export class Player {
   center(): THREE.Vector3 {
     return new THREE.Vector3(this.pos.x, this.pos.y + 0.9, this.pos.z);
   }
+}
+
+/** diferença a - b, no caminho mais curto (rad) */
+function angleDiff(a: number, b: number): number {
+  let d = (a - b) % (Math.PI * 2);
+  if (d > Math.PI) d -= Math.PI * 2;
+  if (d < -Math.PI) d += Math.PI * 2;
+  return d;
 }
 
 function lerpAngle(a: number, b: number, t: number): number {

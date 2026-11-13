@@ -61,6 +61,9 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). **Sessão nova?
   de fora, interior (`habitat_interior.py`) só na de dentro (`interiorOnly`, `src/render/indoors.ts`); medidas em `lib.HAB`. Móveis:
   `furniture.py` (um nó por tipo). Estações: `workbench/furnace/electrolyzer.py`, com animação em laço feita no Blender
   (`lib.keys`, `export(anim=True)`), tocada por `AnimationMixer`.
+- Personagem ([design/PERSONAGEM.md](docs/design/PERSONAGEM.md), ADR 0017): modelo `tools/models/astronaut.py` (voxel chibi, um nó por
+  junta), esqueleto e item na mão em `src/render/astronaut.ts`, animação procedural pura em `src/render/astronautAnim.ts` (testada em
+  `tests/astronautAnim.test.ts`), poeira dos pés em `src/render/dustFx.ts`; teste `tools/visual-check/astronaut.mjs`.
 - **Modo de teste** ([design/TESTE.md](docs/design/TESTE.md), ADR 0015): `?teste` liga um painel de depuração (dar itens, soltar meteoros,
   teleportar, parar o tempo…) com **salvamento próprio**. Catálogo em `src/data/testmode.ts`, executor em `src/app/TestMode.ts`, painel em
   `src/ui/TestPanel.ts`. **Para testar uma mudança, provoque a situação com `window.spacing.testMode.run('…')` em vez de jogar até ela**; o

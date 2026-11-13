@@ -140,9 +140,17 @@ da alta qualidade usa um material próprio da estufa, mais visível que o vidro 
 (`planter`, com a luz `fx_led` que o código pinta), o solo seco e molhado e a batata em `potato_0`..`potato_4` e `potato_dry`
 (murcha), numa célula 1×1 centrada, y = 0 no piso. Ver [ESTUFA.md](ESTUFA.md).
 
+### Astronauta
+
+`tools/models/astronaut.py` (teto 4000): o personagem do jogador em estilo voxel chibi, feito a partir das imagens do dono
+(`docs/art/reference/personagem/`). Um nó vazio por articulação (`pelvis`, `torso`, `head`, `pack`, `arm_l/r`, `fore_l/r`,
+`hand_l/r`, `leg_l/r`, `shin_l/r`, `foot_l/r`) com o pivô na junta; a broca (`drill`, com a ponta `fx_bit`) e os pontos `grip_r`
+(luva direita) e `holster` (cinto). Sem animação no arquivo: o código monta o esqueleto e anima tudo. Ver
+[PERSONAGEM.md](PERSONAGEM.md) e o [ADR 0017](../adr/0017-personagem-do-blender-com-animacao-procedural.md).
+
 ## Próximos candidatos
 
-Astronauta (peças separadas, que o código continua animando), painel solar, pedras e minérios soltos (variações por semente), meteorito caído. Cada um com o seu teto no teste.
+Painel solar, pedras e minérios soltos (variações por semente), meteorito caído. Cada um com o seu teto no teste.
 
 ## Montar o Blender no Codespace
 

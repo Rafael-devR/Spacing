@@ -107,8 +107,15 @@ Pronta em 2026-11-13 ([design/ESTUFA.md](design/ESTUFA.md), ADR 0016): baú na b
 Blender, o cultivo e a fome ainda não foram vistos no celular. **Atenção:** com a fome ligada, todo jogo passa a precisar de comida
 (cheia dura ~80 min).
 
+## Personagem (2026-11-13)
+
+Astronauta novo do Blender em estilo voxel chibi, com animação procedural e item na mão; poeira dos pés refeita
+([design/PERSONAGEM.md](design/PERSONAGEM.md), ADR 0017). O dono acompanhou as prévias do Blender (pediu "mais fofinho", braços mais
+naturais e "mais voxel"), mas **ainda não viu as animações no celular**.
+
 ## O que o dono ainda **não viu** no celular
 
+- **O astronauta novo animado** (correr, pular, cair, pousar, minerar, item na mão, gestos à toa) e a **poeira nova**.
 - **O interior novo da base** (maior, móveis novos) e **as estações do Blender com animação**. Antes disso o dono viu o casco
   de fora e as luzes com halo (sem retorno ainda). Já aprovou o módulo de pouso novo.
 

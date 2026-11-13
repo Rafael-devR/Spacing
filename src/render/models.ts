@@ -188,7 +188,8 @@ function box(w: number, h: number, d: number, mat: THREE.Material, x = 0, y = 0,
   return m;
 }
 
-export interface AstronautModel {
+/** Astronauta antigo feito em código: reserva para quando o .glb não carrega (render/astronaut.ts). */
+export interface CodeAstronaut {
   root: THREE.Group;
   body: THREE.Group;
   head: THREE.Group;
@@ -202,7 +203,7 @@ export interface AstronautModel {
   suitMat: THREE.MeshLambertMaterial;
 }
 
-export function createAstronaut(): AstronautModel {
+export function createAstronaut(): CodeAstronaut {
   const suit = lam('#f1f0ec');
   const accent = lam('#ff7a2f');
   const dark = lam('#4f5668');
@@ -271,14 +272,6 @@ export function createAstronaut(): AstronautModel {
     if (o instanceof THREE.Mesh) o.receiveShadow = false;
   });
   return { root, body, head, legL, legR, armL, armR, bit, beacon, suitMat: suit };
-}
-
-/** Ponta da broca do astronauta: cor, brilho e tamanho da broca em uso (data/drills.ts). */
-export function setDrillLook(model: AstronautModel, look: { bit: string; glow?: string; bitScale: number }): void {
-  const mat = model.bit.material as THREE.MeshLambertMaterial;
-  mat.color.set(look.bit);
-  mat.emissive.set(look.glow ?? '#000000');
-  model.bit.scale.set(look.bitScale, look.bitScale, look.bitScale);
 }
 
 // ---------------- Marcador de objetivo ----------------

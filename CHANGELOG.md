@@ -7,6 +7,11 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Adicionado
 
+- **Astronauta novo, do Blender, com animações** ([design/PERSONAGEM.md](docs/design/PERSONAGEM.md),
+  [ADR 0017](docs/adr/0017-personagem-do-blender-com-animacao-procedural.md)). Voxel chibi a partir das imagens do dono (capacete
+  grande, visor escuro, fones laranja, faixas escuras). Animação procedural: parado, à toa, andar, correr, curva, pulo, queda, pouso,
+  minerar, item na mão, pôr bloco, comer, dor e morte. O item selecionado na barra aparece na mão; a broca vai para o cinto quando não
+  está em uso. Teste: `tools/visual-check/astronaut.mjs`.
 - **Estufa: câmera de segurança por dentro.** Dentro da estufa pronta, a câmera fica presa a um canto alto da cúpula, com lente aberta, e mostra o piso e os canteiros inteiros; girar troca de canto; fora dela, a câmera normal volta.
 - **Estufa, primeira parte** ([design/ESTUFA.md](docs/design/ESTUFA.md), [ADR 0016](docs/adr/0016-estufa-como-estrutura-com-holograma-e-qualidade-por-peca.md)).
   Um **baú** na base (as caixas da parede sul) entrega o projeto e o material; lá fora, o projeto no modo construir mostra um
@@ -22,6 +27,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Corrigido
 
+- **Poeira dos pés:** tinha a mesma cor em qualquer chão e aparecia até dentro da base. Agora tem a cor do chão, só sai de chão solto,
+  nunca dentro da base ou da estufa, e tem mais detalhe (nuvem macia para trás, pedrinhas em arco, anel no pouso).
 - **Z-fighting nos modelos** (base, estufa, móveis, máquinas): faces coplanares sobrepostas piscavam. Ao carregar, a face de cima sobe 6 mm (`src/render/coplanar.ts`); ferramenta `tools/visual-check/zfight.mjs` e teste.
 - **Escada da base flutuando e sem colisão.** O gerador agora nivela uma plataforma plana sob a base (Lua e Marte, `world/basePad.ts`) e
   constrói o degrau da porta com blocos de verdade: uma sacada de metal 3×2, sólida e rente ao piso. Vale em toda semente. `WORLD_GEN`

@@ -7,6 +7,7 @@
 // Se um arquivo não carregar, `model()` devolve null e o jogo usa o modelo feito em código.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import astronautUrl from '../assets/models/astronaut.glb?url';
 import electrolyzerUrl from '../assets/models/electrolyzer.glb?url';
 import farmUrl from '../assets/models/farm.glb?url';
 import furnaceUrl from '../assets/models/furnace.glb?url';
@@ -21,10 +22,10 @@ import { separateCoplanar } from './coplanar';
 import { patchMaterial } from './materials';
 
 export type ModelId =
-  | 'lander' | 'habitat' | 'habitat_interior' | 'furniture' | 'workbench' | 'furnace' | 'electrolyzer' | 'meteor' | 'greenhouse' | 'farm';
+  | 'astronaut' | 'lander' | 'habitat' | 'habitat_interior' | 'furniture' | 'workbench' | 'furnace' | 'electrolyzer' | 'meteor' | 'greenhouse' | 'farm';
 
 const URLS: Record<ModelId, string> = {
-  lander: landerUrl, habitat: habitatUrl, habitat_interior: habitatInteriorUrl, furniture: furnitureUrl,
+  astronaut: astronautUrl, lander: landerUrl, habitat: habitatUrl, habitat_interior: habitatInteriorUrl, furniture: furnitureUrl,
   workbench: workbenchUrl, furnace: furnaceUrl, electrolyzer: electrolyzerUrl, meteor: meteorUrl,
   greenhouse: greenhouseUrl, farm: farmUrl,
 };

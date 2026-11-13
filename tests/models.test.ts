@@ -10,7 +10,7 @@ const GLBS = import.meta.glob('../src/assets/models/*.glb', { query: '?inline', 
 /** orçamento de triângulos por modelo (docs/design/MODELOS.md): o celular já desenha o terreno e a sombra */
 const BUDGET: Record<string, number> = {
   lander: 3000, habitat: 4000, habitat_interior: 4500, furniture: 4000, workbench: 1500, furnace: 1500, electrolyzer: 1200, meteor: 1500,
-  greenhouse: 7000, farm: 3000,
+  greenhouse: 7000, farm: 3000, astronaut: 4000,
 };
 /** pontos que o código procura em cada modelo */
 const MARKERS: Record<string, string[]> = {
@@ -27,6 +27,11 @@ const MARKERS: Record<string, string[]> = {
   meteor: ['rock_a', 'rock_b', 'rock_c', 'body_a', 'lit_a'],
   // estufa: cada peça em baixa e alta qualidade (render/greenhouseModel.ts); cultivo: canteiro, solo e os estágios da batata
   greenhouse: ['floor', 'wallS', 'wallN', 'wallW', 'wallE', 'frame', 'glass'].flatMap((p) => [`${p}_low`, `${p}_high`]),
+  // astronauta: uma junta por articulação (render/astronaut.ts monta o esqueleto) e os pontos da mão e do cinto
+  astronaut: [
+    'pelvis', 'torso', 'head', 'pack', 'arm_l', 'fore_l', 'hand_l', 'arm_r', 'fore_r', 'hand_r',
+    'leg_l', 'shin_l', 'foot_l', 'leg_r', 'shin_r', 'foot_r', 'drill', 'fx_bit', 'grip_r', 'holster', 'glow_visor',
+  ],
   farm: ['planter', 'fx_led', 'soil_dry', 'soil_wet', 'potato_0', 'potato_1', 'potato_2', 'potato_3', 'potato_4', 'potato_dry'],
 };
 /** máquinas com animação feita no Blender */
