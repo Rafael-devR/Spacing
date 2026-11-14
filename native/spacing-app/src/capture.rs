@@ -68,6 +68,7 @@ pub fn run(dir: &str, opts: Options) {
             backend: &r.backend,
             size: (w, h),
             msaa: r.msaa(),
+            present: r.present_mode(),
             planet: planet(game.planet).name,
             seed: game.seed,
             pos: game.player.pos,
@@ -102,4 +103,24 @@ pub fn run(dir: &str, opts: Options) {
             game.player.pos[2]
         );
     }
+    // troca de planeta com o mesmo desenho (como no app: o Android não deixa recriar a superfície)
+    let other = match opts.planet {
+        spacing_core::planet::PlanetId::Lua => spacing_core::planet::PlanetId::Marte,
+        spacing_core::planet::PlanetId::Marte => spacing_core::planet::PlanetId::Lua,
+    };
+    r.set_planet(planet(other));
+    let mut game = Game::new(other, opts.seed, 3);
+    for _ in 0..30 {
+        game.update(dt, &mut c);
+        game.sync(&mut r);
+    }
+    let frame = game.frame(&models, w as f64 / h as f64);
+    r.render(&frame, None).expect("quadro depois da troca");
+    let px = r.read_pixels().expect("pixels");
+    let file = std::fs::File::create(format!("{dir}/6-trocou.png")).expect("arquivo");
+    let mut enc = png::Encoder::new(std::io::BufWriter::new(file), w, h);
+    enc.set_color(png::ColorType::Rgba);
+    enc.set_depth(png::BitDepth::Eight);
+    enc.write_header().and_then(|mut wr| wr.write_image_data(&px)).expect("png");
+    println!("troca de planeta ok");
 }

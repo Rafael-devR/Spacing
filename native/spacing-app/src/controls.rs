@@ -12,6 +12,7 @@ pub enum Button {
     ZoomOut,
     Stats,
     Planet,
+    Vsync,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -38,6 +39,7 @@ pub struct Actions {
     pub zoom: f64,
     pub toggle_stats: bool,
     pub switch_planet: bool,
+    pub toggle_vsync: bool,
 }
 
 pub struct Controls {
@@ -77,6 +79,7 @@ impl Controls {
             ButtonRect { b: Button::ZoomOut, x: w - m - small, y: m + small * 3.4 + 40.0 * u, r: small },
             ButtonRect { b: Button::Stats, x: m + small, y: m + small, r: small },
             ButtonRect { b: Button::Planet, x: m + small * 3.6, y: m + small, r: small },
+            ButtonRect { b: Button::Vsync, x: m + small * 6.2, y: m + small, r: small },
         ];
         let _ = h;
     }
@@ -95,6 +98,7 @@ impl Controls {
             Button::ZoomIn | Button::ZoomOut => {}
             Button::Stats => a.toggle_stats = true,
             Button::Planet => a.switch_planet = true,
+            Button::Vsync => a.toggle_vsync = true,
         }
     }
 
@@ -168,6 +172,7 @@ impl Controls {
                     "e" => self.actions.rotate += 1.0,
                     "f3" | "tab" => self.actions.toggle_stats = true,
                     "m" => self.actions.switch_planet = true,
+                    "v" => self.actions.toggle_vsync = true,
                     _ => {}
                 }
             }

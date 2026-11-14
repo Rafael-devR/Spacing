@@ -41,8 +41,8 @@ O APK de teste sai do GitHub Actions (`.github/workflows/native-apk.yml`), artef
 ## Controles
 
 - **Celular:** joystick na metade esquerda (aparece onde o dedo toca), PULAR embaixo à direita, `<` `>` giram a câmera,
-  `+` `-` (segurar) aproximam e afastam, `i` liga e desliga o medidor, `M` troca Lua e Marte.
-- **Computador:** WASD ou setas, espaço pula, Q e E giram, roda do mouse dá zoom, Tab ou F3 liga o medidor, M troca o planeta.
+  `+` `-` (segurar) aproximam e afastam, `i` liga e desliga o medidor, `M` troca Lua e Marte, `V` liga e desliga o vsync (por padrão o FPS é **sem limite**, para ver quanto o aparelho aguenta; o medidor mostra o modo).
+- **Computador:** WASD ou setas, espaço pula, Q e E giram, roda do mouse dá zoom, Tab ou F3 liga o medidor, M troca o planeta, V liga/desliga o vsync.
 
 ## Comparar com o jogo web
 

@@ -45,6 +45,7 @@ struct App {
     meter: hud::Meter,
     stats: FrameStats,
     show_stats: bool,
+    vsync: bool,
     last: Option<Instant>,
     cursor: (f32, f32),
     /// por que o desenho não subiu (fica no log; a tela só mostra preto)
@@ -68,6 +69,7 @@ impl App {
             meter: hud::Meter::default(),
             stats: FrameStats::default(),
             show_stats: true,
+            vsync: false,
             last: None,
             cursor: (0.0, 0.0),
             failed: None,
@@ -112,17 +114,24 @@ impl App {
             PlanetId::Lua => PlanetId::Marte,
             PlanetId::Marte => PlanetId::Lua,
         };
-        // a luz e o céu mudam com o planeta: refaz o desenho e o mundo
+        // o desenho fica (a superfície não pode ser recriada no Android): só a luz e o céu mudam; o mundo é refeito
         self.game = None;
-        self.renderer = None;
-        self.models = None;
+        if let Some(r) = &mut self.renderer {
+            r.set_planet(planet(self.opts.planet));
+        }
     }
 
-    fn frame(&mut self, event_loop: &ActiveEventLoop) {
+    fn frame(&mut self, _event_loop: &ActiveEventLoop) {
         if self.controls.actions.switch_planet {
             self.controls.actions.switch_planet = false;
             self.switch_planet();
-            self.create_renderer(event_loop);
+        }
+        if self.controls.actions.toggle_vsync {
+            self.controls.actions.toggle_vsync = false;
+            self.vsync = !self.vsync;
+            if let Some(r) = &mut self.renderer {
+                r.set_vsync(self.vsync);
+            }
         }
         if self.controls.actions.toggle_stats {
             self.controls.actions.toggle_stats = false;
@@ -154,6 +163,7 @@ impl App {
             backend: &r.backend,
             size,
             msaa: r.msaa(),
+            present: r.present_mode(),
             planet: planet(game.planet).name,
             seed: game.seed,
             pos: game.player.pos,

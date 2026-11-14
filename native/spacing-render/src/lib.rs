@@ -156,6 +156,7 @@ pub struct Renderer {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     msaa: u32,
+    present_modes: Vec<wgpu::PresentMode>,
     color_ms: Option<wgpu::TextureView>,
     depth: wgpu::TextureView,
     globals: wgpu::Buffer,
@@ -174,6 +175,23 @@ pub struct Renderer {
     /// "Vulkan", "Gl"… (a tela diz o que está usando)
     pub backend: String,
     pub adapter_name: String,
+}
+
+impl Lighting {
+    fn for_planet(planet: &PlanetDef) -> Self {
+        let l = &planet.light;
+        Lighting {
+            sun_dir: Vec3::new(-14.0, 26.0, 9.0).normalize(),
+            sun: lin(l.sun, l.sun_power),
+            hemi_sky: lin(l.sky, l.hemi),
+            hemi_ground: lin(l.ground, l.hemi),
+            bg_top: lin(planet.sky.top, 1.0),
+            bg_bot: lin(planet.sky.bottom, 1.0),
+            mist: lin(planet.sky.mist, 1.0),
+            stars: planet.sky.stars,
+            sparkle: planet.key == "lua",
+        }
+    }
 }
 
 fn lin(hex: &str, mul: f64) -> [f32; 3] {
@@ -221,12 +239,12 @@ impl Renderer {
             .request_device(&wgpu::DeviceDescriptor { label: Some("spacing"), required_limits: limits.clone(), ..Default::default() })
             .await
             .map_err(|e| format!("dispositivo: {e}"))?;
-        let (format, alpha) = match &surface {
+        let (format, alpha, present_modes) = match &surface {
             Some(s) => {
                 let caps = s.get_capabilities(&adapter);
-                (caps.formats.iter().copied().find(|f| f.is_srgb()).unwrap_or(caps.formats[0]), caps.alpha_modes[0])
+                (caps.formats.iter().copied().find(|f| f.is_srgb()).unwrap_or(caps.formats[0]), caps.alpha_modes[0], caps.present_modes)
             }
-            None => (wgpu::TextureFormat::Rgba8UnormSrgb, wgpu::CompositeAlphaMode::Opaque),
+            None => (wgpu::TextureFormat::Rgba8UnormSrgb, wgpu::CompositeAlphaMode::Opaque, Vec::new()),
         };
         let flags = adapter.get_texture_format_features(format).flags;
         let msaa = if flags.sample_count_supported(4) && adapter.get_texture_format_features(DEPTH).flags.sample_count_supported(4) { 4 } else { 1 };
@@ -235,7 +253,8 @@ impl Renderer {
             format,
             width: width.max(1),
             height: height.max(1),
-            present_mode: wgpu::PresentMode::Fifo,
+            // sem limite de FPS por padrão (o app pode voltar ao vsync): o que a placa suportar de mais solto
+            present_mode: Self::pick_mode(&present_modes, false),
             desired_maximum_frame_latency: 2,
             alpha_mode: alpha,
             view_formats: vec![],
@@ -375,19 +394,7 @@ impl Renderer {
         });
         let egui = egui_wgpu::Renderer::new(&device, format, egui_wgpu::RendererOptions::default());
 
-        let l = &planet.light;
-        let sd = Vec3::new(-14.0, 26.0, 9.0).normalize();
-        let light = Lighting {
-            sun_dir: sd,
-            sun: lin(l.sun, l.sun_power),
-            hemi_sky: lin(l.sky, l.hemi),
-            hemi_ground: lin(l.ground, l.hemi),
-            bg_top: lin(planet.sky.top, 1.0),
-            bg_bot: lin(planet.sky.bottom, 1.0),
-            mist: lin(planet.sky.mist, 1.0),
-            stars: planet.sky.stars,
-            sparkle: planet.key == "lua",
-        };
+        let light = Lighting::for_planet(planet);
         let (color_ms, depth) = Self::targets(&device, &config, msaa);
         Ok(Self {
             surface,
@@ -396,6 +403,7 @@ impl Renderer {
             queue,
             config,
             msaa,
+            present_modes,
             color_ms,
             depth,
             globals,
@@ -479,6 +487,36 @@ impl Renderer {
         (color, tex(DEPTH, "profundidade"))
     }
 
+    /// Imediato (sem espera), senão Mailbox (sem espera, mas sem rasgar), senão Fifo (vsync, sempre existe).
+    fn pick_mode(modes: &[wgpu::PresentMode], vsync: bool) -> wgpu::PresentMode {
+        use wgpu::PresentMode::*;
+        if !vsync {
+            for m in [Immediate, Mailbox] {
+                if modes.contains(&m) {
+                    return m;
+                }
+            }
+        }
+        Fifo
+    }
+
+    /// Liga ou desliga o vsync (desligado = FPS sem limite, se a placa deixar).
+    pub fn set_vsync(&mut self, on: bool) {
+        self.config.present_mode = Self::pick_mode(&self.present_modes, on);
+        if let Some(s) = &self.surface {
+            s.configure(&self.device, &self.config);
+        }
+    }
+
+    pub fn present_mode(&self) -> &'static str {
+        match self.config.present_mode {
+            wgpu::PresentMode::Fifo | wgpu::PresentMode::FifoRelaxed => "vsync",
+            wgpu::PresentMode::Mailbox => "sem limite (mailbox)",
+            wgpu::PresentMode::Immediate => "sem limite",
+            _ => "?",
+        }
+    }
+
     pub fn size(&self) -> (u32, u32) {
         (self.config.width, self.config.height)
     }
@@ -527,6 +565,13 @@ impl Renderer {
             usage: wgpu::BufferUsages::VERTEX,
         });
         self.chunks.insert(key, ChunkGpu { buf, count: m.verts.len() as u32, min: lo, max: hi });
+    }
+
+    /// Troca de planeta sem recriar a superfície (o Android não aceita criar duas na mesma janela): novas cores de luz e de céu,
+    /// e as malhas do mundo antigo saem.
+    pub fn set_planet(&mut self, planet: &PlanetDef) {
+        self.light = Lighting::for_planet(planet);
+        self.chunks.clear();
     }
 
     pub fn remove_chunk(&mut self, k: Key) {
