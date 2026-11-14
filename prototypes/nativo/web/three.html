@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Teste: Three.js no navegador</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #05050d; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+  #texto {
+    position: fixed; left: 12px; top: 12px; padding: 8px 12px; background: rgba(0, 0, 0, 0.66); color: #ebebf5;
+    font: 600 14px/1.5 ui-monospace, monospace; white-space: pre; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div id="texto"></div>
+<script type="module" src="./three.ts"></script>
+</body>
+</html>

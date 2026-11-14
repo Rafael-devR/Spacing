@@ -15,7 +15,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "android:sync": "npm run build && cap sync android",
-    "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug"
+    "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug",
+    "proto:web": "vite prototypes/nativo/web --config vite.config.ts --host --port 5174"
   },
   "dependencies": {
     "@capacitor-community/keep-awake": "^8.0.1",

@@ -1,0 +1,41 @@
+[package]
+name = "spacing-bench"
+version = "0.1.0"
+edition = "2021"
+description = "Protótipo de comparação: a mesma cena em Rust/wgpu nativo (Android) e no navegador (WASM), contra o Three.js (docs/design/NATIVO.md)"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wgpu = { version = "30", default-features = false, features = ["wgsl"] }
+winit = { version = "0.30", default-features = false, features = ["rwh_06"] }
+bytemuck = { version = "1", features = ["derive"] }
+log = "0.4"
+web-time = "1"
+
+[target.'cfg(target_os = "android")'.dependencies]
+winit = { version = "0.30", default-features = false, features = ["rwh_06", "android-native-activity"] }
+wgpu = { version = "30", default-features = false, features = ["wgsl", "vulkan", "gles"] }
+android_logger = "0.15"
+pollster = "1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wgpu = { version = "30", default-features = false, features = ["wgsl", "webgl"] }
+wasm-bindgen = "=0.2.130"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = ["Document", "Window", "Element", "HtmlCanvasElement"] }
+console_error_panic_hook = "0.1"
+
+# computador (Linux): só para rodar os testes e checar o código
+[target.'cfg(not(any(target_os = "android", target_arch = "wasm32")))'.dependencies]
+pollster = "1"
+winit = { version = "0.30", default-features = false, features = ["rwh_06", "x11"] }
+wgpu = { version = "30", default-features = false, features = ["wgsl", "vulkan", "gles"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

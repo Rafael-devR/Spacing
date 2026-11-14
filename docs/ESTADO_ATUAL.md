@@ -133,8 +133,14 @@ certinho depois de "Jogar" ([design/TITULO.md](design/TITULO.md), ADR 0020). Dep
 O dono pediu o jogo num APK (Capacitor) e escolheu gerar pelo GitHub Actions: [design/APK.md](design/APK.md), ADR 0022. O APK compila e
 assina aqui, mas **nunca rodou num aparelho**.
 
+## Protótipo nativo (2026-11-14)
+
+O dono acha o jogo pesado no celular e quer saber se vale reescrever nativo (Rust). Antes de reescrever, a régua: [design/NATIVO.md](design/NATIVO.md).
+Esperando ele rodar as três versões no celular e mandar os resultados.
+
 ## O que o dono ainda **não viu** no celular
 
+- **O protótipo nativo** (as três telas de RESULTADO: Three.js, Rust no navegador, APK nativo).
 - **O app Android** (instalar o APK do GitHub; barras escondidas, Voltar, pausa ao sair, som, desempenho).
 - **A pausa nova** (Salvar, Sair para o título, configurações únicas) e **a tela de título e o carregamento** (o planeta low poly com blocos no fundo, os botões, as configurações, o tempo de carregar no celular).
 - **A tela de itens nova** (mochila e estações): arrastar com o dedo, segurar para metade, toque duplo, soltar na entrada da máquina,

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spacing: comparação de desempenho</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #120f26; color: #f4f0e8; font: 16px system-ui, sans-serif; }
+  main { max-width: 520px; padding: 24px; display: grid; gap: 14px; }
+  h1 { margin: 0; font-size: 26px; }
+  p { margin: 0; color: rgba(244, 240, 232, 0.7); line-height: 1.45; }
+  a { display: block; padding: 14px 16px; border-radius: 10px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); color: inherit; text-decoration: none; }
+  a b { display: block; font-size: 17px; }
+  a span { font-size: 13px; color: rgba(244, 240, 232, 0.65); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Comparação de desempenho</h1>
+  <p>A mesma cena de cubos, desenhada de três jeitos. Cada teste mede a tela e sobe a carga até cair de 60 quadros por segundo.
+     Deixe o celular deitado, com o brilho normal, e espere aparecer <b>RESULTADO</b> (1 a 3 minutos).</p>
+  <a href="three.html"><b>1. Three.js no navegador</b><span>Como o jogo funciona hoje.</span></a>
+  <a href="rust.html"><b>2. Rust no navegador (WebAssembly)</b><span>O mesmo desenho do app nativo, rodando dentro do navegador.</span></a>
+  <p>3. <b>Rust nativo no Android</b>: instale o APK <i>spacing-teste-nativo</i> (GitHub → Actions → "Teste nativo (protótipo)").</p>
+</main>
+</body>
+</html>

@@ -3,7 +3,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'android/**'] },
+  { ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'android/**', 'prototypes/nativo/web/pkg/**', 'prototypes/nativo/target/**', 'prototypes/nativo/android/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

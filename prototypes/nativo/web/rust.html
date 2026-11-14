@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Teste: Rust no navegador</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #05050d; overflow: hidden; }
+  #tela { display: block; width: 100vw; height: 100vh; touch-action: none; }
+</style>
+</head>
+<body>
+<canvas id="tela"></canvas>
+<script type="module">
+  // o protótipo em Rust (src/lib.rs) compilado para WebAssembly; ele mesmo escreve os números na tela
+  import init from './pkg/spacing_bench.js';
+  init();
+</script>
+</body>
+</html>
