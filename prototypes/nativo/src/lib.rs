@@ -14,7 +14,7 @@ use winit::event::{ElementState, TouchPhase, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy};
 use winit::window::{Window, WindowId};
 
-use bench::{Phase, Ramp};
+use bench::{Kind, Phase, Ramp};
 use gfx::Gfx;
 
 /// o que chega pela fila do laço: no navegador a placa de vídeo é pedida de forma assíncrona
@@ -33,6 +33,7 @@ struct App {
     platform: &'static str,
 }
 
+/// triângulos para o texto: "2,8 MI" ou "850 MIL"
 fn fmt_tris(t: u64) -> String {
     if t == 0 {
         "-".into()
@@ -43,8 +44,15 @@ fn fmt_tris(t: u64) -> String {
     }
 }
 
-fn fmt_draws(d: u32) -> String {
-    if d == 0 { "-".into() } else { d.to_string() }
+/// "mediana (menor-maior)" de um dos quatro resultados, na unidade certa
+fn fmt_stat(r: &Ramp, k: Kind) -> String {
+    match r.stats(k) {
+        None => "-".into(),
+        Some((m, lo, hi)) => {
+            let f = |l: u32| if k.is_draws() { l.to_string() } else { fmt_tris(k.amount(l)) };
+            if lo == hi { f(m) } else { format!("{} ({}-{})", f(m), f(lo), f(hi)) }
+        }
+    }
 }
 
 impl App {
@@ -100,25 +108,29 @@ impl App {
         let dim = [160, 165, 185, 255];
         let ok = [120, 230, 150, 255];
         let orange = [255, 150, 80, 255];
+        let warn = [255, 210, 90, 255];
         let mut out = vec![
             (format!("SPACING - TESTE {}", self.platform), orange),
-            (format!("GRAFICOS: {}   TELA: {}X{}", g.map(|g| g.backend.to_uppercase()).unwrap_or_default(), w, h), dim),
-            (if r.hz > 0.0 { format!("TAXA DA TELA: {:.0} HZ", r.hz) } else { "MEDINDO A TELA...".into() }, dim),
+            (format!("GRAFICOS: {}   TELA: {}X{} ({:.2} MP)", g.map(|g| g.backend.to_uppercase()).unwrap_or_default(), w, h, (w as f64 * h as f64) / 1e6).replace('.', ","), dim),
         ];
-        match r.phase {
-            Phase::Refresh => {}
-            Phase::Draws => out.push((format!("> CHAMADAS DE DESENHO: {}   ({:.1} MS)", r.level, r.last_ms).replace('.', ","), white)),
-            Phase::Tris => out.push((format!("> TRIANGULOS: {}   ({:.1} MS)", fmt_tris(r.triangles()), r.last_ms).replace('.', ","), white)),
-            Phase::Done => out.push(("RESULTADO".into(), ok)),
+        let rounds = if r.phase == Phase::Done { "RESULTADO".to_string() } else { format!("RODADA {}/{}", r.round + 1, bench::ROUNDS) };
+        out.push((if r.hz > 0.0 { format!("TAXA DA TELA: {:.0} HZ   {}", r.hz, rounds) } else { "MEDINDO A TELA...".into() }, if r.phase == Phase::Done { ok } else { dim }));
+        if r.hz > 0.0 && r.no120 && r.phase != Phase::Done {
+            out.push(("MEXA O DEDO NA TELA PARA ELA IR A 120 HZ".into(), warn));
         }
-        if r.phase != Phase::Refresh {
-            out.push((format!("CHAMADAS DE DESENHO  60 FPS: {}   120 FPS: {}", fmt_draws(r.draws60), fmt_draws(r.draws120)), white));
+        match r.kind() {
+            Some(k) if k.is_draws() => out.push((format!("> CHAMADAS DE DESENHO: {}   ({:.1} MS)", r.level, r.last_ms).replace('.', ","), white)),
+            Some(_) => out.push((format!("> TRIANGULOS: {}   ({:.1} MS)", fmt_tris(r.triangles()), r.last_ms).replace('.', ","), white)),
+            None => {}
         }
-        if matches!(r.phase, Phase::Tris | Phase::Done) {
-            out.push((format!("TRIANGULOS  60 FPS: {}   120 FPS: {}", fmt_tris(r.tris60), fmt_tris(r.tris120)), white));
+        if r.hz > 0.0 {
+            out.push((format!("CHAMADAS 60 FPS: {}", fmt_stat(r, Kind::Draws60)), white));
+            out.push((format!("CHAMADAS 120 FPS: {}", fmt_stat(r, Kind::Draws120)), white));
+            out.push((format!("TRIANGULOS 60 FPS: {}", fmt_stat(r, Kind::Tris60)), white));
+            out.push((format!("TRIANGULOS 120 FPS: {}", fmt_stat(r, Kind::Tris120)), white));
         }
         if r.phase == Phase::Done {
-            out.push(("TOQUE PARA REPETIR".into(), dim));
+            out.push((if r.no120 { "TELA A 60 HZ: SEM 120 FPS. REPITA MEXENDO O DEDO".into() } else { "TOQUE PARA REPETIR".to_string() }, dim));
         }
         out
     }

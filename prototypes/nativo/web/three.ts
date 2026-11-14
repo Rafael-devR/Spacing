@@ -3,35 +3,116 @@
 // bater com os de lá; se mudar um, mude o outro.
 import * as THREE from 'three';
 
-const WARMUP_S = 0.6, MEASURE_S = 1.5, STEP = 1.25, MS_60 = 17.5, MS_120 = 8.8;
+// as mesmas constantes e a mesma busca de src/bench.rs (versão 2): sobe 60% por passo até falhar e divide ao meio, em 3 rodadas
+const WARMUP_S = 0.4, MEASURE_S = 1.0, GALLOP = 1.6, BISECT_MAX = 6, ROUNDS = 3, MS_60 = 17.5, MS_120 = 8.8, MIN_HZ_120 = 100;
 const DRAW_START = 16, DRAW_MAX = 16384, DRAW_CUBES = 32;
 const TRIS_CHUNKS = 16, TRIS_START = 512, TRIS_MAX = 131072, CUBE_TRIS = 12;
 const CHUNK = 8, SPACING = 10, DRAW_MESHES = 64;
 
-type Phase = 'refresh' | 'draws' | 'tris' | 'done';
+type Kind = 0 | 1 | 2 | 3; // chamadas 60, chamadas 120, triângulos 60, triângulos 120
+const isDraws = (k: Kind): boolean => k < 2;
+const is120 = (k: Kind): boolean => k === 1 || k === 3;
+const targetMs = (k: Kind): number => (is120(k) ? MS_120 : MS_60);
+const kStart = (k: Kind): number => (isDraws(k) ? DRAW_START : TRIS_START);
+const kMax = (k: Kind): number => (isDraws(k) ? DRAW_MAX : TRIS_MAX);
+const at60 = (k: Kind): Kind => (isDraws(k) ? 0 : 2);
+const amount = (k: Kind, level: number): number => (isDraws(k) ? level : TRIS_CHUNKS * level * CUBE_TRIS);
+
+type Phase = 'refresh' | 'search' | 'done';
+type Results = (number | null)[];
 
 class Ramp {
   phase: Phase = 'refresh';
+  kind: Kind = 0;
+  round = 0;
   level = 0;
   private t = 0;
   private sum = 0;
   private frames = 0;
   lastMs = 0;
   hz = 0;
-  draws60 = 0;
-  draws120 = 0;
-  tris60 = 0;
-  tris120 = 0;
+  no120 = false;
+  private lo = 0;
+  private hi: number | null = null;
+  private iter = 0;
+  private cur: Results = [null, null, null, null];
+  rounds: Results[] = [];
 
   load(): [number, number] {
-    if (this.phase === 'draws') return [this.level, DRAW_CUBES];
-    if (this.phase === 'tris') return [TRIS_CHUNKS, this.level];
-    return [0, 0];
+    if (this.phase !== 'search') return [0, 0];
+    return isDraws(this.kind) ? [this.level, DRAW_CUBES] : [TRIS_CHUNKS, this.level];
   }
 
   triangles(): number {
     const [d, c] = this.load();
     return d * c * CUBE_TRIS;
+  }
+
+  /** [mediana, menor, maior] do nível que coube em `k`, entre as rodadas terminadas e a atual */
+  stats(k: Kind): [number, number, number] | null {
+    const v = this.rounds.map((r) => r[k]).filter((x): x is number => x !== null);
+    if (this.cur[k] !== null) v.push(this.cur[k] as number);
+    if (!v.length) return null;
+    v.sort((a, b) => a - b);
+    return [v[Math.floor(v.length / 2)], v[0], v[v.length - 1]];
+  }
+
+  private begin(k: Kind): void {
+    this.phase = 'search';
+    this.kind = k;
+    this.lo = 0;
+    this.hi = null;
+    this.iter = 0;
+    let start = kStart(k);
+    if (is120(k)) start = Math.max(start, Math.floor((this.cur[at60(k)] ?? 0) / 6));
+    this.level = Math.min(start, kMax(k));
+  }
+
+  private nextAfter(k: Kind): void {
+    if (k === 3) {
+      this.rounds.push(this.cur);
+      this.cur = [null, null, null, null];
+      this.round++;
+      this.level = 0;
+      this.phase = this.round >= ROUNDS ? 'done' : 'refresh';
+      return;
+    }
+    const n = (k + 1) as Kind;
+    if (is120(n) && this.no120) {
+      this.cur[n] = null;
+      this.nextAfter(n);
+    } else this.begin(n);
+  }
+
+  private finish(k: Kind): void {
+    this.cur[k] = this.lo;
+    this.nextAfter(k);
+  }
+
+  private bisectOrFinish(k: Kind): void {
+    const hi = this.hi ?? this.level;
+    if (this.iter >= BISECT_MAX || hi - this.lo <= Math.max(1, Math.floor(this.lo / 32))) this.finish(k);
+    else this.level = this.lo + Math.floor((hi - this.lo) / 2);
+  }
+
+  private step(k: Kind, avg: number): void {
+    const pass = avg <= targetMs(k);
+    if (this.hi === null) {
+      if (pass) {
+        this.lo = this.level;
+        if (this.level >= kMax(k)) this.finish(k);
+        else this.level = Math.min(kMax(k), Math.ceil(this.level * GALLOP));
+      } else {
+        this.hi = this.level;
+        this.iter = 0;
+        this.bisectOrFinish(k);
+      }
+    } else {
+      if (pass) this.lo = this.level;
+      else this.hi = this.level;
+      this.iter++;
+      this.bisectOrFinish(k);
+    }
   }
 
   /** um quadro de `dt` segundos; `true` quando a carga mudou */
@@ -45,37 +126,11 @@ class Ramp {
     const avg = this.sum / this.frames;
     this.lastMs = avg;
     this.t = this.sum = this.frames = 0;
-    const next = (l: number, max: number): number => Math.min(max, Math.ceil(l * STEP));
     if (this.phase === 'refresh') {
       this.hz = 1000 / avg;
-      this.phase = 'draws';
-      this.level = DRAW_START;
-    } else if (this.phase === 'draws') {
-      if (avg <= MS_120) this.draws120 = this.level;
-      const n = next(this.level, DRAW_MAX);
-      if (avg <= MS_60) {
-        this.draws60 = this.level;
-        if (n !== this.level) {
-          this.level = n;
-          return true;
-        }
-      }
-      this.phase = 'tris';
-      this.level = TRIS_START;
-    } else if (this.phase === 'tris') {
-      const tris = this.triangles();
-      if (avg <= MS_120) this.tris120 = tris;
-      const n = next(this.level, TRIS_MAX);
-      if (avg <= MS_60) {
-        this.tris60 = tris;
-        if (n !== this.level) {
-          this.level = n;
-          return true;
-        }
-      }
-      this.phase = 'done';
-      this.level = 0;
-    }
+      this.no120 = this.hz < MIN_HZ_120;
+      this.begin(0);
+    } else this.step(this.kind, avg);
     return true;
   }
 }
@@ -177,7 +232,12 @@ function setLoad(d: number, c: number): void {
 }
 
 const fmtTris = (t: number): string => (!t ? '-' : t >= 1e6 ? `${(t / 1e6).toFixed(1).replace('.', ',')} MI` : `${Math.floor(t / 1000)} MIL`);
-const fmtDraws = (d: number): string => (d ? String(d) : '-');
+const fmtStat = (r: Ramp, k: Kind): string => {
+  const st = r.stats(k);
+  if (!st) return '-';
+  const f = (l: number): string => (isDraws(k) ? String(l) : fmtTris(amount(k, l)));
+  return st[1] === st[2] ? f(st[0]) : `${f(st[0])} (${f(st[1])}-${f(st[2])})`;
+};
 
 let ramp = new Ramp();
 const text = document.getElementById('texto') as HTMLElement;
@@ -185,16 +245,18 @@ const gl = renderer.getContext();
 const dbg = gl.getExtension('WEBGL_debug_renderer_info');
 const gpu = (dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) : 'WebGL2').slice(0, 40);
 addEventListener('pointerup', () => {
-  if (ramp.phase === 'done') {
+  if (started && ramp.phase === 'done') {
     ramp = new Ramp();
     setLoad(0, 0);
   }
 });
 
-const t0 = performance.now();
+let t0 = 0;
 let last = 0;
+let started = false;
 function frame(now: number): void {
   requestAnimationFrame(frame);
+  if (!started) return;
   const dt = last ? (now - last) / 1000 : 0;
   last = now;
   if (dt > 0 && ramp.frame(Math.min(dt, 0.5))) setLoad(...ramp.load());
@@ -208,17 +270,46 @@ function frame(now: number): void {
   renderer.render(scene, camera);
   const r = ramp;
   const s = renderer.getDrawingBufferSize(new THREE.Vector2());
+  const done = r.phase === 'done';
   const lines = [
     'SPACING - TESTE THREE.JS (NAVEGADOR)',
-    `GRAFICOS: ${gpu}   TELA: ${s.x}X${s.y}`,
-    r.hz ? `TAXA DA TELA: ${Math.round(r.hz)} HZ` : 'MEDINDO A TELA...',
+    `GRAFICOS: ${gpu}   TELA: ${s.x}X${s.y} (${((s.x * s.y) / 1e6).toFixed(2).replace('.', ',')} MP)`,
+    r.hz ? `TAXA DA TELA: ${Math.round(r.hz)} HZ   ${done ? 'RESULTADO' : `RODADA ${r.round + 1}/${ROUNDS}`}` : 'MEDINDO A TELA...',
   ];
-  if (r.phase === 'draws') lines.push(`> CHAMADAS DE DESENHO: ${r.level}   (${r.lastMs.toFixed(1).replace('.', ',')} MS)`);
-  if (r.phase === 'tris') lines.push(`> TRIANGULOS: ${fmtTris(r.triangles())}   (${r.lastMs.toFixed(1).replace('.', ',')} MS)`);
-  if (r.phase === 'done') lines.push('RESULTADO');
-  if (r.phase !== 'refresh') lines.push(`CHAMADAS DE DESENHO  60 FPS: ${fmtDraws(r.draws60)}   120 FPS: ${fmtDraws(r.draws120)}`);
-  if (r.phase === 'tris' || r.phase === 'done') lines.push(`TRIANGULOS  60 FPS: ${fmtTris(r.tris60)}   120 FPS: ${fmtTris(r.tris120)}`);
-  if (r.phase === 'done') lines.push('TOQUE PARA REPETIR');
+  if (r.hz && r.no120 && !done) lines.push('MEXA O DEDO NA TELA PARA ELA IR A 120 HZ');
+  if (r.phase === 'search') {
+    lines.push(
+      isDraws(r.kind)
+        ? `> CHAMADAS DE DESENHO: ${r.level}   (${r.lastMs.toFixed(1).replace('.', ',')} MS)`
+        : `> TRIANGULOS: ${fmtTris(r.triangles())}   (${r.lastMs.toFixed(1).replace('.', ',')} MS)`,
+    );
+  }
+  if (r.hz) {
+    lines.push(`CHAMADAS 60 FPS: ${fmtStat(r, 0)}`, `CHAMADAS 120 FPS: ${fmtStat(r, 1)}`);
+    lines.push(`TRIANGULOS 60 FPS: ${fmtStat(r, 2)}`, `TRIANGULOS 120 FPS: ${fmtStat(r, 3)}`);
+  }
+  if (done) lines.push(r.no120 ? 'TELA A 60 HZ: SEM 120 FPS. REPITA MEXENDO O DEDO' : 'TOQUE PARA REPETIR');
   text.textContent = lines.join('\n');
 }
 requestAnimationFrame(frame);
+
+// começa só depois do toque, em tela cheia (como o app nativo): sem a barra do navegador a imagem tem o mesmo tamanho nas três versões
+const go = document.getElementById('comecar') as HTMLButtonElement;
+go.addEventListener(
+  'click',
+  async () => {
+    try {
+      await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+    } catch {
+      /* sem tela cheia (o navegador não deixou): segue assim mesmo */
+    }
+    go.remove();
+    await new Promise((r) => setTimeout(r, 500)); // a tela termina de mudar de tamanho
+    renderer.setSize(innerWidth, innerHeight);
+    t0 = performance.now();
+    last = 0;
+    started = true;
+    text.hidden = false;
+  },
+  { once: true },
+);

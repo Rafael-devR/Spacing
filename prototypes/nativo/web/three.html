@@ -7,6 +7,7 @@
 <style>
   html, body { margin: 0; height: 100%; background: #05050d; overflow: hidden; }
   canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+  #comecar { position: fixed; inset: 0; margin: auto; width: 260px; height: 64px; border-radius: 12px; border: 1px solid #fff5; background: #1c1b3a; color: #f4f0e8; font: 600 15px system-ui, sans-serif; }
   #texto {
     position: fixed; left: 12px; top: 12px; padding: 8px 12px; background: rgba(0, 0, 0, 0.66); color: #ebebf5;
     font: 600 14px/1.5 ui-monospace, monospace; white-space: pre; pointer-events: none;
@@ -14,7 +15,8 @@
 </style>
 </head>
 <body>
-<div id="texto"></div>
+<div id="texto" hidden></div>
+<button id="comecar">TOQUE PARA COMEÇAR (TELA CHEIA)</button>
 <script type="module" src="./three.ts"></script>
 </body>
 </html>

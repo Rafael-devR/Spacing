@@ -6,15 +6,28 @@
 <title>Teste: Rust no navegador</title>
 <style>
   html, body { margin: 0; height: 100%; background: #05050d; overflow: hidden; }
+  #comecar { position: fixed; inset: 0; margin: auto; width: 260px; height: 64px; border-radius: 12px; border: 1px solid #fff5; background: #1c1b3a; color: #f4f0e8; font: 600 15px system-ui, sans-serif; }
   #tela { display: block; width: 100vw; height: 100vh; touch-action: none; }
 </style>
 </head>
 <body>
 <canvas id="tela"></canvas>
+<button id="comecar">TOQUE PARA COMEÇAR (TELA CHEIA)</button>
 <script type="module">
-  // o protótipo em Rust (src/lib.rs) compilado para WebAssembly; ele mesmo escreve os números na tela
+  // o protótipo em Rust (src/lib.rs) compilado para WebAssembly; ele mesmo escreve os números na tela.
+  // Só começa depois do toque, em tela cheia (como o app nativo): a imagem tem o mesmo tamanho nas três versões.
   import init from './pkg/spacing_bench.js';
-  init();
+  const go = document.getElementById('comecar');
+  go.addEventListener('click', async () => {
+    try {
+      await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+    } catch {
+      // o navegador não deixou: segue assim mesmo
+    }
+    go.remove();
+    await new Promise((r) => setTimeout(r, 500)); // a tela termina de mudar de tamanho
+    init();
+  }, { once: true });
 </script>
 </body>
 </html>
