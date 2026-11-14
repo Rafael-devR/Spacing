@@ -1,0 +1,146 @@
+# Porte para Rust nativo (plano)
+
+Status: **plano, nada implementado**. Decisão do dono (2026-11-14): o jogo vai ganhar uma versão **nativa em Rust no Android**,
+com Windows como bônus. A decisão não é por desempenho (veja [NATIVO.md](NATIVO.md): ganho real só em chamadas de desenho,
+1,2x a 2x), é por ser um aplicativo de verdade, com uma linguagem e uma pilha modernas, e por poder sair para computador.
+Registro formal: [ADR 0023](../adr/0023-porte-para-rust-nativo.md).
+
+## Tamanho do que existe hoje
+
+| Parte                                   | Linhas TS | O que é                                         | Destino no Rust                      |
+| --------------------------------------- | --------: | ----------------------------------------------- | ------------------------------------ |
+| `data/`, `core/` (sem DOM), `systems/`, `entities/`, `world/` (geração) | ~6,3 mil | regras, números, gerador de mundo, física, energia, fabricação, sobrevivência | **porte direto** (lógica pura)       |
+| `world/` mesher, luz, workers           | ~0,7 mil  | malha dos chunks, luz do céu, fila em worker    | porte direto, com threads            |
+| `render/` (29 arquivos usam Three.js)   | 6,8 mil   | luz, sombra, pós-processamento, partículas, modelos, 9 arquivos com GLSL | **reescrita** sobre wgpu + WGSL      |
+| `ui/` + `styles.css`                    | 3,7 mil + 1,1 mil | HUD, mochila, estações, pausa, título, mapa, tudo em HTML/CSS | **reescrita** (não há HTML no nativo) |
+| `app/` (Game.ts e diretores)            | 4,3 mil   | laço, estados, base, estufa, Marte, meteoros    | porte, depois de núcleo e render     |
+| `audio/`                                | 0,7 mil   | sons sintetizados em WebAudio (25 osciladores/filtros) | reescrita (síntese em Rust)          |
+| `bench/`                                | 3,2 mil   | teste de desempenho                             | refeito menor (GPU tem medidor próprio) |
+| `i18n/`                                 | 0,7 mil   | textos                                          | porte direto                         |
+| Total                                   | **28,4 mil** + 5,3 mil de testes |                                | ~30 mil linhas de Rust esperadas      |
+
+Cerca de **40% é porte mecânico**, 35% é **reescrita com a mesma ideia** (render, UI, áudio) e o resto é cola.
+
+## O que se aproveita sem perder nada
+
+- **Todos os modelos 3D.** Os `.glb` (3,5 MB) e os scripts do Blender (`tools/models/`) continuam valendo; o Rust carrega glTF
+  (crate `gltf`). Cores por vértice, animações em laço e esqueleto do astronauta funcionam como hoje.
+- **Design, história, arte, ADRs, documentos de `docs/`.** Nada disso depende da linguagem.
+- **Números e dados** (`src/data/`): viram `const`/tabelas em Rust; o conteúdo é o mesmo.
+- **Formato do salvamento**: JSON com versão e migração, lido por `serde`. Mesmos campos.
+- **Ícones, fontes, paleta e as regras de interface** de [INTERFACE.md](INTERFACE.md).
+- **Testes de lógica**: os 5,3 mil de linhas de testes dizem *o que* cada regra deve fazer. Cada um é portado junto com o código
+  que ele testa (`cargo test`).
+
+## O que se perde (de propósito ou sem querer)
+
+1. **O jogo no navegador deixa de ser o principal.** Se o código novo mirar `wgpu`, dá para compilar a mesma base para WASM
+   (a medição mostrou Rust/WASM 36% melhor que o Three.js em chamadas de desenho), mas isso é bônus e não entra no plano.
+   Até o M4 a versão web fica **congelada** (só conserto de bug) como referência de comportamento.
+2. **Salvamentos do navegador.** Ficam no `localStorage`; um app nativo não os enxerga. Antes de congelar a versão web, ela ganha
+   **exportar/importar código de salvamento** (pequeno) para o dono levar o progresso.
+3. **Ferramentas em Playwright** (`tools/visual-check/`). Não dirigem um app nativo. Substituto: o jogo roda também no **desktop**
+   (mesmo código) e um modo "sem janela" tira capturas; no Codespace sem GPU isso usa Vulkan por software (lavapipe).
+4. **Parâmetros de URL** (`?teste`, `?semente=`, `?planeta=`): viram argumentos de linha de comando no desktop e um arquivo de
+   configuração/menu no Android. O modo de teste continua, com o mesmo catálogo.
+5. **O truque do material dos blocos** (`onBeforeCompile` sobre shaders internos do Three.js) deixa de existir: o shader dos blocos
+   passa a ser nosso (mais simples e sem a trava da versão 0.160.0).
+6. **O que o Three.js faz de graça** e passa a ser nosso: descarte por câmera (frustum culling), ordem de transparentes, instanciamento,
+   carregamento de texturas, sombra em cascata. É trabalho novo, não perda.
+7. **PixiJS/HTML da UI**: o visual das telas precisa ser refeito; o objetivo é ficar igual ou melhor, mas **nenhuma tela passa de
+   graça**.
+
+## Pilha proposta
+
+| Camada       | Escolha                    | Por quê                                                                                         |
+| ------------ | -------------------------- | ----------------------------------------------------------------------------------------------- |
+| Janela/entrada | `winit` (NativeActivity no Android) | já provado no protótipo `prototypes/nativo/`                                       |
+| Gráficos     | `wgpu` (Vulkan no Android, DX12/Vulkan no Windows) | já provado no protótipo; mesma API serve a WASM depois                      |
+| Interface    | `egui` (+ `egui-wgpu`)     | desenha sobre o mesmo wgpu, tem toque, rolagem, arrastar; as telas do jogo (mochila, estação) são painéis e grades |
+| Modelos      | crate `gltf`               | lê os `.glb` atuais                                                                             |
+| Áudio        | `cpal` (+ síntese própria) | os sons já são sintetizados; troca osciladores do WebAudio por geradores em Rust                |
+| Matemática   | `glam`                     | padrão; (o protótipo tem matemática própria só para ficar enxuto)                              |
+| Dados/salvamento | `serde` + `serde_json`  | mesmo JSON de hoje, com versão                                                                  |
+| Ruído/RNG    | próprios, **iguais aos do TS** | para o mundo sair idêntico por semente (veja "paridade")                                    |
+| Threads      | `std::thread` + `crossbeam` | os chunks saem do worker para threads de verdade, sem cópia                                    |
+
+**Alternativa considerada: Bevy.** Traria ECS, UI, áudio e glTF prontos, mas obrigaria a refazer a arquitetura inteira (o
+`Game.ts` de 1,7 mil linhas vira sistemas e recursos), a API muda a cada versão e o tempo de compilação no Codespace e no GitHub
+Actions pesa. O jogo tem poucas entidades e muita lógica própria; um renderizador enxuto sobre `wgpu` encaixa melhor. Se o dono
+preferir Bevy, o núcleo de lógica (M1) é igual; muda só da camada gráfica para cima.
+
+**Fora de escopo:** Godot, Unity e Unreal (outras linguagens/motores, não "Rust nativo").
+
+## Estrutura de pastas
+
+Workspace Cargo em `native/` (o protótipo `prototypes/nativo/` fica como está, de referência):
+
+```
+native/
+  spacing-core/    regras, dados, gerador de mundo, mesher: sem gráficos, sem janela. Roda em teste.
+  spacing-render/  wgpu: blocos, modelos, céu, sombra, pós, partículas
+  spacing-ui/      egui: HUD, mochila, estações, pausa, título, mapa
+  spacing-audio/   síntese e saída de som
+  spacing-app/     laço do jogo, estados, diretores; entrada desktop (bin) e Android (lib cdylib)
+  android/         projeto Gradle (NativeActivity), igual ao do protótipo
+  golden/          vetores dourados exportados do TypeScript (JSON)
+```
+
+Regra: `spacing-core` **não depende** de nada gráfico nem de plataforma. É o que permite testar o jogo inteiro sem tela.
+
+## Como garantir que nada se perde: paridade por vetores dourados
+
+O jogo TS já é determinístico (semente, passos fixos). Antes de portar uma parte, o TS **exporta resultados de referência** (JSON em
+`native/golden/`) e o Rust tem testes que exigem o mesmo:
+
+- gerador de mundo: soma de verificação de chunks por semente (Lua e Marte, várias sementes, incluindo cavernas);
+- malha e luz do céu de chunks escolhidos (contagem de vértices e soma de luz);
+- fabricação, energia, sobrevivência, física dos pedaços: simulações de N passos com as mesmas entradas;
+- salvamento: um arquivo salvo pelo TS é lido e migrado pelo Rust.
+
+Com isso, "porte direto" quer dizer **provado igual**, não "parece igual". Para render e UI a prova é visual: capturas lado a lado
+(web x nativo) com a mesma semente e a mesma câmera, e o `?teste` (cenas provocadas) para chegar rápido na situação.
+
+## Etapas
+
+Cada etapa termina com algo que o dono instala e testa no celular (APK pelo GitHub Actions), e com a documentação atualizada.
+
+| Etapa | Entrega | Como se mede | Tamanho |
+| ----- | ------- | ------------ | ------- |
+| **M0 Fundação** | Workspace `native/`, CI (testes + APK + build Windows), exportador de vetores dourados no TS, **exportar/importar salvamento** na versão web | CI verde; APK abre e mostra tela | pequena |
+| **M1 Núcleo** | `spacing-core`: dados, sistemas, entidades, gerador de mundo (Lua e Marte), mesher, luz, salvamento | todos os vetores dourados e os testes portados passam | grande (a maior parte "mecânica") |
+| **M2 Andar na Lua** | render de blocos com chunks em threads, câmera, toque, astronauta (glTF + animação), HUD mínimo | **comparação de FPS com o jogo web**, mesma cena, no celular do dono; este é o ponto de "vale a pena" | grande |
+| **M3 Visual completo** | céu, sol e sombra, bloom/tons/pós, partículas, pegadas, lâmpadas, meteoros e onda de choque, Marte | capturas lado a lado; custo de cada efeito medido (GPU timestamp) | grande |
+| **M4 Jogo completo** | Game, base, estufa, estação, energia, sobrevivência, mapa, salvar/carregar | `play` equivalente: roteiro jogado sem erro; salvamento TS abre no Rust | grande |
+| **M5 Interface** | mochila e estações (arrastar, segurar, toque duplo), pausa, configurações, título, carregamento | `ui` equivalente; dono revisa as telas | média (corre junto com M2–M4) |
+| **M6 Som, teste de desempenho, acabamento** | áudio, bench nativo, Windows, ícone, versão, docs | dono joga uma sessão inteira | média |
+
+Ordem recomendada: M0 → M1 → M2 (**parada de avaliação**) → M3, M4, M5 em paralelo → M6. A interface cresce junto com cada etapa
+em vez de ficar para o fim.
+
+Estimativa honesta de esforço: **meses de trabalho contínuo**, não semanas; a incerteza maior está em M2/M3 (render) e M5 (UI). A
+parada depois de M2 existe para o dono decidir com o jogo real na mão se continua.
+
+## Riscos e como tratar
+
+- **Desempenho no celular não melhora tanto quanto se espera.** O ganho medido é em chamadas de desenho. Por isso o renderizador novo
+  nasce já com **um buffer por chunk, instanciamento para objetos repetidos e descarte por câmera**. O protótipo já está ligado ao
+  mesmo teste, então M2 mede a diferença de verdade.
+- **Dispositivos Android antigos.** `wgpu` exige Vulkan 1.1; abaixo disso cai para OpenGL ES, que é mais lento e menos testado. Meta
+  de mínimo: Android 8 (API 26), como o protótipo; celulares anteriores ficam fora.
+- **Interface é a parte mais subestimada.** O CSS atual tem 1,1 mil linhas e as telas de mochila/estações têm gestos próprios.
+  Mitigação: M5 junto das outras etapas, e o dono revisa tela a tela.
+- **Tempo de compilação.** Rust leva minutos em cada mudança de renderizador. Mitigação: `spacing-core` separado (testa em segundos),
+  perfil de desenvolvimento com otimização, cache no GitHub Actions.
+- **Manter dois jogos.** Mitigação: congelar a versão web (só bug) até M4, depois arquivar em tag.
+- **API do `wgpu` muda** (já mudou entre as versões que testei). Mitigação: fixar a versão (`=`) e isolar tudo em `spacing-render`.
+- **Perder o ritmo de testar pelo celular.** Mitigação: o APK sai do GitHub Actions a cada push, como hoje; o desktop serve de laço
+  rápido de desenvolvimento.
+
+## Decisões que preciso do dono
+
+1. **Motor:** `wgpu` próprio + `egui` (recomendado) ou Bevy?
+2. **Versão web:** congelar até M4 e depois arquivar (recomendado) ou manter viva como alvo WASM?
+3. **Windows:** entra no M6 como binário de desktop (recomendado) ou fica de fora por ora?
+
+Se o dono não responder, o plano segue com as opções recomendadas.
