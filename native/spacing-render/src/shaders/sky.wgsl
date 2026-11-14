@@ -39,5 +39,5 @@ fn fs(i: VOut) -> @location(0) vec4<f32> {
     c = mix(c, vec3<f32>(0.93, 0.86, 0.80), (mp * 0.55 + md * 0.45) * smoothstep(0.55, 0.9, uvy));
     c = mix(c, vec3<f32>(0.62, 0.74, 0.86), smoothstep(0.75, 0.0, length(q - vec2<f32>(0.0, 1.05))) * 0.28);
   }
-  return vec4<f32>(aces(c), 1.0);
+  return vec4<f32>(c, 1.0);
 }

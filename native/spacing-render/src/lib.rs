@@ -1,11 +1,14 @@
-//! Desenho do Spacing nativo (docs/design/PORTE_RUST.md, M2). Um buffer por chunk (posições já no mundo, sem uniforme por
-//! chunk), descarte pela câmera, modelos do Blender por partes, fundo do céu e a interface do egui por cima.
+//! Desenho do Spacing nativo (docs/design/PORTE_RUST.md, M2 e M3). Por quadro: mapa de sombra do sol → cena em HDR com MSAA
+//! (blocos com um buffer por chunk, pedras instanciadas, modelos do Blender por partes, céu) → bloom e passada final de cor
+//! (post.rs) → interface do egui.
 //!
-//! O desenho não sabe de janela nem de jogo: recebe um `Frame` (câmera, luz, partes de modelo) e as malhas novas do mundo.
+//! O desenho não sabe de janela nem de jogo: recebe um `Frame` (câmera, luz, partes de modelo, pedras) e as malhas do mundo.
 pub mod astronaut;
 pub mod model;
+pub mod post;
 
 use std::collections::HashMap;
+
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec3, Vec4};
 use spacing_core::blocks::hex_to_linear;
@@ -16,15 +19,27 @@ use spacing_core::world::{Key, MeshUpdate};
 use wgpu::util::DeviceExt;
 
 pub use model::{load_glb, ModelData};
+use post::{Post, HDR};
+pub use post::{PostSettings, ScreenFx};
 
 const DEPTH: wgpu::TextureFormat = wgpu::TextureFormat::Depth24Plus;
+const SHADOW_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 /// partes de modelo por quadro (cada uma tem sua fatia do uniforme)
 const MAX_PARTS: usize = 256;
+/// pedras por quadro
+const MAX_PROPS: usize = 4096;
+/// direção do sol (src/data/power.ts, SUN_DIRECTION): a câmera da sombra fica aí, relativa ao alvo (lights.ts)
+const SUN_OFFSET: Vec3 = Vec3::new(-14.0, 26.0, 9.0);
+
+/// os tipos de pedra, na ordem do arquivo exportado do TS (src/data/props.ts, PROP_TYPES)
+pub const PROP_TYPES: [&str; 8] = ["boulder", "ilmenite", "gold", "crystal", "meteorite", "marsBoulder", "blueberries", "solarPanel"];
+static PROPS_BIN: &[u8] = include_bytes!("../../assets/props.bin");
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct Globals {
     view_proj: [[f32; 4]; 4],
+    shadow_vp: [[f32; 4]; 4],
     cam_pos: [f32; 4],
     cam_fwd: [f32; 4],
     sun_dir: [f32; 4],
@@ -54,6 +69,26 @@ struct TerrainVertex {
     normal: [i8; 4],
     color: [half::f16; 4],
     ext: [u8; 4],
+}
+
+/// uma pedra: posição, giro em y, escala (x)
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable, Debug)]
+pub struct PropInstance {
+    pub pos: [f32; 3],
+    pub rot: f32,
+    pub scale: [f32; 4],
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct PropDraw {
+    /// índice em PROP_TYPES × 3 + variação (`prop_mesh`)
+    pub mesh: usize,
+    pub inst: PropInstance,
+}
+
+pub fn prop_mesh(kind: &str, variant: u32) -> Option<usize> {
+    PROP_TYPES.iter().position(|t| *t == kind).map(|i| i * 3 + (variant % 3) as usize)
 }
 
 fn pack(v: &Vertex, ox: f32, oz: f32) -> TerrainVertex {
@@ -117,7 +152,11 @@ pub struct Frame<'a> {
     /// lanterna do capacete (posição, força)
     pub lamp: Vec4,
     pub mist_y: f32,
+    /// neblina: começo e fim (blocos, na direção da câmera)
+    pub fog: (f32, f32),
     pub parts: &'a [PartDraw],
+    pub props: &'a [PropDraw],
+    pub screen: ScreenFx,
 }
 
 /// números do quadro (para o medidor na tela)
@@ -127,6 +166,8 @@ pub struct FrameStats {
     pub triangles: u64,
     pub chunks_drawn: u32,
     pub chunks_total: u32,
+    pub shadow_draws: u32,
+    pub post_passes: u32,
 }
 
 /// a interface do egui, já tesselada
@@ -137,7 +178,6 @@ pub struct Ui<'a> {
 }
 
 struct Lighting {
-    sun_dir: Vec3,
     sun: [f32; 3],
     hemi_sky: [f32; 3],
     hemi_ground: [f32; 3],
@@ -148,40 +188,10 @@ struct Lighting {
     sparkle: bool,
 }
 
-pub struct Renderer {
-    surface: Option<wgpu::Surface<'static>>,
-    /// sem janela: o quadro vai para esta textura
-    offscreen: Option<wgpu::Texture>,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
-    msaa: u32,
-    present_modes: Vec<wgpu::PresentMode>,
-    color_ms: Option<wgpu::TextureView>,
-    depth: wgpu::TextureView,
-    globals: wgpu::Buffer,
-    globals_bg: wgpu::BindGroup,
-    parts_buf: wgpu::Buffer,
-    parts_bg: wgpu::BindGroup,
-    part_stride: u32,
-    terrain_pipe: wgpu::RenderPipeline,
-    model_pipe: wgpu::RenderPipeline,
-    sky_pipe: wgpu::RenderPipeline,
-    chunks: HashMap<Key, ChunkGpu>,
-    meshes: Vec<MeshGpu>,
-    egui: egui_wgpu::Renderer,
-    light: Lighting,
-    scratch: Vec<TerrainVertex>,
-    /// "Vulkan", "Gl"… (a tela diz o que está usando)
-    pub backend: String,
-    pub adapter_name: String,
-}
-
 impl Lighting {
     fn for_planet(planet: &PlanetDef) -> Self {
         let l = &planet.light;
         Lighting {
-            sun_dir: Vec3::new(-14.0, 26.0, 9.0).normalize(),
             sun: lin(l.sun, l.sun_power),
             hemi_sky: lin(l.sky, l.hemi),
             hemi_ground: lin(l.ground, l.hemi),
@@ -194,9 +204,89 @@ impl Lighting {
     }
 }
 
-fn lin(hex: &str, mul: f64) -> [f32; 3] {
+pub(crate) fn lin(hex: &str, mul: f64) -> [f32; 3] {
     let c = hex_to_linear(hex, mul);
     [c[0] as f32, c[1] as f32, c[2] as f32]
+}
+
+pub struct Renderer {
+    surface: Option<wgpu::Surface<'static>>,
+    /// sem janela: o quadro vai para esta textura
+    offscreen: Option<wgpu::Texture>,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    config: wgpu::SurfaceConfiguration,
+    msaa: u32,
+    present_modes: Vec<wgpu::PresentMode>,
+    hdr_ms: Option<wgpu::TextureView>,
+    hdr: wgpu::TextureView,
+    depth: wgpu::TextureView,
+    globals: wgpu::Buffer,
+    globals_layout: wgpu::BindGroupLayout,
+    globals_bg: wgpu::BindGroup,
+    shadow_view: wgpu::TextureView,
+    shadow_cmp: wgpu::Sampler,
+    shadow_size: u32,
+    sun_buf: wgpu::Buffer,
+    sun_bg: wgpu::BindGroup,
+    parts_buf: wgpu::Buffer,
+    parts_bg: wgpu::BindGroup,
+    part_stride: u32,
+    props_inst: wgpu::Buffer,
+    terrain_pipe: wgpu::RenderPipeline,
+    model_pipe: wgpu::RenderPipeline,
+    prop_pipe: wgpu::RenderPipeline,
+    sky_pipe: wgpu::RenderPipeline,
+    shadow_terrain: wgpu::RenderPipeline,
+    shadow_model: wgpu::RenderPipeline,
+    shadow_prop: wgpu::RenderPipeline,
+    chunks: HashMap<Key, ChunkGpu>,
+    meshes: Vec<MeshGpu>,
+    prop_meshes: Vec<(wgpu::Buffer, u32)>,
+    post: Post,
+    egui: egui_wgpu::Renderer,
+    light: Lighting,
+    scratch: Vec<TerrainVertex>,
+    /// sombra ligada (desligada, a passada não é desenhada)
+    pub shadows: bool,
+    /// "Vulkan", "Gl"… (a tela diz o que está usando)
+    pub backend: String,
+    pub adapter_name: String,
+}
+
+fn shadow_texture(device: &wgpu::Device, size: u32) -> wgpu::TextureView {
+    device
+        .create_texture(&wgpu::TextureDescriptor {
+            label: Some("sombra"),
+            size: wgpu::Extent3d { width: size, height: size, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: SHADOW_FORMAT,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        })
+        .create_view(&Default::default())
+}
+
+fn load_props(device: &wgpu::Device) -> Vec<(wgpu::Buffer, u32)> {
+    let mut out = Vec::new();
+    let mut at = 0usize;
+    let b = PROPS_BIN;
+    while at + 4 <= b.len() {
+        let n = u32::from_le_bytes([b[at], b[at + 1], b[at + 2], b[at + 3]]) as usize;
+        at += 4;
+        let mut verts: Vec<model::ModelVertex> = Vec::with_capacity(n);
+        for i in 0..n {
+            let o = at + i * 24;
+            let f = |k: usize| f32::from_le_bytes([b[o + k], b[o + k + 1], b[o + k + 2], b[o + k + 3]]);
+            verts.push(model::ModelVertex { pos: [f(0), f(4), f(8)], color: [f(12), f(16), f(20), 1.0] });
+        }
+        at += n * 24;
+        let buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("pedra"), contents: bytemuck::cast_slice(&verts), usage: wgpu::BufferUsages::VERTEX });
+        out.push((buf, n as u32));
+    }
+    out
 }
 
 impl Renderer {
@@ -246,8 +336,8 @@ impl Renderer {
             }
             None => (wgpu::TextureFormat::Rgba8UnormSrgb, wgpu::CompositeAlphaMode::Opaque, Vec::new()),
         };
-        let flags = adapter.get_texture_format_features(format).flags;
-        let msaa = if flags.sample_count_supported(4) && adapter.get_texture_format_features(DEPTH).flags.sample_count_supported(4) { 4 } else { 1 };
+        let ms_ok = |f| adapter.get_texture_format_features(f).flags.sample_count_supported(4);
+        let msaa = if ms_ok(HDR) && ms_ok(DEPTH) { 4 } else { 1 };
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format,
@@ -265,138 +355,150 @@ impl Renderer {
         }
         let offscreen = if surface.is_none() { Some(Self::offscreen_tex(&device, &config)) } else { None };
 
-        let globals = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("globals"),
-            size: std::mem::size_of::<Globals>() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
+        let uniform = |label, size: u64| {
+            device.create_buffer(&wgpu::BufferDescriptor { label: Some(label), size, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })
+        };
+        let globals = uniform("globals", std::mem::size_of::<Globals>() as u64);
+        let sun_buf = uniform("sol", 64);
         let part_stride = (std::mem::size_of::<PartU>() as u32).next_multiple_of(limits.min_uniform_buffer_offset_alignment.max(16));
-        let parts_buf = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("parts"),
-            size: part_stride as u64 * MAX_PARTS as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        let parts_buf = uniform("parts", part_stride as u64 * MAX_PARTS as u64);
+        let props_inst = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("pedras"),
+            size: (MAX_PROPS * std::mem::size_of::<PropInstance>()) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+        let buf_entry = |binding, vis, dynamic: Option<u64>| wgpu::BindGroupLayoutEntry {
+            binding,
+            visibility: vis,
+            ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: dynamic.is_some(), min_binding_size: dynamic.and_then(wgpu::BufferSize::new) },
+            count: None,
+        };
+        let vf = wgpu::ShaderStages::VERTEX_FRAGMENT;
         let globals_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("globals"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None },
-                count: None,
-            }],
+            entries: &[
+                buf_entry(0, vf, None),
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Depth, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry { binding: 2, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison), count: None },
+            ],
         });
-        let part_size = wgpu::BufferSize::new(std::mem::size_of::<PartU>() as u64);
-        let parts_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("parts"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: true, min_binding_size: part_size },
-                count: None,
-            }],
+        let sun_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: Some("sol"), entries: &[buf_entry(0, wgpu::ShaderStages::VERTEX, None)] });
+        let part_size = std::mem::size_of::<PartU>() as u64;
+        let parts_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: Some("parts"), entries: &[buf_entry(0, vf, Some(part_size))] });
+        let shadow_cmp = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("sombra"),
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            compare: Some(wgpu::CompareFunction::LessEqual),
+            ..Default::default()
         });
-        let globals_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("globals"),
-            layout: &globals_layout,
-            entries: &[wgpu::BindGroupEntry { binding: 0, resource: globals.as_entire_binding() }],
+        let shadow_size = 2048;
+        let shadow_view = shadow_texture(&device, shadow_size);
+        let globals_bg = Self::globals_group(&device, &globals_layout, &globals, &shadow_view, &shadow_cmp);
+        let sun_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("sol"),
+            layout: &sun_layout,
+            entries: &[wgpu::BindGroupEntry { binding: 0, resource: sun_buf.as_entire_binding() }],
         });
         let parts_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("parts"),
             layout: &parts_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding { buffer: &parts_buf, offset: 0, size: part_size }),
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding { buffer: &parts_buf, offset: 0, size: wgpu::BufferSize::new(part_size) }),
             }],
         });
 
         let common = include_str!("shaders/common.wgsl");
         let module = |name: &str, src: &str| {
-            device.create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: Some(name),
-                source: wgpu::ShaderSource::Wgsl(format!("{common}\n{src}").into()),
-            })
+            device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some(name), source: wgpu::ShaderSource::Wgsl(format!("{common}\n{src}").into()) })
         };
         let terrain_sh = module("terrain", include_str!("shaders/terrain.wgsl"));
         let model_sh = module("model", include_str!("shaders/model.wgsl"));
+        let prop_sh = module("prop", include_str!("shaders/prop.wgsl"));
         let sky_sh = module("sky", include_str!("shaders/sky.wgsl"));
-        let depth_state = |write: bool, cmp: wgpu::CompareFunction| wgpu::DepthStencilState {
-            format: DEPTH,
+        let shadow_sh = device.create_shader_module(wgpu::include_wgsl!("shaders/shadow.wgsl"));
+
+        let layout = |label, groups: &[Option<&wgpu::BindGroupLayout>]| {
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some(label), bind_group_layouts: groups, ..Default::default() })
+        };
+        let scene1 = layout("cena", &[Some(&globals_layout)]);
+        let scene2 = layout("cena+parte", &[Some(&globals_layout), Some(&parts_layout)]);
+        let sun1 = layout("sol", &[Some(&sun_layout)]);
+        let sun2 = layout("sol+parte", &[Some(&sun_layout), Some(&parts_layout)]);
+
+        let terrain_vb = wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<TerrainVertex>() as u64,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Snorm8x4, 2 => Float16x4, 3 => Unorm8x4],
+        };
+        let model_vb = wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<model::ModelVertex>() as u64,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x4],
+        };
+        let inst_vb = wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<PropInstance>() as u64,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &wgpu::vertex_attr_array![2 => Float32x4, 3 => Float32x4],
+        };
+        let depth_state = |format, write: bool, cmp: wgpu::CompareFunction| wgpu::DepthStencilState {
+            format,
             depth_write_enabled: Some(write),
             depth_compare: Some(cmp),
             stencil: Default::default(),
             bias: Default::default(),
         };
         let ms = wgpu::MultisampleState { count: msaa, ..Default::default() };
-        let one_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("globals"),
-            bind_group_layouts: &[Some(&globals_layout)],
-            ..Default::default()
-        });
-        let two_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("globals+part"),
-            bind_group_layouts: &[Some(&globals_layout), Some(&parts_layout)],
-            ..Default::default()
-        });
-        let target = [Some(wgpu::ColorTargetState { format, blend: None, write_mask: wgpu::ColorWrites::ALL })];
-        let terrain_pipe = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("terrain"),
-            layout: Some(&one_layout),
-            vertex: wgpu::VertexState {
-                module: &terrain_sh,
-                entry_point: Some("vs"),
-                buffers: &[Some(wgpu::VertexBufferLayout {
-                    array_stride: std::mem::size_of::<TerrainVertex>() as u64,
-                    step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Snorm8x4, 2 => Float16x4, 3 => Unorm8x4],
-                })],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(wgpu::FragmentState { module: &terrain_sh, entry_point: Some("fs"), targets: &target, compilation_options: Default::default() }),
-            primitive: wgpu::PrimitiveState { cull_mode: Some(wgpu::Face::Back), front_face: wgpu::FrontFace::Ccw, ..Default::default() },
-            depth_stencil: Some(depth_state(true, wgpu::CompareFunction::Less)),
-            multisample: ms,
-            multiview_mask: None,
-            cache: None,
-        });
-        let model_pipe = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("model"),
-            layout: Some(&two_layout),
-            vertex: wgpu::VertexState {
-                module: &model_sh,
-                entry_point: Some("vs"),
-                buffers: &[Some(wgpu::VertexBufferLayout {
-                    array_stride: std::mem::size_of::<model::ModelVertex>() as u64,
-                    step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x4],
-                })],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(wgpu::FragmentState { module: &model_sh, entry_point: Some("fs"), targets: &target, compilation_options: Default::default() }),
-            // modelos do Blender às vezes vêm com faces viradas: sem descarte de costas
-            primitive: wgpu::PrimitiveState { cull_mode: None, ..Default::default() },
-            depth_stencil: Some(depth_state(true, wgpu::CompareFunction::Less)),
-            multisample: ms,
-            multiview_mask: None,
-            cache: None,
-        });
-        let sky_pipe = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("sky"),
-            layout: Some(&one_layout),
-            vertex: wgpu::VertexState { module: &sky_sh, entry_point: Some("vs"), buffers: &[], compilation_options: Default::default() },
-            fragment: Some(wgpu::FragmentState { module: &sky_sh, entry_point: Some("fs"), targets: &target, compilation_options: Default::default() }),
-            primitive: Default::default(),
-            depth_stencil: Some(depth_state(false, wgpu::CompareFunction::LessEqual)),
-            multisample: ms,
-            multiview_mask: None,
-            cache: None,
-        });
-        let egui = egui_wgpu::Renderer::new(&device, format, egui_wgpu::RendererOptions::default());
+        let hdr_target = [Some(wgpu::ColorTargetState { format: HDR, blend: None, write_mask: wgpu::ColorWrites::ALL })];
+        let less = wgpu::CompareFunction::Less;
+        let scene_pipe = |label, layout: &wgpu::PipelineLayout, sh: &wgpu::ShaderModule, buffers: &[Option<wgpu::VertexBufferLayout>], cull: Option<wgpu::Face>, cmp: wgpu::CompareFunction| {
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some(label),
+                layout: Some(layout),
+                vertex: wgpu::VertexState { module: sh, entry_point: Some("vs"), buffers, compilation_options: Default::default() },
+                fragment: Some(wgpu::FragmentState { module: sh, entry_point: Some("fs"), targets: &hdr_target, compilation_options: Default::default() }),
+                primitive: wgpu::PrimitiveState { cull_mode: cull, ..Default::default() },
+                depth_stencil: Some(depth_state(DEPTH, cmp == less, cmp)),
+                multisample: ms,
+                multiview_mask: None,
+                cache: None,
+            })
+        };
+        let terrain_pipe = scene_pipe("terrain", &scene1, &terrain_sh, &[Some(terrain_vb.clone())], Some(wgpu::Face::Back), less);
+        // modelos do Blender às vezes vêm com faces viradas: sem descarte de costas
+        let model_pipe = scene_pipe("model", &scene2, &model_sh, &[Some(model_vb.clone())], None, less);
+        let prop_pipe = scene_pipe("prop", &scene1, &prop_sh, &[Some(model_vb.clone()), Some(inst_vb.clone())], None, less);
+        let sky_pipe = scene_pipe("sky", &scene1, &sky_sh, &[], None, wgpu::CompareFunction::LessEqual);
+        let shadow_pipe = |label, layout: &wgpu::PipelineLayout, entry, buffers: &[Option<wgpu::VertexBufferLayout>], cull| {
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some(label),
+                layout: Some(layout),
+                vertex: wgpu::VertexState { module: &shadow_sh, entry_point: Some(entry), buffers, compilation_options: Default::default() },
+                fragment: None,
+                // como o Three.js: as costas vão para o mapa de sombra (menos "acne" nas faces de frente)
+                primitive: wgpu::PrimitiveState { cull_mode: cull, ..Default::default() },
+                depth_stencil: Some(depth_state(SHADOW_FORMAT, true, less)),
+                multisample: Default::default(),
+                multiview_mask: None,
+                cache: None,
+            })
+        };
+        let shadow_terrain = shadow_pipe("sombra blocos", &sun1, "terrain", &[Some(terrain_vb)], Some(wgpu::Face::Front));
+        let shadow_model = shadow_pipe("sombra modelos", &sun2, "model", &[Some(model_vb.clone())], None);
+        let shadow_prop = shadow_pipe("sombra pedras", &sun1, "prop", &[Some(model_vb), Some(inst_vb)], None);
 
-        let light = Lighting::for_planet(planet);
-        let (color_ms, depth) = Self::targets(&device, &config, msaa);
-        Ok(Self {
+        let egui = egui_wgpu::Renderer::new(&device, format, egui_wgpu::RendererOptions::default());
+        let post = Post::new(&device, format);
+        let prop_meshes = load_props(&device);
+        let (hdr_ms, hdr, depth) = Self::targets(&device, &config, msaa);
+        let mut r = Self {
             surface,
             offscreen,
             device,
@@ -404,24 +506,76 @@ impl Renderer {
             config,
             msaa,
             present_modes,
-            color_ms,
+            hdr_ms,
+            hdr,
             depth,
             globals,
+            globals_layout,
             globals_bg,
+            shadow_view,
+            shadow_cmp,
+            shadow_size,
+            sun_buf,
+            sun_bg,
             parts_buf,
             parts_bg,
             part_stride,
+            props_inst,
             terrain_pipe,
             model_pipe,
+            prop_pipe,
             sky_pipe,
+            shadow_terrain,
+            shadow_model,
+            shadow_prop,
             chunks: HashMap::new(),
             meshes: Vec::new(),
+            prop_meshes,
+            post,
             egui,
-            light,
+            light: Lighting::for_planet(planet),
             scratch: Vec::new(),
+            shadows: true,
             backend: format!("{:?}", info.backend),
             adapter_name: info.name,
+        };
+        r.post.resize(&r.device, &r.queue, &r.hdr, r.config.width, r.config.height);
+        Ok(r)
+    }
+
+    fn globals_group(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, globals: &wgpu::Buffer, shadow: &wgpu::TextureView, cmp: &wgpu::Sampler) -> wgpu::BindGroup {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("globals"),
+            layout,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: globals.as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(shadow) },
+                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::Sampler(cmp) },
+            ],
         })
+    }
+
+    /// Tamanho do mapa de sombra (1024, 2048, 4096; 0 desliga), como as opções do jogo web.
+    pub fn set_shadow_size(&mut self, size: u32) {
+        self.shadows = size > 0;
+        if size == 0 || size == self.shadow_size {
+            return;
+        }
+        self.shadow_size = size;
+        self.shadow_view = shadow_texture(&self.device, size);
+        self.globals_bg = Self::globals_group(&self.device, &self.globals_layout, &self.globals, &self.shadow_view, &self.shadow_cmp);
+    }
+
+    pub fn shadow_size(&self) -> u32 {
+        if self.shadows {
+            self.shadow_size
+        } else {
+            0
+        }
+    }
+
+    pub fn post_settings(&mut self) -> &mut PostSettings {
+        &mut self.post.settings
     }
 
     fn offscreen_tex(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> wgpu::Texture {
@@ -467,24 +621,18 @@ impl Renderer {
         Some(out)
     }
 
-    fn targets(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, msaa: u32) -> (Option<wgpu::TextureView>, wgpu::TextureView) {
+    /// cor HDR com MSAA (se houver), cor HDR resolvida (o pós lê) e profundidade
+    fn targets(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, msaa: u32) -> (Option<wgpu::TextureView>, wgpu::TextureView, wgpu::TextureView) {
         let size = wgpu::Extent3d { width: config.width, height: config.height, depth_or_array_layers: 1 };
-        let tex = |format, label| {
+        let tex = |format, label, samples, usage| {
             device
-                .create_texture(&wgpu::TextureDescriptor {
-                    label: Some(label),
-                    size,
-                    mip_level_count: 1,
-                    sample_count: msaa,
-                    dimension: wgpu::TextureDimension::D2,
-                    format,
-                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                    view_formats: &[],
-                })
+                .create_texture(&wgpu::TextureDescriptor { label: Some(label), size, mip_level_count: 1, sample_count: samples, dimension: wgpu::TextureDimension::D2, format, usage, view_formats: &[] })
                 .create_view(&Default::default())
         };
-        let color = if msaa > 1 { Some(tex(config.format, "cor msaa")) } else { None };
-        (color, tex(DEPTH, "profundidade"))
+        let ra = wgpu::TextureUsages::RENDER_ATTACHMENT;
+        let ms = if msaa > 1 { Some(tex(HDR, "cena msaa", msaa, ra)) } else { None };
+        let hdr = tex(HDR, "cena", 1, ra | wgpu::TextureUsages::TEXTURE_BINDING);
+        (ms, hdr, tex(DEPTH, "profundidade", msaa, ra))
     }
 
     /// Imediato (sem espera), senão Mailbox (sem espera, mas sem rasgar), senão Fifo (vsync, sempre existe).
@@ -536,9 +684,11 @@ impl Renderer {
         } else {
             self.offscreen = Some(Self::offscreen_tex(&self.device, &self.config));
         }
-        let (c, d) = Self::targets(&self.device, &self.config, self.msaa);
-        self.color_ms = c;
+        let (m, c, d) = Self::targets(&self.device, &self.config, self.msaa);
+        self.hdr_ms = m;
+        self.hdr = c;
         self.depth = d;
+        self.post.resize(&self.device, &self.queue, &self.hdr, w, h);
     }
 
     /// Sobe (ou troca) a malha de um chunk.
@@ -559,11 +709,7 @@ impl Renderer {
             hi = hi.max(q);
             self.scratch.push(p);
         }
-        let buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("chunk"),
-            contents: bytemuck::cast_slice(&self.scratch),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+        let buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("chunk"), contents: bytemuck::cast_slice(&self.scratch), usage: wgpu::BufferUsages::VERTEX });
         self.chunks.insert(key, ChunkGpu { buf, count: m.verts.len() as u32, min: lo, max: hi });
     }
 
@@ -583,16 +729,8 @@ impl Renderer {
         m.meshes
             .iter()
             .map(|mesh| {
-                let vb = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("modelo"),
-                    contents: bytemuck::cast_slice(&mesh.verts),
-                    usage: wgpu::BufferUsages::VERTEX,
-                });
-                let ib = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("modelo"),
-                    contents: bytemuck::cast_slice(&mesh.indices),
-                    usage: wgpu::BufferUsages::INDEX,
-                });
+                let vb = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("modelo"), contents: bytemuck::cast_slice(&mesh.verts), usage: wgpu::BufferUsages::VERTEX });
+                let ib = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("modelo"), contents: bytemuck::cast_slice(&mesh.indices), usage: wgpu::BufferUsages::INDEX });
                 self.meshes.push(MeshGpu { vb, ib, count: mesh.indices.len() as u32 });
                 MeshId(self.meshes.len() - 1)
             })
@@ -610,6 +748,33 @@ impl Renderer {
         proj * Mat4::look_at_rh(f.eye, f.target, up)
     }
 
+    /// Câmera do sol (lights.ts): ortográfica, segue o alvo em passos de um texel (a sombra não treme ao andar).
+    fn sun_view_proj(&self, f: &Frame) -> Mat4 {
+        let extent = (f.eye.distance(f.target) * 0.8).max(14.0);
+        let texel = extent * 2.0 / self.shadow_size as f32;
+        let t = Vec3::new((f.target.x / texel).round() * texel, f.target.y, (f.target.z / texel).round() * texel);
+        let view = Mat4::look_at_rh(t + SUN_OFFSET, t, Vec3::Y);
+        Mat4::orthographic_rh(-extent, extent, -extent, extent, 1.0, 90.0) * view
+    }
+
+    /// Junta as pedras por malha (uma chamada por tipo e variação) e sobe as instâncias. Devolve (malha, primeira, quantas).
+    fn upload_props(&self, props: &[PropDraw]) -> Vec<(usize, u32, u32)> {
+        let mut sorted: Vec<&PropDraw> = props.iter().filter(|p| p.mesh < self.prop_meshes.len()).take(MAX_PROPS).collect();
+        sorted.sort_by_key(|p| p.mesh);
+        let inst: Vec<PropInstance> = sorted.iter().map(|p| p.inst).collect();
+        if !inst.is_empty() {
+            self.queue.write_buffer(&self.props_inst, 0, bytemuck::cast_slice(&inst));
+        }
+        let mut groups: Vec<(usize, u32, u32)> = Vec::new();
+        for (i, p) in sorted.iter().enumerate() {
+            match groups.last_mut() {
+                Some(g) if g.0 == p.mesh => g.2 += 1,
+                _ => groups.push((p.mesh, i as u32, 1)),
+            }
+        }
+        groups
+    }
+
     /// Desenha um quadro. Devolve os números dele, ou None se a tela não estava pronta.
     pub fn render(&mut self, f: &Frame, ui: Option<Ui>) -> Option<FrameStats> {
         let frame = match &self.surface {
@@ -624,29 +789,35 @@ impl Renderer {
             None => None,
         };
         let view = match (&frame, &self.offscreen) {
-            (Some(f), _) => f.texture.create_view(&Default::default()),
+            (Some(fr), _) => fr.texture.create_view(&Default::default()),
             (None, Some(t)) => t.create_view(&Default::default()),
             (None, None) => return None,
         };
         let vp = self.view_proj(f);
+        let svp = self.sun_view_proj(f);
         let (w, h) = self.size();
         let lt = &self.light;
         let fwd = (f.target - f.eye).normalize();
+        let sd = SUN_OFFSET.normalize();
+        let shadow_on = if self.shadows { 1.0 } else { 0.0 };
         let g = Globals {
             view_proj: vp.to_cols_array_2d(),
+            shadow_vp: svp.to_cols_array_2d(),
             cam_pos: [f.eye.x, f.eye.y, f.eye.z, f.time],
-            cam_fwd: [fwd.x, fwd.y, fwd.z, 1.08],
-            sun_dir: [lt.sun_dir.x, lt.sun_dir.y, lt.sun_dir.z, f.dark],
+            cam_fwd: [fwd.x, fwd.y, fwd.z, self.shadow_size as f32],
+            sun_dir: [sd.x, sd.y, sd.z, f.dark],
             sun_col: [lt.sun[0], lt.sun[1], lt.sun[2], lt.sparkle as u8 as f32],
-            hemi_sky: [lt.hemi_sky[0], lt.hemi_sky[1], lt.hemi_sky[2], 0.0],
-            hemi_ground: [lt.hemi_ground[0], lt.hemi_ground[1], lt.hemi_ground[2], 0.0],
-            bg_top: [lt.bg_top[0], lt.bg_top[1], lt.bg_top[2], 0.0],
+            hemi_sky: [lt.hemi_sky[0], lt.hemi_sky[1], lt.hemi_sky[2], shadow_on],
+            // viés da sombra: -0,0004 do Three.js (em profundidade 0..1) e 0,03 bloco na normal
+            hemi_ground: [lt.hemi_ground[0], lt.hemi_ground[1], lt.hemi_ground[2], -0.0004],
+            bg_top: [lt.bg_top[0], lt.bg_top[1], lt.bg_top[2], 0.03],
             bg_bot: [lt.bg_bot[0], lt.bg_bot[1], lt.bg_bot[2], lt.stars as u8 as f32],
             mist: [lt.mist[0], lt.mist[1], lt.mist[2], f.mist_y],
-            fog: [40.0, 80.0, w as f32, h as f32],
+            fog: [f.fog.0, f.fog.1, w as f32, h as f32],
             lamp: f.lamp.to_array(),
         };
         self.queue.write_buffer(&self.globals, 0, bytemuck::bytes_of(&g));
+        self.queue.write_buffer(&self.sun_buf, 0, bytemuck::bytes_of(&svp.to_cols_array_2d()));
 
         // partes de modelo: uma fatia do uniforme cada
         let parts = &f.parts[..f.parts.len().min(MAX_PARTS)];
@@ -665,22 +836,74 @@ impl Renderer {
             }
             self.queue.write_buffer(&self.parts_buf, 0, &data);
         }
+        let prop_groups = self.upload_props(f.props);
 
-        let planes = frustum(vp);
         let mut stats = FrameStats { chunks_total: self.chunks.len() as u32, ..Default::default() };
         let mut enc = self.device.create_command_encoder(&Default::default());
+
+        // 1. sombra do sol
+        if self.shadows {
+            let planes = frustum(svp);
+            let mut pass = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("sombra"),
+                color_attachments: &[],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.shadow_view,
+                    depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Clear(1.0), store: wgpu::StoreOp::Store }),
+                    stencil_ops: None,
+                }),
+                ..Default::default()
+            });
+            pass.set_bind_group(0, &self.sun_bg, &[]);
+            pass.set_pipeline(&self.shadow_terrain);
+            for c in self.chunks.values() {
+                if aabb_visible(&planes, c.min, c.max) {
+                    pass.set_vertex_buffer(0, c.buf.slice(..));
+                    pass.draw(0..c.count, 0..1);
+                    stats.shadow_draws += 1;
+                }
+            }
+            if !prop_groups.is_empty() {
+                pass.set_pipeline(&self.shadow_prop);
+                pass.set_vertex_buffer(1, self.props_inst.slice(..));
+                for &(m, first, n) in &prop_groups {
+                    let (vb, count) = &self.prop_meshes[m];
+                    pass.set_vertex_buffer(0, vb.slice(..));
+                    pass.draw(0..*count, first..first + n);
+                    stats.shadow_draws += 1;
+                }
+            }
+            if !parts.is_empty() {
+                pass.set_pipeline(&self.shadow_model);
+                for (i, p) in parts.iter().enumerate() {
+                    if matches!(p.material, Material::Lit(_)) {
+                        continue;
+                    }
+                    let Some(m) = self.meshes.get(p.mesh.0) else { continue };
+                    pass.set_bind_group(1, &self.parts_bg, &[i as u32 * self.part_stride]);
+                    pass.set_vertex_buffer(0, m.vb.slice(..));
+                    pass.set_index_buffer(m.ib.slice(..), wgpu::IndexFormat::Uint32);
+                    pass.draw_indexed(0..m.count, 0, 0..1);
+                    stats.shadow_draws += 1;
+                }
+            }
+        }
+
+        // 2. a cena, em HDR
         {
-            let (target, resolve) = match &self.color_ms {
-                Some(ms) => (ms, Some(&view)),
-                None => (&view, None),
+            let planes = frustum(vp);
+            let (target, resolve) = match &self.hdr_ms {
+                Some(ms) => (ms, Some(&self.hdr)),
+                None => (&self.hdr, None),
             };
+            let store = if resolve.is_some() { wgpu::StoreOp::Discard } else { wgpu::StoreOp::Store };
             let mut pass = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("cena"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: target,
                     depth_slice: None,
                     resolve_target: resolve,
-                    ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: wgpu::StoreOp::Store },
+                    ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store },
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: &self.depth,
@@ -701,6 +924,17 @@ impl Renderer {
                 stats.chunks_drawn += 1;
                 stats.triangles += c.count as u64 / 3;
             }
+            if !prop_groups.is_empty() {
+                pass.set_pipeline(&self.prop_pipe);
+                pass.set_vertex_buffer(1, self.props_inst.slice(..));
+                for &(m, first, n) in &prop_groups {
+                    let (vb, count) = &self.prop_meshes[m];
+                    pass.set_vertex_buffer(0, vb.slice(..));
+                    pass.draw(0..*count, first..first + n);
+                    stats.draws += 1;
+                    stats.triangles += (*count as u64 / 3) * n as u64;
+                }
+            }
             if !parts.is_empty() {
                 pass.set_pipeline(&self.model_pipe);
                 for (i, p) in parts.iter().enumerate() {
@@ -718,6 +952,10 @@ impl Renderer {
             pass.draw(0..3, 0..1);
         }
 
+        // 3. bloom e passada final
+        stats.post_passes = self.post.run(&mut enc, &self.queue, &view, w, h, f.time, f.screen);
+
+        // 4. interface
         if let Some(ui) = ui {
             for (id, deltas) in &ui.textures.set {
                 for delta in deltas.iter() {
@@ -747,8 +985,8 @@ impl Renderer {
         } else {
             self.queue.submit(std::iter::once(enc.finish()));
         }
-        if let Some(f) = frame {
-            self.queue.present(f);
+        if let Some(fr) = frame {
+            self.queue.present(fr);
         }
         Some(stats)
     }
@@ -785,5 +1023,22 @@ mod tests {
     #[test]
     fn vertice_compacto() {
         assert_eq!(std::mem::size_of::<TerrainVertex>(), 28);
+        assert_eq!(std::mem::size_of::<PropInstance>(), 32);
+    }
+    #[test]
+    fn pedras_exportadas_do_ts() {
+        // 8 tipos × 3 variações, todas com triângulos inteiros
+        let b = PROPS_BIN;
+        let mut at = 0;
+        let mut n = 0;
+        while at + 4 <= b.len() {
+            let v = u32::from_le_bytes([b[at], b[at + 1], b[at + 2], b[at + 3]]) as usize;
+            assert!(v > 0 && v % 3 == 0);
+            at += 4 + v * 24;
+            n += 1;
+        }
+        assert_eq!(at, b.len());
+        assert_eq!(n, PROP_TYPES.len() * 3);
+        assert_eq!(prop_mesh("crystal", 4), Some(10));
     }
 }

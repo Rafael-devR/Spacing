@@ -215,7 +215,15 @@ impl World {
                 }
             }
         }
-        let c = Chunk { cx, cz, data: Arc::new(data), props: g.props, max_y, light: None, edited_at: 0, meshed: false, dirty: true };
+        // os objetos ficam no chão que sobrou de verdade (World.spawnProp do TS usa o topo real da coluna, depois das cavernas)
+        let mut props = g.props;
+        props.retain(|p| !self.removed_props.contains(&p.key.clone().unwrap_or_else(|| format!("{},{}", p.wx, p.wz))));
+        for p in props.iter_mut() {
+            let (lx, lz) = ((p.wx - cx * CS as i32) as usize, (p.wz - cz * CS as i32) as usize);
+            let top = (0..CH).rev().find(|&y| data[idx(lx, y, lz)] != 0).unwrap_or(0);
+            p.y = top as i32 + 1;
+        }
+        let c = Chunk { cx, cz, data: Arc::new(data), props, max_y, light: None, edited_at: 0, meshed: false, dirty: true };
         self.chunks.insert((cx, cz), c);
     }
 

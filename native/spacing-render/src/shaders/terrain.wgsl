@@ -52,7 +52,7 @@ fn fs(i: VOut) -> @location(0) vec4<f32> {
     emissive += i.color * 0.26 * (0.65 + 0.35 * sin(t * 2.2 + i.wp.x * 0.7 + i.wp.z * 0.5));
   }
   let sky_k = max(i.ext.z, CAVE_AMBIENT);
-  var c = lambert(albedo, n) * sky_k + emissive + lamp_light(albedo, i.wp, n);
+  var c = lambert(albedo, n, i.wp) * sky_k + emissive + lamp_light(albedo, i.wp, n);
   c = fog(c, i.wp, frag, i.ext.z);
-  return vec4<f32>(aces(c), 1.0);
+  return vec4<f32>(c, 1.0);
 }

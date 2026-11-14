@@ -39,15 +39,15 @@ fn fs(i: VOut) -> @location(0) vec4<f32> {
   }
   if (P.emissive.w > 0.5) {
     // lâmpada: cor própria, sem luz nem neblina
-    return vec4<f32>(aces(albedo), 1.0);
+    return vec4<f32>(albedo, 1.0);
   }
   let dark = G.sun_dir.w;
   let sky_k = mix(1.0, CAVE_AMBIENT * 3.0, dark);
-  var c = lambert(albedo, nn) * sky_k + P.emissive.rgb + lamp_light(albedo, i.wp, nn);
+  var c = lambert(albedo, nn, i.wp) * sky_k + P.emissive.rgb + lamp_light(albedo, i.wp, nn);
   let gm = max(i.color.r, max(i.color.g, i.color.b));
   if (gm > 1.1) {
     c += i.color * 0.26;
   }
   c = fog(c, i.wp, frag, 1.0);
-  return vec4<f32>(aces(c), 1.0);
+  return vec4<f32>(c, 1.0);
 }

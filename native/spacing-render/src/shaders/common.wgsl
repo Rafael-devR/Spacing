@@ -1,28 +1,52 @@
 // Uniformes e luz comuns a todos os materiais (porte de src/render/materials.ts e lights.ts; Three.js 0.160 como referência:
-// Lambert com luz de hemisfério + sol, divididos por PI, neblina para o gradiente do céu e tons ACES na saída).
+// Lambert com luz de hemisfério + sol com sombra, divididos por PI, neblina para o gradiente do céu). A saída é linear (HDR);
+// os tons, o bloom e a correção de cor ficam na passada final (post.wgsl), como no post.ts.
 struct Globals {
   view_proj: mat4x4<f32>,
+  shadow_vp: mat4x4<f32>,
   cam_pos: vec4<f32>,      // w = tempo (s)
-  cam_fwd: vec4<f32>,      // w = exposição
+  cam_fwd: vec4<f32>,      // w = tamanho do mapa de sombra (texels)
   sun_dir: vec4<f32>,      // xyz para o sol; w = escuro da caverna (0..1)
   sun_col: vec4<f32>,      // cor * força; w = cintilação do regolito ligada (1/0)
-  hemi_sky: vec4<f32>,     // cor * força
-  hemi_ground: vec4<f32>,
-  bg_top: vec4<f32>,
+  hemi_sky: vec4<f32>,     // cor * força; w = sombra ligada (1/0)
+  hemi_ground: vec4<f32>,  // w = viés da sombra (profundidade)
+  bg_top: vec4<f32>,       // w = viés na normal da sombra (blocos)
   bg_bot: vec4<f32>,       // w = estrelas (1/0)
   mist: vec4<f32>,         // rgb da névoa baixa, w = altura dela
   fog: vec4<f32>,          // perto, longe, largura, altura da tela
   lamp: vec4<f32>,         // lanterna do capacete: posição, força
 };
 @group(0) @binding(0) var<uniform> G: Globals;
+@group(0) @binding(1) var shadow_map: texture_depth_2d;
+@group(0) @binding(2) var shadow_cmp: sampler_comparison;
 
 const RECIPROCAL_PI: f32 = 0.3183098861837907;
 const CAVE_AMBIENT: f32 = 0.05;
 
-fn lambert(albedo: vec3<f32>, n: vec3<f32>) -> vec3<f32> {
+// sombra do sol com PCF de 5 amostras (cada uma já filtra 2x2 no hardware)
+fn sun_shadow(wp: vec3<f32>, n: vec3<f32>) -> f32 {
+  let p = G.shadow_vp * vec4<f32>(wp + n * G.bg_top.w, 1.0);
+  let uv = vec2<f32>(p.x * 0.5 + 0.5, 0.5 - p.y * 0.5);
+  let z = p.z + G.hemi_ground.w;
+  let t = 1.0 / G.cam_fwd.w;
+  var s = textureSampleCompareLevel(shadow_map, shadow_cmp, uv, z);
+  s += textureSampleCompareLevel(shadow_map, shadow_cmp, uv + vec2<f32>(t, t), z);
+  s += textureSampleCompareLevel(shadow_map, shadow_cmp, uv + vec2<f32>(-t, t), z);
+  s += textureSampleCompareLevel(shadow_map, shadow_cmp, uv + vec2<f32>(t, -t), z);
+  s += textureSampleCompareLevel(shadow_map, shadow_cmp, uv + vec2<f32>(-t, -t), z);
+  let inside = uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0 && p.z < 1.0;
+  return select(1.0, s / 5.0, inside && G.hemi_sky.w > 0.5);
+}
+
+// só consulta a sombra nas faces voltadas para o sol (materials.ts: nas outras a luz direta já é zero)
+fn lambert(albedo: vec3<f32>, n: vec3<f32>, wp: vec3<f32>) -> vec3<f32> {
   let w = 0.5 * n.y + 0.5;
   let hemi = mix(G.hemi_ground.rgb, G.hemi_sky.rgb, w);
-  let direct = G.sun_col.rgb * max(dot(n, G.sun_dir.xyz), 0.0);
+  let nl = max(dot(n, G.sun_dir.xyz), 0.0);
+  var direct = vec3<f32>(0.0);
+  if (nl > 0.0) {
+    direct = G.sun_col.rgb * nl * sun_shadow(wp, n);
+  }
   return (direct + hemi) * albedo * RECIPROCAL_PI;
 }
 
@@ -45,21 +69,9 @@ fn fog(c: vec3<f32>, wp: vec3<f32>, frag: vec4<f32>, sky: f32) -> vec3<f32> {
   var mist = (1.0 - smoothstep(G.mist.w - 2.5, G.mist.w + 1.8, wp.y)) * 0.42;
   mist *= 0.75 + 0.25 * sin(wp.x * 0.35 + t * 0.4) * sin(wp.z * 0.3 - t * 0.3);
   mist *= sky;
-  var o = mix(c, G.mist.rgb, mist * (1.0 - dark));
+  let o = mix(c, G.mist.rgb, mist * (1.0 - dark));
   let depth = dot(wp - G.cam_pos.xyz, G.cam_fwd.xyz);
   let f = smoothstep(G.fog.x, G.fog.y, depth);
   let bg = mix(background(frag), vec3<f32>(0.006, 0.006, 0.012), dark);
   return mix(o, bg, f);
-}
-
-// tons do Three.js (ACESFilmicToneMapping, r160)
-fn aces(color_in: vec3<f32>) -> vec3<f32> {
-  let inm = mat3x3<f32>(vec3<f32>(0.59719, 0.07600, 0.02840), vec3<f32>(0.35458, 0.90834, 0.13383), vec3<f32>(0.04823, 0.01566, 0.83777));
-  let outm = mat3x3<f32>(vec3<f32>(1.60475, -0.10208, -0.00327), vec3<f32>(-0.53108, 1.10813, -0.07276), vec3<f32>(-0.07367, -0.00605, 1.07602));
-  var c = color_in * (G.cam_fwd.w / 0.6);
-  c = inm * c;
-  let a = c * (c + 0.0245786) - 0.000090537;
-  let b = c * (0.983729 * c + 0.4329510) + 0.238081;
-  c = outm * (a / b);
-  return clamp(c, vec3<f32>(0.0), vec3<f32>(1.0));
 }

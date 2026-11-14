@@ -7,7 +7,7 @@ use spacing_core::player::{MoveInput, Player};
 use spacing_core::terrain::{LANDER, SPAWN};
 use spacing_core::world::{World, SYNC_BUDGET};
 use spacing_render::astronaut::{Astronaut, StaticModel};
-use spacing_render::{load_glb, Frame, PartDraw, Renderer};
+use spacing_render::{load_glb, prop_mesh, Frame, PartDraw, PropDraw, PropInstance, Renderer, ScreenFx};
 
 use crate::controls::Controls;
 
@@ -55,6 +55,7 @@ pub struct Game {
     lander_y: f64,
     base_y: f64,
     parts: Vec<PartDraw>,
+    props: Vec<PropDraw>,
     draw_pos: [f64; 3],
 }
 
@@ -86,6 +87,7 @@ impl Game {
             lander_y,
             base_y,
             parts: Vec::new(),
+            props: Vec::new(),
             draw_pos,
         }
     }
@@ -179,8 +181,20 @@ impl Game {
             let at = Mat4::from_translation(Vec3::new(LANDER.0 as f32 + 0.5, self.lander_y as f32, LANDER.1 as f32 + 0.5));
             l.draw(at, &mut self.parts);
         }
+        // pedras e minérios soltos dos chunks que já têm malha
+        self.props.clear();
+        for c in self.world.chunks.values().filter(|c| c.meshed) {
+            for p in &c.props {
+                if let Some(mesh) = prop_mesh(p.kind, p.variant) {
+                    let inst = PropInstance { pos: [p.wx as f32 + 0.5, p.y as f32, p.wz as f32 + 0.5], rot: p.rot as f32, scale: [p.scale as f32, 0.0, 0.0, 0.0] };
+                    self.props.push(PropDraw { mesh, inst });
+                }
+            }
+        }
         let r = &self.rig;
         let d = self.dark as f32;
+        // neblina: acompanha a distância da câmera (Game.ts), nunca perto demais dentro de caverna
+        let fog_dist = r.eye_dist.max(16.0) as f32;
         Frame {
             eye: Vec3::new(r.eye[0] as f32, r.eye[1] as f32, r.eye[2] as f32),
             target: Vec3::new(r.target[0] as f32, r.target[1] as f32, r.target[2] as f32),
@@ -190,7 +204,10 @@ impl Game {
             dark: d,
             lamp: Vec4::new(p[0] as f32, p[1] as f32 + 1.5, p[2] as f32, d * 1.15),
             mist_y: (self.base_y.floor() - 6.0) as f32,
+            fog: (fog_dist * 1.15, fog_dist * 2.1),
             parts: &self.parts,
+            props: &self.props,
+            screen: ScreenFx::default(),
         }
     }
 }
