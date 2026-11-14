@@ -13,6 +13,7 @@ use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec3, Vec4};
 use spacing_core::blocks::hex_to_linear;
 use spacing_core::fx::{Sprite, SpriteKind};
+use spacing_core::mars_life::STORM_LOOK;
 use spacing_core::mesher::Vertex;
 use spacing_core::planet::PlanetDef;
 use spacing_core::terrain::CS;
@@ -189,6 +190,8 @@ pub struct Frame<'a> {
     pub props: &'a [PropDraw],
     pub sprites: &'a [Sprite],
     pub screen: ScreenFx,
+    /// poeira da tempestade de Marte (0..1): céu e névoa vão para o marrom, a luz cai (MarsDirector)
+    pub storm: f32,
 }
 
 /// números do quadro (para o medidor na tela)
@@ -218,6 +221,7 @@ struct Lighting {
     mist: [f32; 3],
     stars: bool,
     sparkle: bool,
+    storm: [[f32; 3]; 3],
 }
 
 impl Lighting {
@@ -232,6 +236,7 @@ impl Lighting {
             mist: lin(planet.sky.mist, 1.0),
             stars: planet.sky.stars,
             sparkle: planet.key == "lua",
+            storm: [lin(STORM_LOOK.top, 1.0), lin(STORM_LOOK.bottom, 1.0), lin(STORM_LOOK.mist, 1.0)],
         }
     }
 }
@@ -907,6 +912,11 @@ impl Renderer {
         let svp = self.sun_view_proj(f);
         let (w, h) = self.size();
         let lt = &self.light;
+        let st = f.storm.clamp(0.0, 1.0);
+        let mixc = |a: [f32; 3], b: [f32; 3]| [a[0] + (b[0] - a[0]) * st, a[1] + (b[1] - a[1]) * st, a[2] + (b[2] - a[2]) * st];
+        let (bg_top, bg_bot, mist) = (mixc(lt.bg_top, lt.storm[0]), mixc(lt.bg_bot, lt.storm[1]), mixc(lt.mist, lt.storm[2]));
+        let hk = 1.0 - STORM_LOOK.hemi_drop as f32 * st;
+        let sk = 1.0 - STORM_LOOK.sun_drop as f32 * st;
         let fwd = (f.target - f.eye).normalize();
         let sd = SUN_OFFSET.normalize();
         let shadow_on = if self.shadows { 1.0 } else { 0.0 };
@@ -916,13 +926,13 @@ impl Renderer {
             cam_pos: [f.eye.x, f.eye.y, f.eye.z, f.time],
             cam_fwd: [fwd.x, fwd.y, fwd.z, self.shadow_size as f32],
             sun_dir: [sd.x, sd.y, sd.z, f.dark],
-            sun_col: [lt.sun[0], lt.sun[1], lt.sun[2], lt.sparkle as u8 as f32],
-            hemi_sky: [lt.hemi_sky[0], lt.hemi_sky[1], lt.hemi_sky[2], shadow_on],
+            sun_col: [lt.sun[0] * sk, lt.sun[1] * sk, lt.sun[2] * sk, lt.sparkle as u8 as f32],
+            hemi_sky: [lt.hemi_sky[0] * hk, lt.hemi_sky[1] * hk, lt.hemi_sky[2] * hk, shadow_on],
             // viés da sombra: -0,0004 do Three.js (em profundidade 0..1) e 0,03 bloco na normal
-            hemi_ground: [lt.hemi_ground[0], lt.hemi_ground[1], lt.hemi_ground[2], -0.0004],
-            bg_top: [lt.bg_top[0], lt.bg_top[1], lt.bg_top[2], 0.03],
-            bg_bot: [lt.bg_bot[0], lt.bg_bot[1], lt.bg_bot[2], lt.stars as u8 as f32],
-            mist: [lt.mist[0], lt.mist[1], lt.mist[2], f.mist_y],
+            hemi_ground: [lt.hemi_ground[0] * hk, lt.hemi_ground[1] * hk, lt.hemi_ground[2] * hk, -0.0004],
+            bg_top: [bg_top[0], bg_top[1], bg_top[2], 0.03],
+            bg_bot: [bg_bot[0], bg_bot[1], bg_bot[2], lt.stars as u8 as f32],
+            mist: [mist[0], mist[1], mist[2], f.mist_y],
             fog: [f.fog.0, f.fog.1, w as f32, h as f32],
             lamp: f.lamp.to_array(),
         };

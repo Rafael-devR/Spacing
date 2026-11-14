@@ -4,6 +4,7 @@ use glam::{Mat4, Vec3, Vec4};
 use spacing_core::camera::{base_fov, IsoRig};
 use spacing_core::planet::{planet, PlanetId};
 use spacing_core::fx::{dust_of, signal_lamp, takes_footprint, DustFx, Footprints, Particles, Puffs, Rng, Sprite};
+use spacing_core::mars_life::MarsLife;
 use spacing_core::player::{MoveInput, Player, PlayerEvent};
 use spacing_core::terrain::{LANDER, SPAWN};
 use spacing_core::world::{World, SYNC_BUDGET};
@@ -67,6 +68,8 @@ pub struct Game {
     dust: DustFx,
     rng: Rng,
     step_side: f64,
+    /// clima, redemoinhos, lava e vulcão (só em Marte)
+    pub mars: Option<MarsLife>,
     draw_pos: [f64; 3],
 }
 
@@ -107,6 +110,7 @@ impl Game {
             dust: DustFx { gravity: pd.physics.gravity },
             rng: Rng::new(seed as u64),
             step_side: 1.0,
+            mars: (planet_id == spacing_core::planet::PlanetId::Marte).then(MarsLife::new),
             draw_pos,
         }
     }
@@ -148,9 +152,25 @@ impl Game {
         let alpha = self.acc / FIXED_STEP;
         self.draw_pos = self.player.animate(dt, alpha);
 
+        let mut wind = 0.0;
+        if let Some(m) = &mut self.mars {
+            let focus = self.rig.target;
+            let ((push, hit), shake) = m.update(dt, &mut self.world, self.player.pos, focus, &mut self.puffs, &mut self.particles);
+            self.player.push = push;
+            if let Some(h) = hit {
+                self.rig.shake(0.35);
+                self.player.vel[0] += h.vx * 1.2;
+                self.player.vel[2] += h.vz * 1.2;
+                self.player.vel[1] += 2.5;
+            }
+            if shake > 0.0 {
+                self.rig.shake(shake);
+            }
+            wind = m.dust() * 15.0;
+        }
         self.puffs.update(dt);
         self.particles.update(dt);
-        self.footprints.update(dt, 0.0);
+        self.footprints.update(dt, wind);
         self.cover(dt);
         self.rig.update(dt, focus(self.draw_pos), false);
         self.world.radius = self.rig.chunk_radius();
@@ -272,6 +292,9 @@ impl Game {
             }
         }
         self.footprints.draw(&mut self.sprites);
+        if let Some(m) = &self.mars {
+            m.draw(&mut self.sprites);
+        }
         self.particles.draw(&mut self.sprites);
         self.puffs.draw(&mut self.sprites);
         // pedras e minérios soltos dos chunks que já têm malha
@@ -288,6 +311,7 @@ impl Game {
         let d = self.dark as f32;
         // neblina: acompanha a distância da câmera (Game.ts), nunca perto demais dentro de caverna
         let fog_dist = r.eye_dist.max(16.0) as f32;
+        let (fog_near, fog_far) = self.mars.as_ref().map(|m| m.fog(1.15, 2.1)).unwrap_or((1.15, 2.1));
         Frame {
             eye: Vec3::new(r.eye[0] as f32, r.eye[1] as f32, r.eye[2] as f32),
             target: Vec3::new(r.target[0] as f32, r.target[1] as f32, r.target[2] as f32),
@@ -297,11 +321,12 @@ impl Game {
             dark: d,
             lamp: Vec4::new(p[0] as f32, p[1] as f32 + 1.5, p[2] as f32, d * 1.15),
             mist_y: (self.base_y.floor() - 6.0) as f32,
-            fog: (fog_dist * 1.15, fog_dist * 2.1),
+            fog: (fog_dist * fog_near as f32, fog_dist * fog_far as f32),
             parts: &self.parts,
             props: &self.props,
             sprites: &self.sprites,
             screen: ScreenFx::default(),
+            storm: self.mars.as_ref().map(|m| m.dust() as f32).unwrap_or(0.0),
         }
     }
 }

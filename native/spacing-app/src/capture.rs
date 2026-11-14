@@ -50,6 +50,18 @@ pub fn run(dir: &str, opts: Options) {
         if f == 340 {
             c.actions.zoom = 1.45;
         }
+        // Marte: um redemoinho perto no quadro 300 e a tempestade no auge para a última foto
+        if f == 300 {
+            let p = game.player.pos;
+            if let Some(m) = &mut game.mars {
+                m.force_devil(&mut game.world, p);
+            }
+        }
+        if f == 400 {
+            if let Some(m) = &mut game.mars {
+                m.force_storm();
+            }
+        }
         game.update(dt, &mut c);
         game.sync(&mut r);
         let Some((_, name)) = shots.iter().find(|s| s.0 == f) else { continue };

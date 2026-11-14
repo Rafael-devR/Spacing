@@ -9,6 +9,7 @@ pub mod chunk_mesher;
 pub mod fx;
 pub mod js;
 pub mod mars;
+pub mod mars_life;
 pub mod mesher;
 pub mod noise;
 pub mod planet;

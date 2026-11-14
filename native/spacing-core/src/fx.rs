@@ -105,7 +105,7 @@ impl Puffs {
         }
         let spin = s.spin.unwrap_or_else(|| (self.rng.f() - 0.5) * 0.8);
         let life = s.life.max(0.01);
-        list.push(Puff { s: PuffSpec { life, ..s }, life, pos: s.pos, vel: s.vel, rot: self.rng.f() * 6.28, spin, seed: self.rng.f() * 40.0 });
+        list.push(Puff { s: PuffSpec { life, ..s }, life, pos: s.pos, vel: s.vel, rot: self.rng.f() * std::f64::consts::TAU, spin, seed: self.rng.f() * 40.0 });
         true
     }
 
@@ -230,8 +230,11 @@ impl Particles {
 }
 
 /// Pegadas (Footprints.ts): até 160 no chão, apagam no fim da vida (últimos 10 s).
+/// uma pegada: posição, ângulo, vida que falta, bloco embaixo
+type Mark = ([f64; 3], f64, f64, (i32, i32, i32));
+
 pub struct Footprints {
-    marks: Vec<([f64; 3], f64, f64, (i32, i32, i32))>,
+    marks: Vec<Mark>,
     life: f64,
     color: [f32; 3],
     next: usize,
