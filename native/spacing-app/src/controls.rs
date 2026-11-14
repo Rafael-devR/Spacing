@@ -14,6 +14,7 @@ pub enum Button {
     Planet,
     Vsync,
     Meteor,
+    Bench,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -42,6 +43,7 @@ pub struct Actions {
     pub switch_planet: bool,
     pub toggle_vsync: bool,
     pub meteor: bool,
+    pub bench: bool,
 }
 
 pub struct Controls {
@@ -83,6 +85,7 @@ impl Controls {
             ButtonRect { b: Button::Planet, x: m + small * 3.6, y: m + small, r: small },
             ButtonRect { b: Button::Vsync, x: m + small * 6.2, y: m + small, r: small },
             ButtonRect { b: Button::Meteor, x: m + small * 8.8, y: m + small, r: small },
+            ButtonRect { b: Button::Bench, x: m + small * 11.4, y: m + small, r: small },
         ];
         let _ = h;
     }
@@ -103,6 +106,7 @@ impl Controls {
             Button::Planet => a.switch_planet = true,
             Button::Vsync => a.toggle_vsync = true,
             Button::Meteor => a.meteor = true,
+            Button::Bench => a.bench = true,
         }
     }
 
@@ -178,6 +182,7 @@ impl Controls {
                     "m" => self.actions.switch_planet = true,
                     "v" => self.actions.toggle_vsync = true,
                     "t" => self.actions.meteor = true,
+                    "b" => self.actions.bench = true,
                     _ => {}
                 }
             }

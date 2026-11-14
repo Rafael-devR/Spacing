@@ -44,6 +44,8 @@ pub struct HudInfo<'a> {
     pub pos: [f64; 3],
     pub chunks: usize,
     pub show_stats: bool,
+    /// teste de efeitos: o que está medindo agora, ou o resultado
+    pub bench: Vec<String>,
 }
 
 fn label(b: Button) -> &'static str {
@@ -57,6 +59,7 @@ fn label(b: Button) -> &'static str {
         Button::Planet => "M",
         Button::Vsync => "V",
         Button::Meteor => "*",
+        Button::Bench => "B",
     }
 }
 
@@ -87,14 +90,15 @@ pub fn draw(ctx: &egui::Context, c: &Controls, info: &HudInfo) {
     let mut lines = vec![fps];
     if info.show_stats {
         let tris = if s.triangles >= 1_000_000 { format!("{:.2} mi", s.triangles as f64 / 1e6) } else { format!("{} mil", s.triangles / 1000) };
-        lines.push(format!("{} chamadas · {} triângulos", s.draws, tris).replace('.', ","));
+        lines.push(format!("{} chamadas (+{} na sombra) · {} triângulos · {} passadas de pós", s.draws, s.shadow_draws, tris, s.post_passes).replace('.', ","));
         lines.push(format!("chunks: {} na tela de {} ({} no mundo)", s.chunks_drawn, s.chunks_total, info.chunks));
         lines.push(format!("{} · {}×{} · MSAA {}x · {}", info.backend, info.size.0, info.size.1, info.msaa, info.present));
         lines.push(format!("{} · semente {} · nativo (Rust)", info.planet, info.seed));
         lines.push(format!("x {:.1}  y {:.1}  z {:.1}", info.pos[0], info.pos[1], info.pos[2]).replace('.', ","));
     }
-    // à direita dos dois botões pequenos do canto (controls.rs: margem 28, raio 24)
-    let x0 = if c.touched { 28.0 + 24.0 * 10.0 + 12.0 } else { 12.0 };
+    lines.extend(info.bench.iter().cloned());
+    // à direita dos botões pequenos do canto (controls.rs: margem 28, raio 24)
+    let x0 = if c.touched { 28.0 + 24.0 * 12.6 + 12.0 } else { 12.0 };
     let mut y = 10.0;
     for (i, l) in lines.iter().enumerate() {
         let font = FontId::monospace(if i == 0 { 15.0 } else { 12.5 });

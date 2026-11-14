@@ -1,6 +1,6 @@
 # Porte para Rust nativo (plano)
 
-Status: **M0, M1 (mundo) e M2 feitos em 2026-11-14**; veja "Andamento" no fim. Decisão do dono (2026-11-14): o jogo vai ganhar uma versão **nativa em Rust no Android**,
+Status: **M0, M1 (mundo), M2 e M3 feitos em 2026-11-14**; veja "Andamento" no fim. Decisão do dono (2026-11-14): o jogo vai ganhar uma versão **nativa em Rust no Android**,
 com Windows como bônus. A decisão não é por desempenho (veja [NATIVO.md](NATIVO.md): ganho real só em chamadas de desenho,
 1,2x a 2x), é por ser um aplicativo de verdade, com uma linguagem e uma pilha modernas, e por poder sair para computador.
 Registro formal: [ADR 0023](../adr/0023-porte-para-rust-nativo.md).
@@ -182,3 +182,34 @@ completo. Nada disso é preciso para andar; entra com o M4.
 - Astronauta do Blender com o esqueleto e a animação procedural; módulo de pouso.
 - Controles de toque com vários dedos (joystick + pular ao mesmo tempo), teclado no computador, HUD em egui com medidor.
 - Semente fixa 12345 para comparar com o jogo web aberto com `?semente=12345`.
+
+Resultado no celular do dono (2026-11-14): fluido, **150 a 250 FPS** sem limite (118 FPS com vsync numa tela de 120 Hz), na
+Lua e em Marte. Bugs achados por ele e corrigidos: trocar de planeta fechava o app (o Android não deixa criar duas superfícies
+na mesma janela; agora só a luz e o céu mudam) e o FPS ficava preso em 120 (agora sem limite por padrão, botão `V`).
+
+### M3 Visual completo (feito, esperando o teste no celular)
+
+- **Sombra do sol:** mapa de 2048 ortográfico que segue o jogador em passos de um texel (lights.ts), PCF de 5 amostras, só nas
+  faces voltadas para o sol, costas no mapa como o Three.js.
+- **Pós-processamento** (post.ts): cena em HDR (Rgba16Float, MSAA 4x), bloom em cadeia a partir da meia resolução (limite 1,0,
+  força 0,42; filtro "dual" de celular em vez do desfoque separável do UnrealBloomPass), passada final com tons ACES, correção
+  de cor, aberração, vinheta, vazamento de luz do canto e ruído, e a onda de choque dos meteoros.
+- **Pedras e minérios soltos:** exportados do `PropFactory` do TS (`npm run golden` grava `native/assets/props.bin`), desenhados
+  com instâncias (uma chamada por tipo e variação).
+- **Efeitos** (`spacing-core/src/fx.rs`): poeira dos passos com a cor do chão, pedrinhas, pegadas que apagam, anel no pouso,
+  sopro no pulo, luzes de sinal do módulo; uma passada de sprites com três camadas (pegadas, fumaça, brilho aditivo).
+- **Marte** (`mars_life.rs`): clima com a mesma semente do Weather.ts, céu, névoa e luz escurecendo na tempestade, grãos no
+  vento, redemoinhos que jogam o astronauta, brasas e fumaça sobre a lava, chafariz do vulcão.
+- **Meteoros** (`meteors.rs`): aviso no chão, voo com a rocha do `meteor.glb` e rastro, impacto com cratera, clarão, bola de
+  fogo, anel de poeira, bolha, coluna de fumaça, brasa, meteorito no chão, luz pontual, onda de choque na tela, tremor, soco de
+  zoom, clarão de tela, pausa e câmera lenta. Botão `*` solta um na hora.
+- **Custo de cada efeito** (`effects.rs`, botão `B`): com o astronauta parado e o FPS sem limite, mede o tempo do quadro com
+  tudo ligado e sem cada efeito (sombra, bloom, aberração, vinheta, ruído, todos), e mostra a diferença em ms. Medidor de GPU por
+  carimbo de tempo não entrou: nem todo Android tem, e a diferença de tempo do quadro responde à mesma pergunta.
+
+Ficou de fora do M3, de propósito:
+- **Corte da caverna:** desligado no jogo web a pedido do dono (escondia blocos que bloqueiam o caminho). Não foi portado.
+- **Destroços que quicam** (Debris.ts) e **dano** (lava, meteoro): são jogo, entram com o M4. Por ora os pedaços da cratera voam
+  como partículas e a lava só solta brasas.
+- **Escolha de qualidade e MSAA desligável:** ficam para a tela de configurações (M5); hoje o app liga tudo, com MSAA 4x quando
+  o aparelho deixa.

@@ -1131,6 +1131,10 @@ impl Renderer {
         if let Some(fr) = frame {
             self.queue.present(fr);
         }
+        // sem tela, nada apresenta o quadro nem segura o ritmo: espera a placa terminar (senão os quadros se acumulam na memória)
+        if self.surface.is_none() {
+            let _ = self.device.poll(wgpu::PollType::wait_indefinitely());
+        }
         Some(stats)
     }
 }

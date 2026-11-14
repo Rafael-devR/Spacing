@@ -91,6 +91,7 @@ pub fn run(dir: &str, opts: Options) {
             pos: game.player.pos,
             chunks: game.world.chunk_count(),
             show_stats: true,
+            bench: Vec::new(),
         };
         let raw = egui::RawInput {
             screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(w as f32, h as f32))),
@@ -141,4 +142,17 @@ pub fn run(dir: &str, opts: Options) {
     enc.set_depth(png::BitDepth::Eight);
     enc.write_header().and_then(|mut wr| wr.write_image_data(&px)).expect("png");
     println!("troca de planeta ok");
+    // teste de custo dos efeitos (os números daqui são do desenho por software)
+    let mut bench = crate::effects::EffectBench::new(&mut r);
+    let mut last = Instant::now();
+    while !bench.done {
+        let frame = game.frame(&models, w as f64 / h as f64);
+        r.render(&frame, None);
+        let now = Instant::now();
+        bench.frame((now - last).as_secs_f64(), &mut r);
+        last = now;
+    }
+    for l in bench.report() {
+        println!("{l}");
+    }
 }

@@ -3,6 +3,7 @@
 #[cfg(not(target_os = "android"))]
 pub mod capture;
 pub mod controls;
+pub mod effects;
 pub mod game;
 pub mod hud;
 
@@ -46,6 +47,7 @@ struct App {
     stats: FrameStats,
     show_stats: bool,
     vsync: bool,
+    bench: Option<effects::EffectBench>,
     last: Option<Instant>,
     cursor: (f32, f32),
     /// por que o desenho não subiu (fica no log; a tela só mostra preto)
@@ -70,6 +72,7 @@ impl App {
             stats: FrameStats::default(),
             show_stats: true,
             vsync: false,
+            bench: None,
             last: None,
             cursor: (0.0, 0.0),
             failed: None,
@@ -133,6 +136,16 @@ impl App {
                 r.set_vsync(self.vsync);
             }
         }
+        if self.controls.actions.bench {
+            self.controls.actions.bench = false;
+            // de novo apaga o resultado; parado, começa a medir
+            self.bench = match (&self.bench, self.renderer.as_mut()) {
+                (Some(b), _) if b.done => None,
+                (None, Some(r)) => Some(effects::EffectBench::new(r)),
+                _ => None,
+            };
+            self.show_stats = true;
+        }
         if self.controls.actions.toggle_stats {
             self.controls.actions.toggle_stats = false;
             self.show_stats = !self.show_stats;
@@ -141,6 +154,9 @@ impl App {
         let dt = self.last.map(|l| (now - l).as_secs_f64()).unwrap_or(1.0 / 60.0);
         self.last = Some(now);
         self.meter.frame(dt);
+        if let (Some(b), Some(r)) = (self.bench.as_mut(), self.renderer.as_mut()) {
+            b.frame(dt, r);
+        }
         let (Some(r), Some(window)) = (self.renderer.as_mut(), self.window.clone()) else { return };
         if self.game.is_none() {
             self.game = Some(Game::new(self.opts.planet, self.opts.seed, threads()));
@@ -169,6 +185,17 @@ impl App {
             pos: game.player.pos,
             chunks: game.world.chunk_count(),
             show_stats: self.show_stats,
+            bench: match &self.bench {
+                Some(b) if b.done => {
+                    let mut r = b.report();
+                    if self.vsync {
+                        r.push("(vsync ligado: o tempo é o da tela; desligue com V e repita)".into());
+                    }
+                    r
+                }
+                Some(b) => vec![b.running_label(), "fique parado: o tempo do quadro é medido sem cada efeito".into()],
+                None => Vec::new(),
+            },
         };
         let controls = &self.controls;
         let out = self.egui.run_ui(raw, |ui| hud::draw(ui.ctx(), controls, &info));
