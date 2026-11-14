@@ -1,0 +1,35 @@
+# Porte do Spacing para Rust nativo (docs/design/PORTE_RUST.md, ADR 0023).
+[workspace]
+resolver = "2"
+members = ["spacing-core"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace.dependencies]
+# versões fixas (a API do wgpu muda entre versões; o egui 0.37 é o que casa com wgpu 30 e winit 0.30)
+wgpu = { version = "=30.0.2", default-features = false, features = ["wgsl"] }
+winit = { version = "=0.30.13", default-features = false, features = ["rwh_06"] }
+egui = "=0.37.0"
+egui-wgpu = { version = "=0.37.0", default-features = false }
+egui-winit = { version = "=0.37.0", default-features = false }
+bytemuck = { version = "1", features = ["derive"] }
+glam = { version = "0.30", features = ["bytemuck"] }
+gltf = { version = "1.4", default-features = false, features = ["import", "utils", "names"] }
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+
+# o núcleo é pesado em contas (gerador, malha): otimiza mesmo em desenvolvimento, senão o jogo fica lento demais para testar
+[profile.dev.package.spacing-core]
+opt-level = 3
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 4
+panic = "abort"

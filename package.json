@@ -2,7 +2,7 @@
   "name": "spacing",
   "version": "0.3.0",
   "private": true,
-  "description": "Jogo de exploração espacial em mundo de blocos, isométrico, low poly cartoon. Minere, construa e escape da Lua.",
+  "description": "Jogo de explora\u00e7\u00e3o espacial em mundo de blocos, isom\u00e9trico, low poly cartoon. Minere, construa e escape da Lua.",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
@@ -16,7 +16,8 @@
     "format:check": "prettier --check .",
     "android:sync": "npm run build && cap sync android",
     "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug",
-    "proto:web": "vite prototypes/nativo/web --config vite.config.ts --host --port 5174"
+    "proto:web": "vite prototypes/nativo/web --config vite.config.ts --host --port 5174",
+    "golden": "vitest run --config tools/golden/vitest.config.ts"
   },
   "dependencies": {
     "@capacitor-community/keep-awake": "^8.0.1",
