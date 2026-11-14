@@ -1,6 +1,6 @@
 # Porte para Rust nativo (plano)
 
-Status: **plano, nada implementado**. Decisão do dono (2026-11-14): o jogo vai ganhar uma versão **nativa em Rust no Android**,
+Status: **M0, M1 (mundo) e M2 feitos em 2026-11-14**; veja "Andamento" no fim. Decisão do dono (2026-11-14): o jogo vai ganhar uma versão **nativa em Rust no Android**,
 com Windows como bônus. A decisão não é por desempenho (veja [NATIVO.md](NATIVO.md): ganho real só em chamadas de desenho,
 1,2x a 2x), é por ser um aplicativo de verdade, com uma linguagem e uma pilha modernas, e por poder sair para computador.
 Registro formal: [ADR 0023](../adr/0023-porte-para-rust-nativo.md).
@@ -144,3 +144,41 @@ parada depois de M2 existe para o dono decidir com o jogo real na mão se contin
 3. **Windows:** entra no M6 como binário de desktop (recomendado) ou fica de fora por ora?
 
 Se o dono não responder, o plano segue com as opções recomendadas.
+
+## Andamento
+
+### M0 Fundação (feito)
+
+- Workspace `native/` (`spacing-core`, `spacing-render`, `spacing-app`, `android/`), versões fixas do wgpu 30, winit 0.30 e egui 0.37
+  (as três casam entre si). Ver [native/README.md](../../native/README.md).
+- Exportador de vetores dourados: `npm run golden` (`tools/golden/golden.test.ts`) grava `native/golden/*.json`.
+- GitHub Actions `native-apk.yml`: testes do núcleo e o APK `spacing-nativo`.
+- **Ainda falta do M0:** exportar/importar o salvamento na versão web (fica para quando o M4 precisar).
+
+### M1 Núcleo (a parte do mundo feita)
+
+Portado e **provado igual ao TS** (`native/spacing-core/tests/golden.rs`): ruído e hashes, blocos e cores, gerador da Lua
+(relevo, crateras, camadas, minérios, cavernas com tubos, túneis, salões e entradas, plataforma da base), gerador de Marte,
+objetos soltos, malha dos chunks (oclusão, pepitas de minério) e luz do céu, animação do astronauta. Dez chunks por planeta em
+três sementes dão exatamente os mesmos blocos.
+
+Lições: o `Math.round` e o `Math.hypot` do V8 não são os do Rust (`js.rs` copia os do V8); o `serde_json` precisa de
+`float_roundtrip` para ler os números exatos; o seno do V8 e o do Rust podem diferir no último bit, então os pontos de teste
+vão prontos no arquivo.
+
+Portado sem vetor dourado (testes próprios): mundo em chunks com threads no lugar dos workers (as threads dão a mesma malha que
+a thread principal), edições e salvamento das edições no formato do TS, raio por voxels, física do jogador, câmera.
+
+**Falta do M1:** fabricação, inventário, energia, sobrevivência, estufa, missões, pedaços e itens soltos, meteoros, salvamento
+completo. Nada disso é preciso para andar; entra com o M4.
+
+### M2 Andar na Lua (feito, esperando o teste no celular)
+
+- Blocos com um buffer por chunk e posições já no mundo (uma chamada por chunk, sem uniforme por chunk), vértice de 28 bytes,
+  descarte pela câmera, MSAA 4x quando o aparelho deixa.
+- Luz igual à do jogo web: Lambert com hemisfério e sol (Three.js 0.160 como régua), borda clara, granulado, contas de vidro no
+  regolito, brilho da lava e dos cristais, luz do céu por vértice (cavernas escuras), lanterna do capacete, névoa baixa, neblina
+  para o gradiente do céu, estrelas, luas de Marte e tons ACES. **Ainda sem sombra e sem bloom (M3).**
+- Astronauta do Blender com o esqueleto e a animação procedural; módulo de pouso.
+- Controles de toque com vários dedos (joystick + pular ao mesmo tempo), teclado no computador, HUD em egui com medidor.
+- Semente fixa 12345 para comparar com o jogo web aberto com `?semente=12345`.

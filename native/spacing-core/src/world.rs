@@ -358,6 +358,17 @@ impl World {
         self.meshes_out.push(MeshUpdate { cx, cz, verts });
     }
 
+    /// O renderizador foi recriado (o Android derruba a superfície ao sair do app): todas as malhas precisam ser refeitas.
+    pub fn remesh_all(&mut self) {
+        for c in self.chunks.values_mut() {
+            c.meshed = false;
+            c.dirty = true;
+        }
+        self.pending_mesh.clear();
+        self.meshes_out.clear();
+        self.arrived.retain(|d| !matches!(d, Done::Mesh { .. }));
+    }
+
     /// malhas prontas desde a última chamada (o renderizador sobe para a GPU)
     pub fn take_meshes(&mut self) -> Vec<MeshUpdate> {
         std::mem::take(&mut self.meshes_out)

@@ -3,6 +3,7 @@
 pub mod anim;
 pub mod base_pad;
 pub mod blocks;
+pub mod camera;
 pub mod caves;
 pub mod chunk_mesher;
 pub mod js;

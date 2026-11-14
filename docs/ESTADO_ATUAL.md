@@ -138,7 +138,9 @@ assina aqui, mas **nunca rodou num aparelho**.
 O dono acha o jogo pesado no celular e quer saber se vale reescrever nativo (Rust). Antes de reescrever, a régua: [design/NATIVO.md](design/NATIVO.md).
 Resultado (versão 2, mesmo celular, tela cheia, 118 Hz): o nativo ganha de ~1,2x a ~2x em chamadas de desenho; em triângulos os três empatam (a GPU limita).
 
-**Decisão do dono (2026-11-14): portar para Rust nativo no Android (Windows depois).** Pelo produto e pela pilha, não só por desempenho. Só há plano: [design/PORTE_RUST.md](design/PORTE_RUST.md) e [ADR 0023](adr/0023-porte-para-rust-nativo.md). Esperando o dono responder 3 escolhas (motor, destino da versão web, Windows); sem resposta, valem as recomendadas. Nada de código do porte foi escrito.
+**Decisão do dono (2026-11-14): portar para Rust nativo no Android (Windows depois).** Pelo produto e pela pilha, não só por desempenho. Só há plano: [design/PORTE_RUST.md](design/PORTE_RUST.md) e [ADR 0023](adr/0023-porte-para-rust-nativo.md). Esperando o dono responder 3 escolhas (motor, destino da versão web, Windows); sem resposta, valem as recomendadas.
+
+**Porte, 2026-11-14 (o dono mandou fazer até o M2):** `native/` tem o núcleo em Rust com paridade **provada** contra o TS (gerador da Lua e de Marte, cavernas, malha, luz do céu, animação: `npm run golden` + `cargo test -p spacing-core --release`), o renderizador wgpu e o app (andar na Lua/Marte com toque ou teclado, HUD com medidor). APK pelo fluxo `native-apk.yml` (artefato `spacing-nativo`). Sem sombra, bloom, pedras soltas, base, mineração e telas: isso é M3 em diante. Capturas sem janela: `./target/release/spacing --captura <pasta> [lua|marte] [semente]` com `VK_ICD_FILENAMES` apontando para o SwiftShader do Chromium (`/opt/pw-browsers/chromium-*/chrome-linux64/vk_swiftshader_icd.json`). O dono ainda **não instalou** o APK nativo.
 
 ## O que o dono ainda **não viu** no celular
 
