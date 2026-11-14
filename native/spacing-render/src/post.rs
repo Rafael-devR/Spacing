@@ -213,6 +213,7 @@ impl Post {
     }
 
     /// Grava o bloom e a passada final em `out`. Devolve quantas passadas de tela foram feitas.
+    #[allow(clippy::too_many_arguments)]
     pub fn run(&self, enc: &mut wgpu::CommandEncoder, queue: &wgpu::Queue, out: &wgpu::TextureView, w: u32, h: u32, time: f32, screen: ScreenFx) -> u32 {
         let s = self.settings;
         let Some(g) = &self.grade_step else { return 0 };

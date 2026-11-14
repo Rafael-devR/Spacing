@@ -6,6 +6,7 @@ pub mod blocks;
 pub mod camera;
 pub mod caves;
 pub mod chunk_mesher;
+pub mod fx;
 pub mod js;
 pub mod mars;
 pub mod mesher;

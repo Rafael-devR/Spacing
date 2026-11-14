@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec3, Vec4};
 use spacing_core::blocks::hex_to_linear;
+use spacing_core::fx::{Sprite, SpriteKind};
 use spacing_core::mesher::Vertex;
 use spacing_core::planet::PlanetDef;
 use spacing_core::terrain::CS;
@@ -28,6 +29,8 @@ const SHADOW_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 const MAX_PARTS: usize = 256;
 /// pedras por quadro
 const MAX_PROPS: usize = 4096;
+/// sprites por quadro (poeira, fumaça, fogo, halos, pegadas)
+const MAX_SPRITES: usize = 4096;
 /// direção do sol (src/data/power.ts, SUN_DIRECTION): a câmera da sombra fica aí, relativa ao alvo (lights.ts)
 const SUN_OFFSET: Vec3 = Vec3::new(-14.0, 26.0, 9.0);
 
@@ -78,6 +81,34 @@ pub struct PropInstance {
     pub pos: [f32; 3],
     pub rot: f32,
     pub scale: [f32; 4],
+}
+
+/// um sprite na GPU (sprite.wgsl): centro e diâmetro, cor e opacidade, giro, semente e tipo
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct SpriteInst {
+    center: [f32; 4],
+    color: [f32; 4],
+    extra: [f32; 4],
+}
+
+/// 0 decalque (pegada), 1 mistura normal, 2 soma luz
+fn sprite_layer(k: SpriteKind) -> u8 {
+    match k {
+        SpriteKind::Footprint => 0,
+        SpriteKind::Smoke | SpriteKind::Grit => 1,
+        SpriteKind::Fire | SpriteKind::Halo => 2,
+    }
+}
+
+fn sprite_kind_index(k: SpriteKind) -> f32 {
+    match k {
+        SpriteKind::Smoke => 0.0,
+        SpriteKind::Fire => 1.0,
+        SpriteKind::Halo => 2.0,
+        SpriteKind::Grit => 3.0,
+        SpriteKind::Footprint => 4.0,
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -156,6 +187,7 @@ pub struct Frame<'a> {
     pub fog: (f32, f32),
     pub parts: &'a [PartDraw],
     pub props: &'a [PropDraw],
+    pub sprites: &'a [Sprite],
     pub screen: ScreenFx,
 }
 
@@ -233,6 +265,8 @@ pub struct Renderer {
     parts_bg: wgpu::BindGroup,
     part_stride: u32,
     props_inst: wgpu::Buffer,
+    sprite_inst: wgpu::Buffer,
+    sprite_pipes: [wgpu::RenderPipeline; 3],
     terrain_pipe: wgpu::RenderPipeline,
     model_pipe: wgpu::RenderPipeline,
     prop_pipe: wgpu::RenderPipeline,
@@ -368,6 +402,12 @@ impl Renderer {
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+        let sprite_inst = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("sprites"),
+            size: (MAX_SPRITES * std::mem::size_of::<SpriteInst>()) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
         let buf_entry = |binding, vis, dynamic: Option<u64>| wgpu::BindGroupLayoutEntry {
             binding,
             visibility: vis,
@@ -423,6 +463,7 @@ impl Renderer {
         let model_sh = module("model", include_str!("shaders/model.wgsl"));
         let prop_sh = module("prop", include_str!("shaders/prop.wgsl"));
         let sky_sh = module("sky", include_str!("shaders/sky.wgsl"));
+        let sprite_sh = module("sprite", include_str!("shaders/sprite.wgsl"));
         let shadow_sh = device.create_shader_module(wgpu::include_wgsl!("shaders/shadow.wgsl"));
 
         let layout = |label, groups: &[Option<&wgpu::BindGroupLayout>]| {
@@ -476,6 +517,42 @@ impl Renderer {
         let model_pipe = scene_pipe("model", &scene2, &model_sh, &[Some(model_vb.clone())], None, less);
         let prop_pipe = scene_pipe("prop", &scene1, &prop_sh, &[Some(model_vb.clone()), Some(inst_vb.clone())], None, less);
         let sky_pipe = scene_pipe("sky", &scene1, &sky_sh, &[], None, wgpu::CompareFunction::LessEqual);
+        let sprite_vb = wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<SpriteInst>() as u64,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4],
+        };
+        let alpha = wgpu::BlendState::ALPHA_BLENDING;
+        let add = wgpu::BlendState {
+            color: wgpu::BlendComponent { src_factor: wgpu::BlendFactor::One, dst_factor: wgpu::BlendFactor::One, operation: wgpu::BlendOperation::Add },
+            alpha: wgpu::BlendComponent { src_factor: wgpu::BlendFactor::Zero, dst_factor: wgpu::BlendFactor::One, operation: wgpu::BlendOperation::Add },
+        };
+        let sprite_pipe = |label, entry, blend, bias: i32| {
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some(label),
+                layout: Some(&scene1),
+                vertex: wgpu::VertexState { module: &sprite_sh, entry_point: Some("vs"), buffers: &[Some(sprite_vb.clone())], compilation_options: Default::default() },
+                fragment: Some(wgpu::FragmentState {
+                    module: &sprite_sh,
+                    entry_point: Some(entry),
+                    targets: &[Some(wgpu::ColorTargetState { format: HDR, blend: Some(blend), write_mask: wgpu::ColorWrites::ALL })],
+                    compilation_options: Default::default(),
+                }),
+                primitive: Default::default(),
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: DEPTH,
+                    depth_write_enabled: Some(false),
+                    depth_compare: Some(wgpu::CompareFunction::LessEqual),
+                    stencil: Default::default(),
+                    // as pegadas ficam rente ao chão: puxadas para a câmera (o polygonOffset do Footprints.ts)
+                    bias: wgpu::DepthBiasState { constant: bias, slope_scale: bias as f32 * 0.5, clamp: 0.0 },
+                }),
+                multisample: ms,
+                multiview_mask: None,
+                cache: None,
+            })
+        };
+        let sprite_pipes = [sprite_pipe("pegadas", "fs_alpha", alpha, -4), sprite_pipe("fumaça", "fs_alpha", alpha, 0), sprite_pipe("brilho", "fs_add", add, 0)];
         let shadow_pipe = |label, layout: &wgpu::PipelineLayout, entry, buffers: &[Option<wgpu::VertexBufferLayout>], cull| {
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some(label),
@@ -521,6 +598,8 @@ impl Renderer {
             parts_bg,
             part_stride,
             props_inst,
+            sprite_inst,
+            sprite_pipes,
             terrain_pipe,
             model_pipe,
             prop_pipe,
@@ -775,6 +854,37 @@ impl Renderer {
         groups
     }
 
+    /// Ordena os sprites por camada (pegadas, fumaça, brilho) e sobe. Devolve (camada, primeiro, quantos).
+    fn upload_sprites(&self, sprites: &[Sprite]) -> Vec<(u8, u32, u32)> {
+        let mut v: Vec<(u8, SpriteInst)> = sprites
+            .iter()
+            .take(MAX_SPRITES)
+            .map(|s| {
+                (
+                    sprite_layer(s.kind),
+                    SpriteInst {
+                        center: [s.pos[0], s.pos[1], s.pos[2], s.size],
+                        color: s.color,
+                        extra: [s.rot, s.seed, sprite_kind_index(s.kind), 0.0],
+                    },
+                )
+            })
+            .collect();
+        v.sort_by_key(|x| x.0);
+        let inst: Vec<SpriteInst> = v.iter().map(|x| x.1).collect();
+        if !inst.is_empty() {
+            self.queue.write_buffer(&self.sprite_inst, 0, bytemuck::cast_slice(&inst));
+        }
+        let mut groups: Vec<(u8, u32, u32)> = Vec::new();
+        for (i, (l, _)) in v.iter().enumerate() {
+            match groups.last_mut() {
+                Some(g) if g.0 == *l => g.2 += 1,
+                _ => groups.push((*l, i as u32, 1)),
+            }
+        }
+        groups
+    }
+
     /// Desenha um quadro. Devolve os números dele, ou None se a tela não estava pronta.
     pub fn render(&mut self, f: &Frame, ui: Option<Ui>) -> Option<FrameStats> {
         let frame = match &self.surface {
@@ -837,6 +947,7 @@ impl Renderer {
             self.queue.write_buffer(&self.parts_buf, 0, &data);
         }
         let prop_groups = self.upload_props(f.props);
+        let sprite_groups = self.upload_sprites(f.sprites);
 
         let mut stats = FrameStats { chunks_total: self.chunks.len() as u32, ..Default::default() };
         let mut enc = self.device.create_command_encoder(&Default::default());
@@ -947,9 +1058,18 @@ impl Renderer {
                     stats.triangles += m.count as u64 / 3;
                 }
             }
-            // o céu por último, só onde nada foi desenhado (profundidade 1)
+            // o céu depois dos opacos, só onde nada foi desenhado (profundidade 1)
             pass.set_pipeline(&self.sky_pipe);
             pass.draw(0..3, 0..1);
+            // transparentes depois do céu (não escrevem profundidade)
+            if !sprite_groups.is_empty() {
+                pass.set_vertex_buffer(0, self.sprite_inst.slice(..));
+                for &(layer, first, n) in &sprite_groups {
+                    pass.set_pipeline(&self.sprite_pipes[layer as usize]);
+                    pass.draw(0..6, first..first + n);
+                    stats.draws += 1;
+                }
+            }
         }
 
         // 3. bloom e passada final

@@ -91,6 +91,7 @@ pub fn run(dir: &str, opts: Options) {
         enc.set_color(png::ColorType::Rgba);
         enc.set_depth(png::BitDepth::Eight);
         enc.write_header().and_then(|mut wr| wr.write_image_data(&px)).expect("png");
+        println!("  sprites: {} (baforadas {}, pedrinhas {})", game.sprite_count(), game.puffs.active(), game.particles.active());
         println!(
             "{path}: {} chamadas, {} triângulos, {}/{} chunks, {:.0} ms (software), jogador {:.1} {:.1} {:.1}",
             stats.draws,

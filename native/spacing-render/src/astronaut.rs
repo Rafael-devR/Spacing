@@ -122,6 +122,8 @@ impl Astronaut {
 /// Um modelo parado (módulo de pouso): todas as peças na pose do arquivo, na posição dada.
 pub struct StaticModel {
     pieces: Vec<Piece>,
+    /// pontos marcados no Blender (nós sem malha, como `lamp_0`): nome e posição relativa ao modelo
+    pub markers: Vec<(String, Vec3)>,
 }
 
 impl StaticModel {
@@ -133,7 +135,8 @@ impl StaticModel {
             .enumerate()
             .filter_map(|(i, n)| n.mesh.map(|mi| Piece { mesh: meshes[mi], local: world[i], material: material_for(&n.name) }))
             .collect();
-        Self { pieces }
+        let markers = m.nodes.iter().enumerate().filter(|(_, n)| n.mesh.is_none()).map(|(i, n)| (n.name.clone(), world[i].w_axis.truncate())).collect();
+        Self { pieces, markers }
     }
 
     pub fn draw(&self, at: Mat4, out: &mut Vec<PartDraw>) {
