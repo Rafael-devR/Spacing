@@ -15,6 +15,8 @@ struct Globals {
   mist: vec4<f32>,         // rgb da névoa baixa, w = altura dela
   fog: vec4<f32>,          // perto, longe, largura, altura da tela
   lamp: vec4<f32>,         // lanterna do capacete: posição, força
+  point: vec4<f32>,        // luz do meteoro (PointLight do meteorFx): posição, intensidade (0 = apagada)
+  point_col: vec4<f32>,
 };
 @group(0) @binding(0) var<uniform> G: Globals;
 @group(0) @binding(1) var shadow_map: texture_depth_2d;
@@ -46,6 +48,15 @@ fn lambert(albedo: vec3<f32>, n: vec3<f32>, wp: vec3<f32>) -> vec3<f32> {
   var direct = vec3<f32>(0.0);
   if (nl > 0.0) {
     direct = G.sun_col.rgb * nl * sun_shadow(wp, n);
+  }
+  // luz pontual do Three.js (física): queda 1/d^1,6 e corte suave em 22 blocos
+  if (G.point.w > 0.0) {
+    let lv = G.point.xyz - wp;
+    let d = length(lv);
+    var fall = 1.0 / max(pow(d, 1.6), 0.01);
+    let q = clamp(1.0 - pow(d / 22.0, 4.0), 0.0, 1.0);
+    fall *= q * q;
+    direct += G.point_col.rgb * G.point.w * fall * max(dot(n, lv / max(d, 0.001)), 0.0);
   }
   return (direct + hemi) * albedo * RECIPROCAL_PI;
 }

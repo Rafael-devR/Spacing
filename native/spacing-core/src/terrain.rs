@@ -30,6 +30,14 @@ pub fn idx(x: usize, y: usize, z: usize) -> usize {
 /// tipo de objeto solto (os mesmos nomes do TS)
 pub type PropType = &'static str;
 
+/// todos os tipos de objeto solto (src/data/props.ts, PROP_TYPES)
+pub const PROP_TYPES: [&str; 8] = ["boulder", "ilmenite", "gold", "crystal", "meteorite", "marsBoulder", "blueberries", "solarPanel"];
+
+/// o nome guardado no salvamento, como `PropType`
+pub fn prop_type(name: &str) -> Option<PropType> {
+    PROP_TYPES.iter().copied().find(|t| *t == name)
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct PropSpawn {
     pub wx: i32,

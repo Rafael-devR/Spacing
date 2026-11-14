@@ -5,11 +5,12 @@ use spacing_core::camera::{base_fov, IsoRig};
 use spacing_core::planet::{planet, PlanetId};
 use spacing_core::fx::{dust_of, signal_lamp, takes_footprint, DustFx, Footprints, Particles, Puffs, Rng, Sprite};
 use spacing_core::mars_life::MarsLife;
+use spacing_core::meteors::{self, Meteors};
 use spacing_core::player::{MoveInput, Player, PlayerEvent};
 use spacing_core::terrain::{LANDER, SPAWN};
 use spacing_core::world::{World, SYNC_BUDGET};
 use spacing_render::astronaut::{Astronaut, StaticModel};
-use spacing_render::{load_glb, prop_mesh, Frame, PartDraw, PropDraw, PropInstance, Renderer, ScreenFx};
+use spacing_render::{camera_matrix, load_glb, prop_mesh, Frame, PartDraw, PropDraw, PropInstance, Renderer, ScreenFx};
 
 use crate::controls::Controls;
 
@@ -19,11 +20,14 @@ const MAX_STEPS: u32 = 5;
 
 static ASTRONAUT_GLB: &[u8] = include_bytes!("../../../src/assets/models/astronaut.glb");
 static LANDER_GLB: &[u8] = include_bytes!("../../../src/assets/models/lander.glb");
+static METEOR_GLB: &[u8] = include_bytes!("../../../src/assets/models/meteor.glb");
 
 /// os modelos já na GPU (refeitos quando o Android recria a superfície)
 pub struct Models {
     astronaut: Option<Astronaut>,
     lander: Option<StaticModel>,
+    /// as três rochas do meteor.glb (rock_a, rock_b, rock_c)
+    rocks: Vec<StaticModel>,
 }
 
 /// cor das luzes do módulo de pouso avariado (models.ts: vermelho; verde quando reparado)
@@ -39,10 +43,17 @@ impl Models {
             let ids = r.upload_model(&m);
             StaticModel::new(&m, &ids)
         });
+        let rocks = load_glb(METEOR_GLB)
+            .ok()
+            .map(|m| {
+                let ids = r.upload_model(&m);
+                ["rock_a", "rock_b", "rock_c"].iter().filter_map(|n| StaticModel::subtree(&m, &ids, n)).collect()
+            })
+            .unwrap_or_default();
         if astronaut.is_none() {
             log::warn!("astronauta não carregou");
         }
-        Self { astronaut, lander }
+        Self { astronaut, lander, rocks }
     }
 }
 
@@ -70,6 +81,12 @@ pub struct Game {
     step_side: f64,
     /// clima, redemoinhos, lava e vulcão (só em Marte)
     pub mars: Option<MarsLife>,
+    pub meteors: Meteors,
+    shocks: Vec<([f32; 4], [f32; 4])>,
+    /// clarão de tela (0..1), pausa de impacto e câmera lenta (MeteorDirector)
+    flash: f64,
+    hit_stop: f64,
+    slow_mo: (f64, f64),
     draw_pos: [f64; 3],
 }
 
@@ -111,15 +128,34 @@ impl Game {
             rng: Rng::new(seed as u64),
             step_side: 1.0,
             mars: (planet_id == spacing_core::planet::PlanetId::Marte).then(MarsLife::new),
+            meteors: Meteors::new(seed as u64),
+            shocks: Vec::new(),
+            flash: 0.0,
+            hit_stop: 0.0,
+            slow_mo: (0.0, 1.0),
             draw_pos,
         }
     }
 
     /// Um quadro: entrada, passos fixos de física, câmera, chunks.
-    pub fn update(&mut self, dt: f64, c: &mut Controls) {
-        let dt = dt.min(0.25);
+    pub fn update(&mut self, real_dt: f64, c: &mut Controls) {
+        let real_dt = real_dt.min(0.25);
+        // pausa de impacto e câmera lenta do meteoro: o jogo para um instante e corre devagar; a câmera continua
+        let dt = if self.hit_stop > 0.0 {
+            self.hit_stop -= real_dt;
+            0.0
+        } else if self.slow_mo.0 > 0.0 {
+            self.slow_mo.0 -= real_dt;
+            real_dt * self.slow_mo.1
+        } else {
+            real_dt
+        };
         self.time += dt;
         let a = c.take_actions();
+        if a.meteor {
+            let p = self.player.pos;
+            self.meteors.launch_random(&mut self.world, p, self.rig.yaw);
+        }
         if a.jump {
             self.input.jump = true;
         }
@@ -168,11 +204,16 @@ impl Game {
             }
             wind = m.dust() * 15.0;
         }
+        let impacts = self.meteors.update(dt, &mut self.world, self.player.pos, self.rig.yaw, &mut self.puffs, &mut self.particles);
+        for e in impacts {
+            self.impact(e);
+        }
+        self.flash = (self.flash - real_dt * meteors::camera::FLASH_DECAY).max(0.0);
         self.puffs.update(dt);
         self.particles.update(dt);
         self.footprints.update(dt, wind);
         self.cover(dt);
-        self.rig.update(dt, focus(self.draw_pos), false);
+        self.rig.update(real_dt, focus(self.draw_pos), false);
         self.world.radius = self.rig.chunk_radius();
         self.world.update(self.player.pos[0], self.player.pos[2], 2);
         for e in self.world.events.drain(..) {
@@ -183,6 +224,32 @@ impl Game {
 
     pub fn sprite_count(&self) -> usize {
         self.sprites.len()
+    }
+
+    /// O que o jogador sente num impacto (MeteorDirector): tremor, onda, soco de zoom, clarão, pausa e câmera lenta.
+    fn impact(&mut self, e: meteors::Impact) {
+        use meteors::camera as C;
+        // a velocidade do empurrão perto (Meteors.impact)
+        if e.distance < 7.0 {
+            let p = self.player.pos;
+            let (dx, dz) = (p[0] - e.pos[0], p[2] - e.pos[2]);
+            let l = spacing_core::js::hypot(dx, dz).max(1e-6);
+            let k = 1.0 - e.distance / 7.0;
+            self.player.vel[0] += dx / l * 6.0 * k;
+            self.player.vel[2] += dz / l * 6.0 * k;
+            self.player.vel[1] = self.player.vel[1].max(4.0 * k);
+        }
+        self.rig.shake((C::SHAKE_MAX - e.distance / C::SHAKE_RANGE).max(C::SHAKE_MIN));
+        self.meteors.waves.add([e.pos[0], e.pos[1] + 0.5, e.pos[2]], e.radius / meteors::RADIUS_REF);
+        if e.distance < C::PUNCH_RANGE {
+            self.rig.punch(C::PUNCH * (1.0 - e.distance / C::PUNCH_RANGE));
+        }
+        self.flash = self.flash.max(C::FLASH_MAX * (1.0 - e.distance / C::FLASH_RANGE).max(0.0).powf(1.5));
+        if e.distance < C::NEAR_RANGE {
+            self.hit_stop = self.hit_stop.max(C::HIT_STOP);
+            self.slow_mo = C::SLOW_MO;
+        }
+        // pegadas sobre a cratera somem junto (os blocos mudaram)
     }
 
     /// o chão sob os pés (o astronauta pode estar um tico acima no fim de um degrau)
@@ -292,6 +359,14 @@ impl Game {
             }
         }
         self.footprints.draw(&mut self.sprites);
+        self.meteors.draw(self.time, &mut self.sprites);
+        for m in self.meteors.active.iter().filter(|m| m.flying()) {
+            if let Some(rock) = models.rocks.get(m.rock) {
+                let h = Vec3::new(m.head[0] as f32, m.head[1] as f32, m.head[2] as f32);
+                let rot = glam::Quat::from_euler(glam::EulerRot::XYZ, m.rot[0] as f32, m.rot[1] as f32, m.rot[2] as f32);
+                rock.draw(Mat4::from_scale_rotation_translation(Vec3::splat(m.rock_scale() as f32), rot, h), &mut self.parts);
+            }
+        }
         if let Some(m) = &self.mars {
             m.draw(&mut self.sprites);
         }
@@ -309,14 +384,29 @@ impl Game {
         }
         let r = &self.rig;
         let d = self.dark as f32;
+        // ondas de choque na tela (shockwave.fill): projeta com a mesma câmera do desenho
+        let eye = Vec3::new(r.eye[0] as f32, r.eye[1] as f32, r.eye[2] as f32);
+        let target = Vec3::new(r.target[0] as f32, r.target[1] as f32, r.target[2] as f32);
+        let fov = base_fov(aspect) as f32;
+        let vp = camera_matrix(eye, target, r.roll as f32, fov, aspect as f32);
+        let right = (target - eye).normalize().cross(Vec3::Y).normalize();
+        let project = |p: [f64; 3]| {
+            let c = vp * glam::Vec4::new(p[0] as f32, p[1] as f32, p[2] as f32, 1.0);
+            if c.w <= 0.0 {
+                return None;
+            }
+            Some([(c.x / c.w) as f64, (c.y / c.w) as f64, (c.z / c.w) as f64])
+        };
+        self.shocks = self.meteors.waves.fill(&project, [right.x as f64, right.y as f64, right.z as f64], aspect);
+        let point = self.meteors.light().map(|(p, i, c)| (Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32), i as f32, [c[0] as f32, c[1] as f32, c[2] as f32]));
         // neblina: acompanha a distância da câmera (Game.ts), nunca perto demais dentro de caverna
         let fog_dist = r.eye_dist.max(16.0) as f32;
         let (fog_near, fog_far) = self.mars.as_ref().map(|m| m.fog(1.15, 2.1)).unwrap_or((1.15, 2.1));
         Frame {
-            eye: Vec3::new(r.eye[0] as f32, r.eye[1] as f32, r.eye[2] as f32),
-            target: Vec3::new(r.target[0] as f32, r.target[1] as f32, r.target[2] as f32),
+            eye,
+            target,
             roll: r.roll as f32,
-            fov_deg: base_fov(aspect) as f32,
+            fov_deg: fov,
             time: self.time as f32,
             dark: d,
             lamp: Vec4::new(p[0] as f32, p[1] as f32 + 1.5, p[2] as f32, d * 1.15),
@@ -325,7 +415,9 @@ impl Game {
             parts: &self.parts,
             props: &self.props,
             sprites: &self.sprites,
-            screen: ScreenFx::default(),
+            screen: ScreenFx { flash: self.flash as f32, ..Default::default() },
+            point,
+            shocks: &self.shocks,
             storm: self.mars.as_ref().map(|m| m.dust() as f32).unwrap_or(0.0),
         }
     }

@@ -73,9 +73,15 @@ impl IsoRig {
         self.trauma = (self.trauma + amount).min(1.0);
     }
 
-    /// soco de zoom (impacto)
-    pub fn punch(&mut self, blocks: f64) {
-        self.punch_v += blocks * 14.0;
+    /// soco de zoom: a câmera chega `amount` blocos mais perto de uma vez e a mola devolve; vale o maior (IsoRig.punch)
+    pub fn punch(&mut self, amount: f64) {
+        self.punch_x = self.punch_x.max(amount);
+        self.punch_v = 0.0;
+    }
+
+    /// tremor que não soma: garante um nível (IsoRig.kick)
+    pub fn kick(&mut self, level: f64) {
+        self.trauma = self.trauma.max(level.min(1.0));
     }
 
     pub fn snap(&mut self, focus: [f64; 3]) {

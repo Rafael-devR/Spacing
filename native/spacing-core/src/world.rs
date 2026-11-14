@@ -203,7 +203,7 @@ impl World {
         self.chunks.get_mut(&(cx, cz)).unwrap()
     }
 
-    fn install(&mut self, cx: i32, cz: i32, g: GeneratedChunk) {
+    fn install(&mut self, cx: i32, cz: i32, mut g: GeneratedChunk) {
         let mut data = g.data;
         let mut max_y = g.max_y;
         if let Some(ed) = self.edits.get(&(cx, cz)) {
@@ -214,6 +214,25 @@ impl World {
                     max_y = y;
                 }
             }
+        }
+        // objetos criados durante o jogo que caem neste chunk (World.install do TS)
+        for e in &self.extra_props {
+            let (Some(wx), Some(wz)) = (e["wx"].as_i64(), e["wz"].as_i64()) else { continue };
+            let (wx, wz) = (wx as i32, wz as i32);
+            if Self::chunk_key(wx, wz) != (cx, cz) {
+                continue;
+            }
+            let Some(kind) = e["type"].as_str().and_then(crate::terrain::prop_type) else { continue };
+            g.props.push(PropSpawn {
+                wx,
+                wz,
+                y: 0,
+                kind,
+                variant: e["variant"].as_u64().unwrap_or(0) as u32,
+                rot: e["rot"].as_f64().unwrap_or(0.0),
+                scale: e["scale"].as_f64().unwrap_or(1.0),
+                key: e["key"].as_str().map(|k| k.to_string()),
+            });
         }
         // os objetos ficam no chão que sobrou de verdade (World.spawnProp do TS usa o topo real da coluna, depois das cavernas)
         let mut props = g.props;
@@ -461,6 +480,44 @@ impl World {
                     p.y = top;
                 }
             }
+        }
+    }
+
+    /// Tira os objetos soltos perto de um ponto (cratera de meteoro). Devolve o tipo e a posição de cada um.
+    pub fn remove_props_near(&mut self, c: [f64; 3], r: f64) -> Vec<(&'static str, [f64; 3])> {
+        let mut out = Vec::new();
+        let (cx0, cz0) = Self::chunk_key((c[0] - r) as i32 - 1, (c[2] - r) as i32 - 1);
+        let (cx1, cz1) = Self::chunk_key((c[0] + r) as i32 + 1, (c[2] + r) as i32 + 1);
+        for cx in cx0..=cx1 {
+            for cz in cz0..=cz1 {
+                let Some(ch) = self.chunks.get_mut(&(cx, cz)) else { continue };
+                let mut keep = Vec::new();
+                for p in ch.props.drain(..) {
+                    let pos = [p.wx as f64 + 0.5, p.y as f64, p.wz as f64 + 0.5];
+                    let d = crate::js::hypot3(pos[0] - c[0], pos[1] - c[1], pos[2] - c[2]);
+                    if d < r {
+                        self.removed_props.insert(p.key.clone().unwrap_or_else(|| format!("{},{}", p.wx, p.wz)));
+                        out.push((p.kind, pos));
+                    } else {
+                        keep.push(p);
+                    }
+                }
+                ch.props = keep;
+            }
+        }
+        out
+    }
+
+    /// Objeto criado no jogo (meteorito, painel). Fica no chão de agora da coluna e vai para o salvamento.
+    pub fn add_extra_prop(&mut self, wx: i32, wz: i32, kind: &'static str, rot: f64, scale: f64) {
+        let key = format!("x{wx},{wz},{kind}");
+        self.removed_props.remove(&key);
+        let y = self.top_y(wx, wz) + 1;
+        self.extra_props.retain(|e| e.get("key").and_then(|k| k.as_str()) != Some(key.as_str()));
+        self.extra_props.push(serde_json::json!({ "wx": wx, "wz": wz, "type": kind, "variant": 0, "rot": rot, "scale": scale, "key": key }));
+        let (cx, cz) = Self::chunk_key(wx, wz);
+        if let Some(c) = self.chunks.get_mut(&(cx, cz)) {
+            c.props.push(PropSpawn { wx, wz, y, kind, variant: 0, rot, scale, key: Some(key) });
         }
     }
 

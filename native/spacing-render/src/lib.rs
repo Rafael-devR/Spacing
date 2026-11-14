@@ -55,6 +55,8 @@ struct Globals {
     mist: [f32; 4],
     fog: [f32; 4],
     lamp: [f32; 4],
+    point: [f32; 4],
+    point_col: [f32; 4],
 }
 
 #[repr(C)]
@@ -98,7 +100,7 @@ fn sprite_layer(k: SpriteKind) -> u8 {
     match k {
         SpriteKind::Footprint => 0,
         SpriteKind::Smoke | SpriteKind::Grit => 1,
-        SpriteKind::Fire | SpriteKind::Halo => 2,
+        SpriteKind::Fire | SpriteKind::Halo | SpriteKind::Ring | SpriteKind::Shell => 2,
     }
 }
 
@@ -109,6 +111,8 @@ fn sprite_kind_index(k: SpriteKind) -> f32 {
         SpriteKind::Halo => 2.0,
         SpriteKind::Grit => 3.0,
         SpriteKind::Footprint => 4.0,
+        SpriteKind::Ring => 5.0,
+        SpriteKind::Shell => 6.0,
     }
 }
 
@@ -192,6 +196,10 @@ pub struct Frame<'a> {
     pub screen: ScreenFx,
     /// poeira da tempestade de Marte (0..1): céu e névoa vão para o marrom, a luz cai (MarsDirector)
     pub storm: f32,
+    /// luz pontual (meteoro): posição, intensidade, cor
+    pub point: Option<(Vec3, f32, [f32; 3])>,
+    /// ondas de choque na tela (centro 0..1 com y para cima, raio, força; espessura, borda, cor separada)
+    pub shocks: &'a [([f32; 4], [f32; 4])],
 }
 
 /// números do quadro (para o medidor na tela)
@@ -821,15 +829,18 @@ impl Renderer {
             .collect()
     }
 
-    fn view_proj(&self, f: &Frame) -> Mat4 {
+    /// Leva um ponto do mundo à tela (x, y em -1..1, y para cima; z de profundidade). None atrás da câmera.
+    pub fn project(&self, f: &Frame, p: Vec3) -> Option<Vec3> {
+        let c = self.view_proj(f) * p.extend(1.0);
+        if c.w <= 0.0 {
+            return None;
+        }
+        Some(c.truncate() / c.w)
+    }
+
+    pub fn view_proj(&self, f: &Frame) -> Mat4 {
         let (w, h) = self.size();
-        let aspect = w as f32 / h as f32;
-        let proj = Mat4::perspective_rh(f.fov_deg.to_radians(), aspect, 1.0, 400.0);
-        let fwd = (f.target - f.eye).normalize();
-        let right = fwd.cross(Vec3::Y).normalize();
-        let up = right.cross(fwd);
-        let up = (up * f.roll.cos() + right * f.roll.sin()).normalize();
-        proj * Mat4::look_at_rh(f.eye, f.target, up)
+        camera_matrix(f.eye, f.target, f.roll, f.fov_deg, w as f32 / h as f32)
     }
 
     /// Câmera do sol (lights.ts): ortográfica, segue o alvo em passos de um texel (a sombra não treme ao andar).
@@ -935,6 +946,8 @@ impl Renderer {
             mist: [mist[0], mist[1], mist[2], f.mist_y],
             fog: [f.fog.0, f.fog.1, w as f32, h as f32],
             lamp: f.lamp.to_array(),
+            point: f.point.map(|p| [p.0.x, p.0.y, p.0.z, p.1]).unwrap_or([0.0; 4]),
+            point_col: f.point.map(|p| [p.2[0], p.2[1], p.2[2], 0.0]).unwrap_or([0.0; 4]),
         };
         self.queue.write_buffer(&self.globals, 0, bytemuck::bytes_of(&g));
         self.queue.write_buffer(&self.sun_buf, 0, bytemuck::bytes_of(&svp.to_cols_array_2d()));
@@ -1083,7 +1096,7 @@ impl Renderer {
         }
 
         // 3. bloom e passada final
-        stats.post_passes = self.post.run(&mut enc, &self.queue, &view, w, h, f.time, f.screen);
+        stats.post_passes = self.post.run(&mut enc, &self.queue, &view, (w, h), f.time, f.screen, f.shocks);
 
         // 4. interface
         if let Some(ui) = ui {
@@ -1120,6 +1133,16 @@ impl Renderer {
         }
         Some(stats)
     }
+}
+
+/// A matriz da câmera do jogo (lente de `fov_deg` graus, perto 1 e longe 400, como no Game.ts).
+pub fn camera_matrix(eye: Vec3, target: Vec3, roll: f32, fov_deg: f32, aspect: f32) -> Mat4 {
+    let proj = Mat4::perspective_rh(fov_deg.to_radians(), aspect, 1.0, 400.0);
+    let fwd = (target - eye).normalize();
+    let right = fwd.cross(Vec3::Y).normalize();
+    let up = right.cross(fwd);
+    let up = (up * roll.cos() + right * roll.sin()).normalize();
+    proj * Mat4::look_at_rh(eye, target, up)
 }
 
 /// os 6 planos da câmera (Gribb e Hartmann), para descartar chunks fora da tela

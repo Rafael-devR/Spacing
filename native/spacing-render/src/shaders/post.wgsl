@@ -6,6 +6,9 @@ struct Post {
   fx: vec4<f32>,       // bloom, cromática, vinheta, ruído (1/0)
   screen: vec4<f32>,   // perde a cor, dano, escurece, clarão
   bloom: vec4<f32>,    // força, limite, 1/largura da fonte, 1/altura da fonte
+  shock_n: vec4<f32>,  // x = quantas ondas de choque
+  shock_a: array<vec4<f32>, 4>, // centro (0..1, y para cima), raio, força
+  shock_b: array<vec4<f32>, 4>, // espessura, brilho da borda, cor separada
 };
 @group(0) @binding(0) var<uniform> U: Post;
 @group(0) @binding(1) var src: texture_2d<f32>;
@@ -105,13 +108,38 @@ fn scene(uv: vec2<f32>) -> vec3<f32> {
 fn grade(i: VOut) -> @location(0) vec4<f32> {
   let uv = i.uv;
   let asp = U.res.x / U.res.y;
+  // ondas de choque (shockwave.ts, ADR 0014): cada onda empurra o ponto lido para dentro ou para fora do anel dela.
+  // As contas são em y para cima, como no TS; o uv do wgpu tem y para baixo.
+  let up = vec2<f32>(uv.x, 1.0 - uv.y);
+  var uvs = up;
+  var split = vec2<f32>(0.0);
+  var rim = 0.0;
+  let n = i32(U.shock_n.x);
+  for (var k = 0; k < 4; k++) {
+    if (k >= n) {
+      break;
+    }
+    let A = U.shock_a[k];
+    let B = U.shock_b[k];
+    let d = (up - A.xy) * vec2<f32>(asp, 1.0);
+    let dist = length(d);
+    let x = (dist - A.z) / max(B.x, 0.0001);
+    let t = select(1.0 - smoothstep(0.0, 0.3, x), smoothstep(-1.0, 0.0, x), x < 0.0);
+    let lens = t * t * (3.0 - 2.0 * t);
+    let push = vec2<f32>(d.x / asp, d.y) / max(dist, 0.0001) * lens * A.w;
+    uvs -= push;
+    split -= push * B.z * 0.6;
+    rim += B.y * exp(-x * x * 18.0);
+  }
+  let base = vec2<f32>(uvs.x, 1.0 - uvs.y);
+  let sp = vec2<f32>(split.x, -split.y);
   let dir = uv - 0.5;
   let ca = dot(dir, dir) * 0.009;
   var c: vec3<f32>;
   if (U.fx.y > 0.5) {
-    c = vec3<f32>(scene(uv + dir * ca).r, scene(uv).g, scene(uv - dir * ca).b);
+    c = vec3<f32>(scene(base + dir * ca + sp).r, scene(base).g, scene(base - dir * ca - sp).b);
   } else {
-    c = scene(uv);
+    c = scene(base);
   }
   // luz vazando do canto do sol (em cima à esquerda; o uv do wgpu tem y para baixo)
   let lp = (vec2<f32>(uv.x, 1.0 - uv.y) - vec2<f32>(0.0, 1.0)) * vec2<f32>(asp, 1.0);
@@ -132,6 +160,8 @@ fn grade(i: VOut) -> @location(0) vec4<f32> {
   let edge = smoothstep(0.3, 0.95, length(d));
   c = mix(c, vec3<f32>(0.85, 0.07, 0.05), U.screen.y * edge * 0.8);
   c *= 1.0 - U.screen.z;
+  // a linha clara da frente da onda e o clarão da explosão
+  c += vec3<f32>(1.0, 0.82, 0.62) * rim * 0.35;
   c = mix(c, vec3<f32>(1.0, 0.93, 0.82), U.screen.w);
   if (U.fx.w > 0.5) {
     let n = fract(sin(dot(uv * U.res.xy + fract(U.res.z) * 91.7, vec2<f32>(12.9898, 78.233))) * 43758.5453);

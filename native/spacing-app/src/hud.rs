@@ -56,6 +56,7 @@ fn label(b: Button) -> &'static str {
         Button::Stats => "i",
         Button::Planet => "M",
         Button::Vsync => "V",
+        Button::Meteor => "*",
     }
 }
 
@@ -93,7 +94,7 @@ pub fn draw(ctx: &egui::Context, c: &Controls, info: &HudInfo) {
         lines.push(format!("x {:.1}  y {:.1}  z {:.1}", info.pos[0], info.pos[1], info.pos[2]).replace('.', ","));
     }
     // à direita dos dois botões pequenos do canto (controls.rs: margem 28, raio 24)
-    let x0 = if c.touched { 28.0 + 24.0 * 7.4 + 12.0 } else { 12.0 };
+    let x0 = if c.touched { 28.0 + 24.0 * 10.0 + 12.0 } else { 12.0 };
     let mut y = 10.0;
     for (i, l) in lines.iter().enumerate() {
         let font = FontId::monospace(if i == 0 { 15.0 } else { 12.5 });

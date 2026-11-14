@@ -139,6 +139,23 @@ impl StaticModel {
         Self { pieces, markers }
     }
 
+    /// Só a parte de um nó (ex.: `rock_a` do meteor.glb), com a origem no próprio nó.
+    pub fn subtree(m: &ModelData, meshes: &[MeshId], root: &str) -> Option<Self> {
+        let r = m.find(root)?;
+        let mut pieces = Vec::new();
+        fn walk(m: &ModelData, meshes: &[MeshId], i: usize, at: Mat4, out: &mut Vec<Piece>) {
+            let n = &m.nodes[i];
+            if let Some(mi) = n.mesh {
+                out.push(Piece { mesh: meshes[mi], local: at, material: material_for(&n.name) });
+            }
+            for &c in &n.children {
+                walk(m, meshes, c, at * m.nodes[c].local(), out);
+            }
+        }
+        walk(m, meshes, r, Mat4::IDENTITY, &mut pieces);
+        Some(Self { pieces, markers: Vec::new() })
+    }
+
     pub fn draw(&self, at: Mat4, out: &mut Vec<PartDraw>) {
         for p in &self.pieces {
             out.push(PartDraw { mesh: p.mesh, world: at * p.local, material: p.material });

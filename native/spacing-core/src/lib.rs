@@ -11,6 +11,7 @@ pub mod js;
 pub mod mars;
 pub mod mars_life;
 pub mod mesher;
+pub mod meteors;
 pub mod noise;
 pub mod planet;
 pub mod player;

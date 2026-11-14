@@ -34,6 +34,10 @@ pub enum SpriteKind {
     Grit,
     /// pegada no chão (deitada, mistura normal)
     Footprint,
+    /// mira do aviso de meteoro: deitada no chão, soma luz, gira
+    Ring,
+    /// bolha da onda de choque: só a borda da esfera brilha (soma luz)
+    Shell,
 }
 
 /// um sprite pronto para desenhar

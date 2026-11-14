@@ -32,8 +32,9 @@ pub fn run(dir: &str, opts: Options) {
     let meter = hud::Meter::default();
     let dt = 1.0 / 60.0;
     // (quadro, nome da captura)
-    let shots = [(30, "1-pouso"), (150, "2-andando"), (200, "3-pulo"), (320, "4-girou"), (420, "5-longe")];
+    let shots = [(30, "1-pouso"), (150, "2-andando"), (200, "3-pulo"), (275, "6-meteoro-voo"), (312, "7-meteoro-impacto"), (330, "8-meteoro-onda"), (360, "4-girou"), (420, "5-longe")];
     let mut stats = Default::default();
+    game.meteors.auto_spawn = false;
     for f in 0..=420 {
         c.scripted = Some(match f {
             0..=60 => (0.0, 0.0),
@@ -43,6 +44,10 @@ pub fn run(dir: &str, opts: Options) {
         });
         if f == 190 {
             c.actions.jump = true;
+        }
+        // um meteoro: aviso de 1,6 s e voo de 1,7 s, cai por volta do quadro 310
+        if f == 112 {
+            c.actions.meteor = true;
         }
         if f == 270 {
             c.actions.rotate = 1.0;

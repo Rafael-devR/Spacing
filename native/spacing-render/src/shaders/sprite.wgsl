@@ -27,6 +27,10 @@ fn vs(v: VIn) -> VOut {
     // pegada: deitada no chão, 0,2 × 0,32, girada para onde o pé aponta
     let p = vec2<f32>(c.x * 0.2, c.y * 0.32);
     w = v.center.xyz + vec3<f32>(cs * p.x + sn * p.y, 0.0, -sn * p.x + cs * p.y);
+  } else if (kind == 5u) {
+    // mira do aviso: deitada no chão, do tamanho dado, girando
+    let p = c * v.center.w;
+    w = v.center.xyz + vec3<f32>(cs * p.x + sn * p.y, 0.0, -sn * p.x + cs * p.y);
   } else {
     let f = G.cam_fwd.xyz;
     let right = normalize(cross(f, vec3<f32>(0.0, 1.0, 0.0)));
@@ -75,6 +79,26 @@ fn shape(i: VOut) -> f32 {
     }
     case 3u: {
       return 1.0 - smoothstep(0.7, 1.0, d);
+    }
+    case 5u: {
+      // a mira (meteorFx.ts, warningTexture): anel de fora, anel fino de dentro, quatro traços e oito pontos
+      let px = 1.0 / 128.0;
+      var a = 1.0 - smoothstep(3.5 * px, 5.0 * px, abs(d - (1.0 - 8.0 * px)));
+      a = max(a, 1.0 - smoothstep(1.5 * px, 3.0 * px, abs(d - 0.62)));
+      let ang = atan2(q.y, q.x);
+      let tick = abs(fract(ang / 1.5707963 + 0.5) - 0.5) * 1.5707963 * d;
+      a = max(a, (1.0 - smoothstep(4.0 * px, 5.5 * px, tick)) * step(0.38, d) * step(d, 0.94));
+      let da = fract(ang / 0.7853982 - 0.5) - 0.5;
+      let dot_d = length(vec2<f32>(da * 0.7853982 * 0.8, d - 0.8));
+      a = max(a, 1.0 - smoothstep(0.035, 0.045, dot_d));
+      return a;
+    }
+    case 6u: {
+      // borda de uma esfera vista de frente: quanto mais de lado, mais brilha (pow(1 - n·v, 3,2))
+      if (d >= 1.0) {
+        return 0.0;
+      }
+      return pow(1.0 - sqrt(1.0 - d * d), 3.2);
     }
     default: {
       let sole = max(ell(i.uv, vec2(0.5, 0.67), vec2(0.4, 0.3)), ell(i.uv, vec2(0.5, 0.22), vec2(0.34, 0.2)));

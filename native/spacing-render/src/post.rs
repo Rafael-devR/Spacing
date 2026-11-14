@@ -13,6 +13,10 @@ pub struct PostU {
     pub fx: [f32; 4],
     pub screen: [f32; 4],
     pub bloom: [f32; 4],
+    /// x = quantas ondas de choque
+    pub shock_n: [f32; 4],
+    pub shock_a: [[f32; 4]; 4],
+    pub shock_b: [[f32; 4]; 4],
 }
 
 /// Efeitos ligados (as mesmas chaves das configurações gráficas do jogo web)
@@ -214,7 +218,7 @@ impl Post {
 
     /// Grava o bloom e a passada final em `out`. Devolve quantas passadas de tela foram feitas.
     #[allow(clippy::too_many_arguments)]
-    pub fn run(&self, enc: &mut wgpu::CommandEncoder, queue: &wgpu::Queue, out: &wgpu::TextureView, w: u32, h: u32, time: f32, screen: ScreenFx) -> u32 {
+    pub fn run(&self, enc: &mut wgpu::CommandEncoder, queue: &wgpu::Queue, out: &wgpu::TextureView, (w, h): (u32, u32), time: f32, screen: ScreenFx, shocks: &[([f32; 4], [f32; 4])]) -> u32 {
         let s = self.settings;
         let Some(g) = &self.grade_step else { return 0 };
         let flag = |b: bool| if b { 1.0 } else { 0.0 };
@@ -223,7 +227,15 @@ impl Post {
             fx: [flag(s.bloom), flag(s.chromatic), flag(s.vignette), flag(s.noise)],
             screen: [screen.desat, screen.hurt, screen.dark, screen.flash],
             bloom: [0.42, 1.0, 0.0, 0.0],
+            ..Default::default()
         };
+        let mut u = u;
+        let n = shocks.len().min(4);
+        u.shock_n[0] = n as f32;
+        for (i, (a, b)) in shocks.iter().take(4).enumerate() {
+            u.shock_a[i] = *a;
+            u.shock_b[i] = *b;
+        }
         queue.write_buffer(&g.buf, 0, bytemuck::bytes_of(&u));
         let mut passes = 1;
         if s.bloom && self.steps.len() == 2 * MIPS - 1 {

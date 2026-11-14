@@ -13,6 +13,7 @@ pub enum Button {
     Stats,
     Planet,
     Vsync,
+    Meteor,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -40,6 +41,7 @@ pub struct Actions {
     pub toggle_stats: bool,
     pub switch_planet: bool,
     pub toggle_vsync: bool,
+    pub meteor: bool,
 }
 
 pub struct Controls {
@@ -80,6 +82,7 @@ impl Controls {
             ButtonRect { b: Button::Stats, x: m + small, y: m + small, r: small },
             ButtonRect { b: Button::Planet, x: m + small * 3.6, y: m + small, r: small },
             ButtonRect { b: Button::Vsync, x: m + small * 6.2, y: m + small, r: small },
+            ButtonRect { b: Button::Meteor, x: m + small * 8.8, y: m + small, r: small },
         ];
         let _ = h;
     }
@@ -99,6 +102,7 @@ impl Controls {
             Button::Stats => a.toggle_stats = true,
             Button::Planet => a.switch_planet = true,
             Button::Vsync => a.toggle_vsync = true,
+            Button::Meteor => a.meteor = true,
         }
     }
 
@@ -173,6 +177,7 @@ impl Controls {
                     "f3" | "tab" => self.actions.toggle_stats = true,
                     "m" => self.actions.switch_planet = true,
                     "v" => self.actions.toggle_vsync = true,
+                    "t" => self.actions.meteor = true,
                     _ => {}
                 }
             }
