@@ -47,6 +47,8 @@ struct App {
     show_stats: bool,
     last: Option<Instant>,
     cursor: (f32, f32),
+    /// por que o desenho não subiu (fica no log; a tela só mostra preto)
+    failed: Option<String>,
 }
 
 fn threads() -> usize {
@@ -68,6 +70,7 @@ impl App {
             show_stats: true,
             last: None,
             cursor: (0.0, 0.0),
+            failed: None,
         }
     }
 
@@ -88,7 +91,10 @@ impl App {
                 self.last = None;
                 window.request_redraw();
             }
-            Err(e) => log::error!("não deu para iniciar o desenho: {e}"),
+            Err(e) => {
+                log::error!("não deu para iniciar o desenho: {e}");
+                self.failed = Some(e);
+            }
         }
     }
 
@@ -266,6 +272,9 @@ pub fn run(event_loop: EventLoop<()>, opts: Options) {
 fn android_main(app: winit::platform::android::activity::AndroidApp) {
     use winit::platform::android::EventLoopBuilderExtAndroid;
     android_logger::init_once(android_logger::Config::default().with_max_level(log::LevelFilter::Info).with_tag("spacing"));
+    // um panic vira linha no logcat (`adb logcat -s spacing`) em vez de o app fechar sem dizer nada
+    std::panic::set_hook(Box::new(|info| log::error!("PANIC: {info}")));
+    log::info!("Spacing nativo iniciando");
     let event_loop = EventLoop::builder().with_android_app(app).build().expect("laço");
     run(event_loop, Options::default());
 }
