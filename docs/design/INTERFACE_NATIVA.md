@@ -10,7 +10,9 @@ Vamos planejar e visualizar antes de aplicar.
 ## Referência
 
 Garbage Country (Noio, ainda não lançado) foi a referência de **direção**: interface mínima, informação presa aos objetos, arte
-quente e desbotada. Não copiamos ícones, fonte, layout ou nomes. O que tiramos da referência, em palavras:
+quente e desbotada. Não copiamos ícones, fonte, layout ou nomes. A fonte da referência não foi encontrada em busca pública (nem no
+press kit da Noio, que lista créditos de arte e música e nenhuma fonte); por isso escolhemos uma fonte livre (ver abaixo). O que
+tiramos da referência, em palavras:
 
 - **Quase nenhum painel fixo.** A tela de jogo fica limpa. O que importa aparece perto do objeto: uma máquina mostra o progresso
   em cima dela; um marcador mostra a distância colada no ponto.
@@ -31,24 +33,48 @@ quente e desbotada. Não copiamos ícones, fonte, layout ou nomes. O que tiramos
 
 ## Fonte de pixel
 
-**Pendente de escolha do dono.** Requisitos, antes de qualquer teste:
+**Escolhida: Pixelify Sans**, aprovada pelo dono em 2026-11-15 pela captura `fonte.png` (`spacing --fonte <pasta>`). Licença SIL
+OFL 1.1 (`native/assets/fonts/pixelify-sans/OFL.txt`): pode embutir no APK e no jogo, de graça, sem comprar licença. Ela entra como
+fonte padrão do egui (`spacing-app/src/fontes.rs`), em todas as telas e nas capturas.
+
+Requisitos que a escolha atendeu (para quem trocar no futuro):
 
 - **Licença livre para embutir no app** (SIL OFL ou equivalente), porque ela vai dentro do APK.
-- **Acentos e símbolos do português:** ç, ã, é, ê, ó, ú, **°** e **₂** (o O₂ aparece no medidor). Muita fonte de pixel não tem
-  acento; se não tiver, não serve.
-- **Legível em 12 a 16 px** no celular, em branco sobre fundo escuro.
+- **Acentos e símbolos do português:** ç, ã, é, ê, ó, ú, **°** e **₂** (o O₂ aparece no medidor). Verificado pela cobertura do
+  arquivo: Silkscreen não tem ₂ nem −; VT323 não tem ₂.
+- **Legível em 12 a 18 px** no celular, em branco sobre fundo escuro. Em 12 px a suavização fica mais fraca: os textos pequenos
+  devem ficar no mínimo em 14 px quando forem importantes.
 - **Carrega no egui** como fonte própria (`FontDefinitions`), sem depender do sistema.
 
-Candidatas a conferir (ainda não testadas; a lista não é uma recomendação): Silkscreen, Pixelify Sans, VT323, Tiny5, Press Start 2P
-(larga demais para textos longos). **Plano:** testar duas ou três numa captura de texto (nomes de itens, medidores, um parágrafo de
-ajuda, números) e o dono escolhe pela imagem.
+## Arte de pixel própria (elementos e ícones)
+
+Pedido do dono (2026-11-15): mais elementos de interface em **pixel art**, como a referência, e **refazer os ícones dos itens**.
+Os ícones **não** são mais o modelo 3D reduzido: cada item ganha uma arte de pixel desenhada para ele, própria do jogo. O modelo
+3D continua no mundo; o ícone é outra coisa, feito à mão.
+
+Elementos que entram na mesma arte (a lista cresce conforme a tela pedir):
+
+- moldura e fundo de painel (quando um painel for necessário), cantoneiras de "escolhido";
+- botões e linhas de menu, cursor de escolha;
+- pinos de estação e de objetivo, seta de bússola, marcador de entrega;
+- ícones de medidor (O₂, bateria, traje, energia, fome) e de ação.
+
+**Ainda não decidido** (o dono decide, depois de ver amostras):
+
+- tamanho da grade de cada ícone (16×16, 24×24 ou 32×32 pixels) e se todos os ícones usam o mesmo;
+- paleta: uma paleta fixa para o jogo inteiro ou uma por tipo de item;
+- como guardar a arte: PNG desenhado à mão no repositório, ou texto no código (cada linha de pixels como um texto);
+- como revisar: uma folha com todos os ícones lado a lado, em tamanho de celular, antes de entrar no jogo.
+
+Os ícones de hoje (`spacing-app/src/icons.rs`, atlas feito de modelos 3D) ficam como estão até a arte nova ser aprovada.
 
 ## Ícones flutuantes com brilho
 
 Pedido do dono: o item que flutua, com brilho, como se fosse holograma, sem ser holograma. Como fazer com o que já existe no
 renderizador:
 
-- **Forma:** o modelo 3D do item (já existe: `spacing-render/src/items.rs`), menor, sem a textura de bloco.
+- **Forma:** no mundo, o modelo 3D do item (já existe: `spacing-render/src/items.rs`), menor, sem a textura de bloco. Na tela,
+  a arte de pixel própria (ver acima).
 - **Movimento:** sobe e desce com uma senoide lenta: amplitude ~0,08 bloco, ~1,2 ciclo por segundo; gira devagar (como as pilhas da
   morte já fazem em `loot`).
 - **Brilho:** um halo suave (sprite aditivo, `SpriteKind::Halo`, que o renderizador já desenha) na cor do item, ou ciano por padrão,
@@ -114,17 +140,19 @@ Cada tela tem uma **proposta** e um **critério** para aprovar. Antes de codar, 
 
 ## Ordem de trabalho
 
-1. **Estilo e fonte:** módulo de tokens, fonte escolhida carregada, captura de texto (acentos, °, ₂) aprovada.
-2. **Ícones flutuantes:** item solto e pilha da morte com o novo movimento e halo; captura aprovada.
-3. **Medidores e objetivo no mundo** (tela 4), que já existem e são os mais usados.
-4. **Pausa** (tela 1).
-5. **Mochila e estação** (tela 2): reaproveita os gestos da versão de trabalho.
-6. **Título** (tela 3).
+1. **Estilo e fonte:** módulo de tokens, fonte escolhida carregada (feito: Pixelify Sans em `fontes.rs`); módulo de tokens ainda não.
+2. **Arte de pixel própria:** os ícones dos itens e os elementos de pixel (ver a seção acima). Primeiro a decisão de grade e
+   paleta, depois uma folha de amostra para aprovação.
+3. **Ícones flutuantes:** item solto e pilha da morte com o novo movimento e halo; captura aprovada.
+4. **Medidores e objetivo no mundo** (tela 4), que já existem e são os mais usados.
+5. **Pausa** (tela 1).
+6. **Mochila e estação** (tela 2): reaproveita os gestos da versão de trabalho.
+7. **Título** (tela 3).
 
 Cada etapa termina com captura aprovada e roteiro (`--roteiro`) passando.
 
 ## Em aberto
 
-- Qual fonte de pixel (depois dos testes acima).
+- Grade, paleta e forma de guardar a arte de pixel dos ícones e elementos (ver a seção de arte de pixel).
 - Se a versão web ganha o mesmo estilo no futuro (fora deste plano).
 - Como tratar texto longo (ajuda, controles) numa fonte de pixel: tamanho fixo ou rolagem.

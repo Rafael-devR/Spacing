@@ -2,23 +2,12 @@
 //! fonte do egui e desenha uma folha de amostras por cima do mundo: tamanhos de texto, medidores, nomes de itens, números e os
 //! acentos do português. Só para aprovar a fonte pela imagem; a estrutura das telas não entra aqui.
 //! Uso: `spacing --fonte <pasta>` grava `fonte.png`.
-use std::sync::Arc;
-
-use egui::{Align2, Color32, FontData, FontDefinitions, FontFamily, FontId, Pos2, Rect, Stroke, Vec2};
+use egui::{Align2, Color32, FontFamily, FontId, Pos2, Rect, Stroke, Vec2};
 use spacing_core::planet::{planet, PlanetId};
 use spacing_render::Renderer;
 
+use crate::fontes::install;
 use crate::game::{Game, Models};
-
-static PIXELIFY: &[u8] = include_bytes!("../../assets/fonts/pixelify-sans/PixelifySans.ttf");
-
-/// põe a Pixelify Sans como fonte padrão do egui (a primeira da lista de texto proporcional)
-pub fn install(ctx: &egui::Context) {
-    let mut fonts = FontDefinitions::default();
-    fonts.font_data.insert("pixelify".into(), Arc::new(FontData::from_static(PIXELIFY)));
-    fonts.families.entry(FontFamily::Proportional).or_default().insert(0, "pixelify".into());
-    ctx.set_fonts(fonts);
-}
 
 const INK: Color32 = Color32::from_rgb(226, 232, 246);
 const DIM: Color32 = Color32::from_rgb(132, 142, 170);

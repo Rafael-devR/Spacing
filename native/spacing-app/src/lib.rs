@@ -7,6 +7,7 @@ pub mod controls;
 pub mod effects;
 #[cfg(not(target_os = "android"))]
 pub mod fonte;
+pub mod fontes;
 pub mod game;
 pub mod greenhouse;
 pub mod hand;
@@ -84,6 +85,8 @@ fn threads() -> usize {
 
 impl App {
     fn new(opts: Options) -> Self {
+        let egui = egui::Context::default();
+        fontes::install(&egui);
         Self {
             store: storage::Store::new(opts.save_dir.clone()),
             save_t: 0.0,
@@ -94,7 +97,7 @@ impl App {
             models: None,
             game: None,
             controls: Controls::default(),
-            egui: egui::Context::default(),
+            egui,
             meter: hud::Meter::default(),
             stats: FrameStats::default(),
             show_stats: true,

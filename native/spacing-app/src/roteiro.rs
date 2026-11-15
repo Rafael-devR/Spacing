@@ -212,6 +212,7 @@ pub fn run(dir: &str) {
     };
     let models = Models::load(&mut r);
     let egui = egui::Context::default();
+    crate::fontes::install(&egui);
     let _ = crate::icons::Icons::ensure(&r, &egui);
     let store = Store::new(Some(saves));
     let mut c = Controls::default();
