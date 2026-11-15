@@ -1,0 +1,1771 @@
+{
+ "hotbar": 8,
+ "bag": 24,
+ "stack": 64,
+ "items": [
+  {
+   "id": "regolith",
+   "name": "Regolito",
+   "about": "Poeira e cascalho de óxidos (sílica, ferro, alumínio). Vira tijolo, vidro e silício.",
+   "traits": {
+    "heat": 1,
+    "mass": 0,
+    "rarity": 0
+   },
+   "block": 2,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": null,
+   "color": null,
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#ddd3c3"
+  },
+  {
+   "id": "rock",
+   "name": "Rocha lunar",
+   "about": "Pedra de construção. Faz o corpo do forno solar.",
+   "traits": {
+    "heat": 1,
+    "mass": 1,
+    "rarity": 0
+   },
+   "block": 3,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": null,
+   "color": null,
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#a39a91"
+  },
+  {
+   "id": "basalt",
+   "name": "Basalto",
+   "about": "Rocha vulcânica dos mares lunares. Fundida e estirada vira fibra de basalto.",
+   "traits": {
+    "heat": 2,
+    "mass": 2,
+    "rarity": 1
+   },
+   "block": 4,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": null,
+   "color": null,
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#7a7183"
+  },
+  {
+   "id": "ice",
+   "name": "Gelo",
+   "about": "Água congelada das crateras. O eletrolisador separa em hidrogênio e oxigênio.",
+   "traits": {
+    "heat": 0,
+    "mass": 1,
+    "rarity": 1
+   },
+   "block": 5,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": null,
+   "color": null,
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#a6d9ea"
+  },
+  {
+   "id": "iron",
+   "name": "Minério de ferro",
+   "about": "Rocha com ferro. No forno, o ferro funde e a escória é separada: barra de ferro.",
+   "traits": {
+    "heat": 2,
+    "mass": 2,
+    "rarity": 1
+   },
+   "block": null,
+   "iconBlock": 6,
+   "iconProp": null,
+   "model": null,
+   "color": null,
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#e07a38"
+  },
+  {
+   "id": "ilmenite",
+   "name": "Ilmenita",
+   "about": "FeTiO₃. Com hidrogênio no forno, dá ferro, óxido de titânio e água.",
+   "traits": {
+    "heat": 3,
+    "mass": 2,
+    "rarity": 2
+   },
+   "block": null,
+   "iconBlock": null,
+   "iconProp": "ilmenite",
+   "model": null,
+   "color": null,
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#5a5368"
+  },
+  {
+   "id": "gold",
+   "name": "Ouro",
+   "about": "Não oxida: contatos elétricos das placas de circuito.",
+   "traits": {
+    "heat": 1,
+    "mass": 2,
+    "rarity": 3
+   },
+   "block": null,
+   "iconBlock": null,
+   "iconProp": "gold",
+   "model": null,
+   "color": null,
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#ffb43a"
+  },
+  {
+   "id": "crystal",
+   "name": "Cristal lunar",
+   "about": "Ressoa com campos de energia (ficção). Ponta da broca de cristal e núcleo do domo.",
+   "traits": {
+    "heat": 1,
+    "mass": 1,
+    "rarity": 3
+   },
+   "block": null,
+   "iconBlock": null,
+   "iconProp": "crystal",
+   "model": null,
+   "color": null,
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#8ff1ff"
+  },
+  {
+   "id": "anorthosite",
+   "name": "Anortosito",
+   "about": "Rocha clara das montanhas, rica em alumínio e cálcio. Funde num vidro mais limpo que o do regolito.",
+   "traits": {
+    "heat": 1,
+    "mass": 1,
+    "rarity": 1
+   },
+   "block": 18,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": null,
+   "color": null,
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#e9e6df"
+  },
+  {
+   "id": "marsdust",
+   "name": "Poeira marciana",
+   "about": "Regolito de Marte, vermelho de óxido de ferro. Por enquanto, construção.",
+   "traits": {
+    "heat": 1,
+    "mass": 0,
+    "rarity": 0
+   },
+   "block": 9,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": null,
+   "color": null,
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#a8644a"
+  },
+  {
+   "id": "marsrock",
+   "name": "Rocha marciana",
+   "about": "Pedra de construção de Marte.",
+   "traits": {
+    "heat": 1,
+    "mass": 1,
+    "rarity": 0
+   },
+   "block": 10,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": null,
+   "color": null,
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#7f4c3c"
+  },
+  {
+   "id": "darksand",
+   "name": "Areia escura",
+   "about": "Areia basáltica das dunas. Construção (no futuro, vidro escuro).",
+   "traits": {
+    "heat": 1,
+    "mass": 0,
+    "rarity": 0
+   },
+   "block": 11,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": null,
+   "color": null,
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#4b3b3a"
+  },
+  {
+   "id": "sediment",
+   "name": "Rocha sedimentar",
+   "about": "Camadas depositadas pela água antiga. Construção.",
+   "traits": {
+    "heat": 1,
+    "mass": 1,
+    "rarity": 0
+   },
+   "block": 12,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": null,
+   "color": null,
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#c99a72"
+  },
+  {
+   "id": "volcanic",
+   "name": "Basalto vulcânico",
+   "about": "Basalto do vulcão. No futuro, fibra de basalto em Marte.",
+   "traits": {
+    "heat": 2,
+    "mass": 2,
+    "rarity": 1
+   },
+   "block": 13,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": null,
+   "color": null,
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#5e4a46"
+  },
+  {
+   "id": "hematite",
+   "name": "Hematita",
+   "about": "Fe₂O₃, o minério de ferro de Marte; forma-se na água. Amostra científica.",
+   "traits": {
+    "heat": 2,
+    "mass": 2,
+    "rarity": 1
+   },
+   "block": null,
+   "iconBlock": 14,
+   "iconProp": null,
+   "model": null,
+   "color": null,
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#5d6f8a"
+  },
+  {
+   "id": "olivine",
+   "name": "Olivina",
+   "about": "Mineral verde que aguenta calor (areia de fundição na Terra). Amostra científica.",
+   "traits": {
+    "heat": 3,
+    "mass": 1,
+    "rarity": 1
+   },
+   "block": null,
+   "iconBlock": 15,
+   "iconProp": null,
+   "model": null,
+   "color": null,
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#8fc34a"
+  },
+  {
+   "id": "gypsum",
+   "name": "Gipsita",
+   "about": "CaSO₄·2H₂O: ~21% de água presa no cristal. Prova de água antiga.",
+   "traits": {
+    "heat": 0,
+    "mass": 1,
+    "rarity": 1
+   },
+   "block": null,
+   "iconBlock": 16,
+   "iconProp": null,
+   "model": null,
+   "color": null,
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#f4efe6"
+  },
+  {
+   "id": "iron_bar",
+   "name": "Barra de ferro",
+   "about": "Ferro fundido e moldado. Base de ferramentas, brocas e máquinas.",
+   "traits": {
+    "heat": 2,
+    "mass": 2,
+    "rarity": 1
+   },
+   "block": null,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": "ingot",
+   "color": "#b9bec9",
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#c9ced9"
+  },
+  {
+   "id": "brick",
+   "name": "Tijolo de regolito",
+   "about": "Regolito sinterizado: os grãos se soldam sem derreter. Aguenta calor e impacto.",
+   "traits": {
+    "heat": 3,
+    "mass": 2,
+    "rarity": 0
+   },
+   "block": null,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": "brick",
+   "color": "#c9b49a",
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#d6c2a6"
+  },
+  {
+   "id": "glass",
+   "name": "Vidro",
+   "about": "Regolito fundido e resfriado rápido. Telas, visores e painéis solares.",
+   "traits": {
+    "heat": 1,
+    "mass": 0,
+    "rarity": 1
+   },
+   "block": null,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": "pane",
+   "color": "#9fe4f2",
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#bff4ff"
+  },
+  {
+   "id": "basalt_fiber",
+   "name": "Fibra de basalto",
+   "about": "Fios de basalto fundido. Reforço leve que aguenta calor: brocas e traje.",
+   "traits": {
+    "heat": 2,
+    "mass": 1,
+    "rarity": 1
+   },
+   "block": null,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": "spool",
+   "color": "#6b6276",
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#a79fb4"
+  },
+  {
+   "id": "h2",
+   "name": "Cilindro de H₂",
+   "about": "Hidrogênio da água. Reduz a ilmenita no forno; no futuro, combustível do foguete.",
+   "traits": {
+    "heat": 0,
+    "mass": 0,
+    "rarity": 1
+   },
+   "block": null,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": "tank",
+   "color": "#ff8a3d",
+   "stack": 16,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#ffb27a"
+  },
+  {
+   "id": "o2",
+   "name": "Cilindro de O₂",
+   "about": "Oxigênio de reserva: o traje conecta sozinho quando o ar fica em 15% longe da base.",
+   "traits": {
+    "heat": 0,
+    "mass": 0,
+    "rarity": 1
+   },
+   "block": null,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": "tank",
+   "color": "#4fb8ff",
+   "stack": 16,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#8fd6ff"
+  },
+  {
+   "id": "tio2",
+   "name": "Óxido de titânio",
+   "about": "TiO₂, pó branco que sobra da ilmenita. O eletrolisador tira o titânio dele.",
+   "traits": {
+    "heat": 3,
+    "mass": 1,
+    "rarity": 2
+   },
+   "block": null,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": "powder",
+   "color": "#eeeef2",
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#ffffff"
+  },
+  {
+   "id": "titanium",
+   "name": "Lingote de titânio",
+   "about": "Leve, duro e resistente ao calor. Brocas avançadas e, no futuro, o foguete.",
+   "traits": {
+    "heat": 3,
+    "mass": 1,
+    "rarity": 3
+   },
+   "block": null,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": "ingot",
+   "color": "#8d8fa8",
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#b8b6d6"
+  },
+  {
+   "id": "silicon",
+   "name": "Silício",
+   "about": "Tirado da sílica do regolito. Chips e células solares.",
+   "traits": {
+    "heat": 2,
+    "mass": 0,
+    "rarity": 2
+   },
+   "block": null,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": "wafer",
+   "color": "#5a6c8c",
+   "stack": 64,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#9fb4dc"
+  },
+  {
+   "id": "circuit",
+   "name": "Placa de circuito",
+   "about": "Chip de silício com contatos de ouro. O cérebro do Mapa e das máquinas.",
+   "traits": {
+    "heat": 0,
+    "mass": 0,
+    "rarity": 3
+   },
+   "block": null,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": "chip",
+   "color": "#2f8a5a",
+   "stack": 16,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#7dffa8"
+  },
+  {
+   "id": "solar_panel",
+   "name": "Painel solar",
+   "about": "Células de silício: transforma luz do sol em eletricidade para a base. Coloque no chão, ao sol e perto da base.",
+   "traits": {
+    "heat": 1,
+    "mass": 1,
+    "rarity": 2
+   },
+   "block": null,
+   "iconBlock": null,
+   "iconProp": "solarPanel",
+   "model": null,
+   "color": null,
+   "stack": 8,
+   "place": "solarPanel",
+   "site": null,
+   "farm": null,
+   "food": null,
+   "tint": "#4f7fd8"
+  },
+  {
+   "id": "greenhouse_plan",
+   "name": "Projeto da estufa",
+   "about": "Planta de uma cápsula de vidro para plantar. Escolha no modo construir, mire o chão e veja o holograma. Verde assenta.",
+   "traits": {
+    "heat": 0,
+    "mass": 0,
+    "rarity": 3
+   },
+   "block": null,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": "plan",
+   "color": "#2a6f95",
+   "stack": 1,
+   "place": null,
+   "site": "greenhouse",
+   "farm": null,
+   "food": null,
+   "tint": "#4fd1e8"
+  },
+  {
+   "id": "planter",
+   "name": "Canteiro",
+   "about": "Caixa de cultivo. Só funciona dentro da estufa pronta: escolha no modo construir e toque no piso dela.",
+   "traits": {
+    "heat": 0,
+    "mass": 2,
+    "rarity": 0
+   },
+   "block": null,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": "planter",
+   "color": "#c3c7d2",
+   "stack": 8,
+   "place": null,
+   "site": "planter",
+   "farm": null,
+   "food": null,
+   "tint": "#9fd17a"
+  },
+  {
+   "id": "soil",
+   "name": "Solo fértil",
+   "about": "Regolito moído, lavado e misturado com água e nutrientes. Enche um canteiro: o regolito puro não segura raiz.",
+   "traits": {
+    "heat": 0,
+    "mass": 1,
+    "rarity": 1
+   },
+   "block": null,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": "sack",
+   "color": "#6b4a32",
+   "stack": 16,
+   "place": null,
+   "site": null,
+   "farm": "soil",
+   "food": null,
+   "tint": "#8a6446"
+  },
+  {
+   "id": "potato",
+   "name": "Batata",
+   "about": "Comida: devolve energia ao corpo. Também é semente: plante uma batata num canteiro com solo e água.",
+   "traits": {
+    "heat": 0,
+    "mass": 1,
+    "rarity": 1
+   },
+   "block": null,
+   "iconBlock": null,
+   "iconProp": null,
+   "model": "tuber",
+   "color": "#c79a5b",
+   "stack": 32,
+   "place": null,
+   "site": null,
+   "farm": null,
+   "food": 25,
+   "tint": "#e2b878"
+  }
+ ],
+ "stations": [
+  {
+   "id": "workbench",
+   "name": "Bancada de fabricação",
+   "tagline": "Monta peças refinadas em equipamentos e máquinas, camada por camada, com dois lasers.",
+   "accent": "#7fe7ff",
+   "chamber": "laser",
+   "base": 2,
+   "perWork": 0.3,
+   "slots": 1,
+   "energy": "grid",
+   "kw": 1.2,
+   "energyName": "Eletricidade",
+   "builtIn": true
+  },
+  {
+   "id": "furnace",
+   "name": "Forno solar",
+   "tagline": "Espelhos no telhado concentram o sol: funde, sinteriza e reduz minérios. Três cadinhos dividem o calor.",
+   "accent": "#ff8a3d",
+   "chamber": "heat",
+   "base": 1,
+   "perWork": 0.45,
+   "slots": 3,
+   "energy": "sun",
+   "kw": 0.15,
+   "energyName": "Sol concentrado",
+   "builtIn": false
+  },
+  {
+   "id": "electrolyzer",
+   "name": "Eletrolisador",
+   "tagline": "Eletricidade quebra moléculas: água em H₂ e O₂, óxidos em metal e oxigênio. Duas células dividem a corrente.",
+   "accent": "#5fd0ff",
+   "chamber": "cell",
+   "base": 1.5,
+   "perWork": 0.6,
+   "slots": 2,
+   "energy": "grid",
+   "kw": 2.4,
+   "energyName": "Eletricidade",
+   "builtIn": false
+  }
+ ],
+ "recipes": [
+  {
+   "id": "furnace",
+   "station": "workbench",
+   "inputs": [
+    [
+     "rock",
+     6
+    ],
+    [
+     "iron",
+     3
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "station",
+     "station": "furnace"
+    }
+   ],
+   "process": {
+    "reaction": "rocha (câmara) + ferro (espelhos e suporte)",
+    "steps": [
+     "Cortar blocos",
+     "Montar câmara",
+     "Alinhar espelhos",
+     "Testar foco"
+    ],
+    "note": "Fornos solares de regolito são testados de verdade pela ESA: espelhos concentram a luz até passar de 1000 °C."
+   },
+   "effort": 1
+  },
+  {
+   "id": "electrolyzer",
+   "station": "workbench",
+   "inputs": [
+    [
+     "iron_bar",
+     4
+    ],
+    [
+     "glass",
+     2
+    ],
+    [
+     "brick",
+     2
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "station",
+     "station": "electrolyzer"
+    }
+   ],
+   "process": {
+    "reaction": "eletrodos de ferro + cuba de vidro + base de tijolo",
+    "steps": [
+     "Imprimir eletrodos",
+     "Selar cuba",
+     "Ligar tanques",
+     "Teste de pressão"
+    ],
+    "note": "O eletrolisador separa o gás de cada eletrodo em um tanque: o de hidrogênio é o dobro do de oxigênio (2 H₂ para 1 O₂)."
+   },
+   "effort": 1
+  },
+  {
+   "id": "map",
+   "station": "workbench",
+   "inputs": [
+    [
+     "circuit",
+     1
+    ],
+    [
+     "glass",
+     1
+    ],
+    [
+     "iron_bar",
+     1
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "equip",
+     "equip": "map"
+    }
+   ],
+   "process": {
+    "reaction": "placa de circuito + tela de vidro + carcaça de ferro",
+    "steps": [
+     "Carcaça",
+     "Soldar placa",
+     "Colar tela",
+     "Calibrar sonda"
+    ],
+    "note": "O tablet lê a sonda do módulo de pouso e desenha o terreno que você já percorreu."
+   },
+   "effort": 1
+  },
+  {
+   "id": "circuit",
+   "station": "workbench",
+   "inputs": [
+    [
+     "silicon",
+     1
+    ],
+    [
+     "gold",
+     1
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "item",
+     "item": "circuit",
+     "n": 1
+    }
+   ],
+   "process": {
+    "reaction": "pastilha de Si + trilhas e contatos de Au",
+    "steps": [
+     "Gravar trilhas",
+     "Depositar ouro",
+     "Encapsular",
+     "Testar"
+    ],
+    "note": "O ouro não oxida: por isso os contatos de conectores espaciais são dourados."
+   },
+   "effort": 1
+  },
+  {
+   "id": "solar_panel",
+   "station": "workbench",
+   "inputs": [
+    [
+     "silicon",
+     2
+    ],
+    [
+     "glass",
+     1
+    ],
+    [
+     "iron_bar",
+     1
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "item",
+     "item": "solar_panel",
+     "n": 1
+    }
+   ],
+   "process": {
+    "reaction": "células de Si + vidro + moldura de ferro",
+    "steps": [
+     "Cortar células",
+     "Ligar células",
+     "Cobrir com vidro",
+     "Moldura"
+    ],
+    "note": "A luz arranca elétrons do silício e cria corrente. No polo sul da Lua há picos quase sempre iluminados: os melhores lugares para painéis."
+   },
+   "effort": 1
+  },
+  {
+   "id": "planter",
+   "station": "workbench",
+   "inputs": [
+    [
+     "brick",
+     3
+    ],
+    [
+     "iron_bar",
+     1
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "item",
+     "item": "planter",
+     "n": 1
+    }
+   ],
+   "process": {
+    "reaction": "tijolo (caixa) + ferro (moldura e dreno)",
+    "steps": [
+     "Moldar caixa",
+     "Furar dreno",
+     "Moldura",
+     "Vedar"
+    ],
+    "note": "Na ISS as plantas crescem em travesseiros de substrato com água controlada (experimento Veggie, da NASA)."
+   },
+   "effort": 1
+  },
+  {
+   "id": "soil",
+   "station": "workbench",
+   "inputs": [
+    [
+     "regolith",
+     3
+    ],
+    [
+     "ice",
+     1
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "item",
+     "item": "soil",
+     "n": 1
+    }
+   ],
+   "process": {
+    "reaction": "regolito moído + água + nutrientes do kit",
+    "steps": [
+     "Moer",
+     "Peneirar",
+     "Molhar",
+     "Misturar"
+    ],
+    "note": "Em 2022 cientistas plantaram em regolito trazido pela Apollo: as plantas cresceram, mas fracas. Precisa de nutrientes e de solo solto."
+   },
+   "effort": 1
+  },
+  {
+   "id": "soil_mars",
+   "station": "workbench",
+   "inputs": [
+    [
+     "marsdust",
+     3
+    ],
+    [
+     "ice",
+     1
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "item",
+     "item": "soil",
+     "n": 1
+    }
+   ],
+   "process": {
+    "reaction": "poeira marciana lavada (sem perclorato) + água + nutrientes",
+    "steps": [
+     "Lavar",
+     "Secar",
+     "Peneirar",
+     "Misturar"
+    ],
+    "note": "O solo de Marte tem percloratos tóxicos; lavar com água tira boa parte deles antes de plantar."
+   },
+   "effort": 1
+  },
+  {
+   "id": "drill_iron",
+   "station": "workbench",
+   "inputs": [
+    [
+     "iron_bar",
+     4
+    ],
+    [
+     "brick",
+     2
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "equip",
+     "equip": "drill_iron"
+    }
+   ],
+   "process": {
+    "reaction": "ponta de ferro temperado + corpo de tijolo",
+    "steps": [
+     "Forjar ponta",
+     "Temperar",
+     "Montar corpo",
+     "Balancear"
+    ],
+    "note": "Temperar (esquentar e esfriar rápido) deixa o ferro mais duro na ponta."
+   },
+   "effort": 1
+  },
+  {
+   "id": "drill_crystal",
+   "station": "workbench",
+   "inputs": [
+    [
+     "crystal",
+     4
+    ],
+    [
+     "titanium",
+     2
+    ],
+    [
+     "basalt_fiber",
+     2
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "equip",
+     "equip": "drill_crystal"
+    }
+   ],
+   "process": {
+    "reaction": "ponta de cristal + eixo de titânio + reforço de fibra",
+    "steps": [
+     "Usinar eixo",
+     "Engastar cristais",
+     "Enrolar fibra",
+     "Sintonizar"
+    ],
+    "note": "O titânio aguenta a vibração sem quebrar; a fibra de basalto segura o calor do corte."
+   },
+   "effort": 1
+  },
+  {
+   "id": "iron_bar",
+   "station": "furnace",
+   "inputs": [
+    [
+     "iron",
+     2
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "item",
+     "item": "iron_bar",
+     "n": 1
+    }
+   ],
+   "process": {
+    "reaction": "minério → Fe (líquido) + escória",
+    "steps": [
+     "Aquecer",
+     "Fundir a 1540 °C",
+     "Separar escória",
+     "Moldar barra"
+    ],
+    "note": "O ferro funde a 1538 °C. A escória (silicatos) é mais leve: boia e é tirada por cima.",
+    "temp": 1560
+   },
+   "effort": 1
+  },
+  {
+   "id": "brick",
+   "station": "furnace",
+   "inputs": [
+    [
+     "regolith",
+     4
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "item",
+     "item": "brick",
+     "n": 2
+    }
+   ],
+   "process": {
+    "reaction": "regolito → grãos soldados (sinterização)",
+    "steps": [
+     "Compactar",
+     "Aquecer a 1100 °C",
+     "Sinterizar",
+     "Resfriar"
+    ],
+    "note": "Na sinterização os grãos se soldam sem derreter. A ESA já imprimiu tijolos assim com regolito simulado.",
+    "temp": 1120
+   },
+   "effort": 1
+  },
+  {
+   "id": "glass",
+   "station": "furnace",
+   "inputs": [
+    [
+     "regolith",
+     3
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "item",
+     "item": "glass",
+     "n": 1
+    }
+   ],
+   "process": {
+    "reaction": "SiO₂ + óxidos → vidro",
+    "steps": [
+     "Aquecer",
+     "Fundir a 1400 °C",
+     "Laminar",
+     "Resfriar rápido"
+    ],
+    "note": "Resfriado rápido, o regolito fundido não cristaliza e vira vidro. A Apollo 17 achou contas de vidro vulcânico laranja na Lua.",
+    "temp": 1420
+   },
+   "effort": 1
+  },
+  {
+   "id": "glass_anorthosite",
+   "station": "furnace",
+   "inputs": [
+    [
+     "anorthosite",
+     2
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "item",
+     "item": "glass",
+     "n": 1
+    }
+   ],
+   "process": {
+    "reaction": "CaAl₂Si₂O₈ → vidro",
+    "steps": [
+     "Aquecer",
+     "Fundir a 1550 °C",
+     "Laminar",
+     "Resfriar rápido"
+    ],
+    "note": "O anortosito das terras altas é quase só plagioclásio: funde num vidro claro, com pouco ferro. É o material estudado para fibra e janelas na Lua.",
+    "temp": 1550
+   },
+   "effort": 1
+  },
+  {
+   "id": "basalt_fiber",
+   "station": "furnace",
+   "inputs": [
+    [
+     "basalt",
+     2
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "item",
+     "item": "basalt_fiber",
+     "n": 1
+    }
+   ],
+   "process": {
+    "reaction": "basalto fundido → fios de 10 µm",
+    "steps": [
+     "Fundir a 1450 °C",
+     "Passar no bico",
+     "Estirar",
+     "Enrolar"
+    ],
+    "note": "Fibra de basalto é fabricada na Terra igual: rocha fundida passa por bicos e é puxada em fios.",
+    "temp": 1460
+   },
+   "effort": 1
+  },
+  {
+   "id": "ilmenite",
+   "station": "furnace",
+   "inputs": [
+    [
+     "ilmenite",
+     1
+    ],
+    [
+     "h2",
+     1
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "item",
+     "item": "tio2",
+     "n": 1
+    },
+    {
+     "kind": "item",
+     "item": "iron_bar",
+     "n": 1
+    },
+    {
+     "kind": "item",
+     "item": "ice",
+     "n": 1
+    }
+   ],
+   "process": {
+    "reaction": "FeTiO₃ + H₂ → Fe + TiO₂ + H₂O",
+    "steps": [
+     "Aquecer a 1000 °C",
+     "Injetar H₂",
+     "Reduzir",
+     "Condensar água"
+    ],
+    "note": "É o método mais estudado pela NASA para tirar oxigênio da Lua. A água sai como vapor e congela de novo: o hidrogênio volta.",
+    "temp": 1000
+   },
+   "effort": 1.4
+  },
+  {
+   "id": "water",
+   "station": "electrolyzer",
+   "inputs": [
+    [
+     "ice",
+     2
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "item",
+     "item": "h2",
+     "n": 2
+    },
+    {
+     "kind": "item",
+     "item": "o2",
+     "n": 1
+    }
+   ],
+   "process": {
+    "reaction": "2 H₂O → 2 H₂ + O₂",
+    "steps": [
+     "Derreter gelo",
+     "Aplicar corrente",
+     "Separar gases",
+     "Comprimir"
+    ],
+    "note": "O hidrogênio sai no eletrodo negativo e o oxigênio no positivo, sempre na proporção de 2 para 1.",
+    "temp": 80
+   },
+   "effort": 1
+  },
+  {
+   "id": "titanium",
+   "station": "electrolyzer",
+   "inputs": [
+    [
+     "tio2",
+     1
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "item",
+     "item": "titanium",
+     "n": 1
+    },
+    {
+     "kind": "item",
+     "item": "o2",
+     "n": 1
+    }
+   ],
+   "process": {
+    "reaction": "TiO₂ → Ti + O₂ (sal fundido a 900 °C)",
+    "steps": [
+     "Fundir sal",
+     "Prensar catodo",
+     "Eletrolisar",
+     "Lavar metal"
+    ],
+    "note": "Processo FFC Cambridge: o óxido vira o polo negativo num banho de sal fundido e perde o oxigênio, deixando titânio puro.",
+    "temp": 900
+   },
+   "effort": 1.6
+  },
+  {
+   "id": "silicon",
+   "station": "electrolyzer",
+   "inputs": [
+    [
+     "regolith",
+     4
+    ]
+   ],
+   "outputs": [
+    {
+     "kind": "item",
+     "item": "silicon",
+     "n": 1
+    },
+    {
+     "kind": "item",
+     "item": "o2",
+     "n": 1
+    }
+   ],
+   "process": {
+    "reaction": "SiO₂ → Si + O₂ (regolito fundido a 1600 °C)",
+    "steps": [
+     "Fundir regolito",
+     "Aplicar corrente",
+     "Separar silício",
+     "Cortar pastilha"
+    ],
+    "note": "Eletrólise de regolito fundido (MRE): a corrente separa metais e silício e solta oxigênio, sem precisar de nada da Terra.",
+    "temp": 1600
+   },
+   "effort": 1.3
+  }
+ ],
+ "jitter": 0.12,
+ "maxBatch": 32,
+ "drills": [
+  {
+   "id": "basic",
+   "name": "Broca de regolito",
+   "description": "A broca do traje. Quebra regolito, rocha, gelo e ferro.",
+   "tier": 0,
+   "speed": 1,
+   "drain": 1,
+   "bit": "#ffb03a",
+   "bitScale": 1,
+   "glow": null
+  },
+  {
+   "id": "iron",
+   "name": "Broca de ferro",
+   "description": "Ponta de ferro temperado: quebra 1,7 vez mais rápido e abre basalto, cristal e ilmenita.",
+   "tier": 1,
+   "speed": 1.7,
+   "drain": 1.15,
+   "bit": "#c9ced9",
+   "bitScale": 1.2,
+   "glow": null
+  },
+  {
+   "id": "crystal",
+   "name": "Broca de cristal",
+   "description": "Ponta de cristal lunar: 2,6 vezes mais rápida e a única que corta ouro. Gasta mais bateria.",
+   "tier": 2,
+   "speed": 2.6,
+   "drain": 1.35,
+   "bit": "#8ff1ff",
+   "glow": "#2a8fa8",
+   "bitScale": 1.4
+  }
+ ],
+ "equipment": [
+  {
+   "id": "map",
+   "name": "Mapa",
+   "slot": "map",
+   "description": "Tablet no pulso do traje: abre o mapa da cratera com a sonda, a base, o objetivo e os itens (botão do tablet ou M).",
+   "drill": null
+  },
+  {
+   "id": "drill_iron",
+   "name": "Broca de ferro",
+   "slot": "drill",
+   "description": "Ponta de ferro temperado: quebra 1,7 vez mais rápido e abre basalto, cristal e ilmenita.",
+   "drill": "iron"
+  },
+  {
+   "id": "drill_crystal",
+   "name": "Broca de cristal",
+   "slot": "drill",
+   "description": "Ponta de cristal lunar: 2,6 vezes mais rápida e a única que corta ouro. Gasta mais bateria.",
+   "drill": "crystal"
+  }
+ ],
+ "equipSlots": [
+  "drill",
+  "map"
+ ],
+ "power": {
+  "roofPanels": 2,
+  "roofPanelKw": 1,
+  "panelKw": 1.5,
+  "cableReach": 24,
+  "shadeLua": 0,
+  "shadeMarte": 0.3,
+  "batteryKj": 900,
+  "batteryStart": 1,
+  "lifeSupportKw": 0.4,
+  "suitChargeKw": 0.6,
+  "stormLoss": 0.7
+ },
+ "sunDirection": [
+  -14,
+  26,
+  9
+ ],
+ "suits": [
+  {
+   "id": "emergency",
+   "name": "Traje de emergência",
+   "o2Seconds": 480,
+   "o2IdleMul": 0.8,
+   "o2MineMul": 1.4,
+   "drillDrain": 0.8
+  }
+ ],
+ "survival": {
+  "pressureRadius": 4.5,
+  "refill": {
+   "o2": 25,
+   "battery": 15,
+   "integrity": 5
+  },
+  "asphyxiaDps": 8,
+  "noBatteryDrillRate": 0.3333333333333333,
+  "fallDamagePerSpeed": 6,
+  "meteorMaxDamage": 60,
+  "meteorRadius": 7,
+  "o2Warn": [
+   0.3,
+   0.15
+  ],
+  "o2Reserve": {
+   "at": 0.15,
+   "amount": 50
+  },
+  "batteryWarn": 0.2,
+  "respawnInvulnerable": 3,
+  "pickupRadius": 1.2
+ },
+ "needs": {
+  "energy": {
+   "enabled": true,
+   "max": 100,
+   "hungerPerMinute": 1.2,
+   "warn": [
+    0.3,
+    0.1
+   ],
+   "starveDps": 0.35,
+   "respawn": 60
+  }
+ },
+ "greenhouse": {
+  "camInset": 1.25,
+  "camHeight": 3.4,
+  "camFov": 74,
+  "camFovTall": 92,
+  "size": 7,
+  "wallHeight": 3,
+  "tolerance": 1,
+  "baseGap": 4,
+  "landerGap": 7,
+  "reach": 3.2,
+  "doorAt": 3,
+  "parts": [
+   {
+    "id": "floor",
+    "name": "Piso",
+    "cost": [
+     [
+      "brick",
+      8
+     ]
+    ]
+   },
+   {
+    "id": "wallS",
+    "name": "Parede sul (com a porta)",
+    "cost": [
+     [
+      "iron_bar",
+      3
+     ],
+     [
+      "brick",
+      2
+     ]
+    ]
+   },
+   {
+    "id": "wallW",
+    "name": "Parede oeste",
+    "cost": [
+     [
+      "iron_bar",
+      4
+     ],
+     [
+      "brick",
+      2
+     ]
+    ]
+   },
+   {
+    "id": "wallE",
+    "name": "Parede leste",
+    "cost": [
+     [
+      "iron_bar",
+      4
+     ],
+     [
+      "brick",
+      2
+     ]
+    ]
+   },
+   {
+    "id": "wallN",
+    "name": "Parede norte",
+    "cost": [
+     [
+      "iron_bar",
+      4
+     ],
+     [
+      "brick",
+      2
+     ]
+    ]
+   },
+   {
+    "id": "frame",
+    "name": "Estrutura da cúpula",
+    "cost": [
+     [
+      "iron_bar",
+      6
+     ],
+     [
+      "basalt_fiber",
+      3
+     ]
+    ]
+   },
+   {
+    "id": "glass",
+    "name": "Vidro da cúpula",
+    "cost": [
+     [
+      "glass",
+      8
+     ]
+    ]
+   }
+  ],
+  "chest": [
+   {
+    "id": "estufa",
+    "items": [
+     {
+      "item": "greenhouse_plan",
+      "n": 1
+     },
+     {
+      "item": "brick",
+      "n": 20
+     },
+     {
+      "item": "iron_bar",
+      "n": 24
+     },
+     {
+      "item": "basalt_fiber",
+      "n": 4
+     },
+     {
+      "item": "glass",
+      "n": 10
+     }
+    ]
+   },
+   {
+    "id": "cultivo",
+    "items": [
+     {
+      "item": "planter",
+      "n": 2
+     },
+     {
+      "item": "soil",
+      "n": 4
+     },
+     {
+      "item": "potato",
+      "n": 4
+     }
+    ]
+   }
+  ],
+  "farm": {
+   "growSeconds": 180,
+   "waterSeconds": 110,
+   "thirsty": 0.35,
+   "harvest": 3,
+   "reach": 1.35,
+   "stages": 5
+  }
+ },
+ "missions": {
+  "lua": [
+   {
+    "id": "regolith",
+    "kind": "collect",
+    "item": "regolith",
+    "n": 8,
+    "title": "Primeiros passos",
+    "text": "Colete regolito da superfície",
+    "hint": "Segure em cima de um bloco claro da superfície para minerar."
+   },
+   {
+    "id": "ice",
+    "kind": "collect",
+    "item": "ice",
+    "n": 3,
+    "title": "Água congelada",
+    "text": "Encontre gelo no fundo de uma cratera",
+    "hint": "O gelo fica nas partes mais baixas, onde a névoa se acumula."
+   },
+   {
+    "id": "iron",
+    "kind": "collect",
+    "item": "iron",
+    "n": 4,
+    "title": "Metal para reparos",
+    "text": "Colete minério de ferro",
+    "hint": "Blocos com pepitas laranja. Cave para baixo para achar mais."
+   },
+   {
+    "id": "meteor",
+    "kind": "reach",
+    "prop": "meteorite",
+    "title": "Impacto!",
+    "text": "Investigue o meteorito que caiu",
+    "hint": "Siga o feixe azul."
+   },
+   {
+    "id": "sample",
+    "kind": "prop",
+    "prop": "meteorite",
+    "title": "Amostra do espaço",
+    "text": "Minere o meteorito",
+    "hint": "Ele é duro: segure por mais tempo."
+   },
+   {
+    "id": "repair",
+    "kind": "deliver",
+    "needs": [
+     [
+      "rock",
+      6
+     ],
+     [
+      "iron",
+      4
+     ],
+     [
+      "crystal",
+      3
+     ]
+    ],
+    "title": "Reparar o módulo",
+    "text": "Leve os materiais ao módulo de pouso",
+    "hint": "Chegue perto do módulo com tudo no inventário."
+   },
+   {
+    "id": "done",
+    "kind": "end",
+    "title": "Sinal enviado",
+    "text": "Módulo reparado. Próxima missão: construir um foguete."
+   }
+  ],
+  "marte": [
+   {
+    "id": "mdust",
+    "kind": "collect",
+    "item": "marsdust",
+    "n": 8,
+    "title": "Chão vermelho",
+    "text": "Colete poeira marciana",
+    "hint": "A cor vem do óxido de ferro: Marte é, literalmente, enferrujado."
+   },
+   {
+    "id": "hematite",
+    "kind": "collect",
+    "item": "hematite",
+    "n": 4,
+    "title": "Esferas de hematita",
+    "text": "Ache as esferas escuras no chão ou a hematita nas rochas",
+    "hint": "Bolinhas escuras soltas na poeira. O Opportunity achou iguais em 2004: elas se formam na água."
+   },
+   {
+    "id": "gypsum",
+    "kind": "collect",
+    "item": "gypsum",
+    "n": 3,
+    "title": "Veios brancos",
+    "text": "Colete gipsita nas paredes do cânion",
+    "hint": "O cânion fica ao sul do módulo. Os veios brancos nas camadas são sinal de água antiga."
+   },
+   {
+    "id": "olivine",
+    "kind": "collect",
+    "item": "olivine",
+    "n": 3,
+    "title": "Pedras verdes",
+    "text": "Colete olivina no basalto do vulcão",
+    "hint": "O vulcão fica a noroeste. Cuidado com a lava: ela queima o traje."
+   },
+   {
+    "id": "samples",
+    "kind": "deliver",
+    "needs": [
+     [
+      "hematite",
+      4
+     ],
+     [
+      "gypsum",
+      3
+     ],
+     [
+      "olivine",
+      3
+     ]
+    ],
+    "title": "Amostras para casa",
+    "text": "Leve as amostras ao módulo de pouso",
+    "hint": "Chegue perto do módulo com tudo no inventário."
+   },
+   {
+    "id": "done",
+    "kind": "end",
+    "title": "Amostras analisadas",
+    "text": "A água esteve aqui. Próximo passo: um abrigo em Marte."
+   }
+  ]
+ }
+}

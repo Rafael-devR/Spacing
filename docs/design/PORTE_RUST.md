@@ -227,3 +227,31 @@ Resultado no celular do dono (2026-11-15): tudo funcionou, **40 a 60 FPS** com t
 - **Interface na passada final:** antes era uma passada a mais que lia e regravava a tela inteira.
 - **Teste `B` intercalado:** cada efeito desligado é comparado com "tudo ligado" medido logo antes e logo depois, em duas rodadas,
   e o resultado mostra a variação (±). Mede também quanto custaria a resolução cheia.
+
+### M4 Jogo completo (em andamento, autorizado pelo dono em 2026-11-15)
+
+O M4 é grande; vai em quatro partes, cada uma com o próprio commit e conferida antes da seguinte:
+
+| Parte | O que entra | Prova |
+| --- | --- | --- |
+| **M4a Regras** | itens, inventário, equipamento, fabricação, energia, sobrevivência, estufa; depois missões, exploração e o salvamento inteiro (v12, com a migração) | roteiros do TS repetidos no Rust; um salvamento do TS abre no Rust |
+| **M4b Mineração e construção** | broca (quebrar e colocar), pedaços que quicam, itens soltos, pilhas da morte, dano (queda, lava, meteoro), morte e renascer | roteiro jogado sem erro, capturas |
+| **M4c Base** | casco e interior, módulos, estações com modelo e animação, painel solar, estufa e canteiros no mundo, energia ligada às estações | capturas comparadas com o jogo web |
+| **M4d Fechamento** | mapa do tablet, salvar e carregar no app, roteiro jogado equivalente ao `play.mjs` | o dono joga |
+
+A interface mínima de cada parte (barra de itens, medidores, avisos) entra junto; as telas completas (mochila e estações com
+arrastar, pausa, configurações) são do M5.
+
+**Dados das regras vêm do TS, como JSON.** Itens, receitas, estações, brocas, energia, sobrevivência, estufa e missões saem de
+`src/data/*.ts` para `native/assets/rules.json` pelo `npm run golden` (`tools/golden/rules.test.ts`), e o Rust lê esse arquivo
+(`spacing-core/src/rules/data.rs`). Copiar à mão 33 itens e 19 receitas com os textos seria trabalho dobrado e fonte de diferença.
+Enquanto a versão web viver, o TS é a fonte; quando ela for arquivada, o JSON passa a ser a fonte dos dados. No Rust, item,
+estação, receita e equipamento são índices pequenos (`ItemId`...) que se escrevem no salvamento com o nome do TS.
+
+**Eventos:** no TS os sistemas publicam num barramento e os outros assinam. No Rust quem muda algo recebe `&mut Events` e empurra
+o fato numa fila (`rules/events.rs`); o jogo esvazia a fila a cada passo. `GameEvent::to_ts()` dá o nome e o conteúdo do TS.
+
+**Feito do M4a:** `spacing-core/src/rules/` com inventário, equipamento, fabricação (vagas, lotes, pausa, cancelar, sobras,
+salvar no meio), energia, sobrevivência e estufa (baú, obra, canteiros). `tests/rules.rs` repete cinco roteiros sorteados do TS
+(400 a 600 operações cada) e confere o retorno, o estado e os eventos de cada operação: tudo igual. Um erro de propósito numa
+conta (0,6 virando 0,61) é pego no passo 12.

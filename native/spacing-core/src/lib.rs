@@ -14,6 +14,7 @@ pub mod mesher;
 pub mod meteors;
 pub mod noise;
 pub mod planet;
+pub mod rules;
 pub mod scaler;
 pub mod player;
 pub mod terrain;
