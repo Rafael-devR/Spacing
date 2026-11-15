@@ -39,6 +39,11 @@ import { Greenhouse, anchorAt } from '../../src/systems/Greenhouse';
 import { Inventory, SLOT_COUNT } from '../../src/systems/Inventory';
 import { Power } from '../../src/systems/Power';
 import { Survival } from '../../src/systems/Survival';
+import { Missions } from '../../src/systems/Missions';
+import { Exploration } from '../../src/systems/Exploration';
+import { migrate, renewWorld } from '../../src/core/save';
+import { LANDER } from '../../src/world/terrain';
+import * as THREE from 'three';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -605,6 +610,251 @@ function greenhouseScript(): unknown {
   return { base, frames };
 }
 
+/** missões (Missions.ts) com o mundo, o jogador e os meteoros de mentira: só o que a regra pergunta */
+function missionsScript(): unknown {
+  const r = mulberry32(17);
+  const items: ItemId[] = ['regolith', 'ice', 'iron', 'rock', 'crystal', 'marsdust'];
+  const sessions: unknown[] = [];
+  for (let s = 0; s < 10; s++) {
+    const bus = createBus();
+    const log = recorder(bus);
+    const inv = new Inventory(bus);
+    // as quatro últimas começam na entrega, o passo com mais contas de distância
+    const saved = s === 0 ? undefined : { step: s >= 6 ? 5 : Math.floor(r() * 8), count: Math.floor(r() * 5) };
+    const player = { pos: new THREE.Vector3() };
+    let prop: THREE.Vector3 | null = null;
+    let active = 0;
+    let launches = 0;
+    const meteors = {
+      get active(): unknown[] {
+        return Array.from({ length: active });
+      },
+      launch: (): void => void launches++,
+      pickTarget: (): THREE.Vector3 => new THREE.Vector3(9, 21, 4),
+    };
+    const world = { findProp: () => (prop ? { position: prop } : null) };
+    const m = new Missions(
+      { events: bus, inventory: inv, player: player as never, world: world as never, meteors: meteors as never, landerY: () => 21.5 },
+      saved,
+    );
+    const frames: Frame[] = [];
+    for (let i = 0; i < 300; i++) {
+      const cur = m.current;
+      const k = r();
+      let op: Op;
+      if (k < 0.45) {
+        const near = r() < (cur.kind === 'deliver' ? 0.9 : 0.5);
+        // perto do módulo: em volta do raio de entrega (4,2) e do de esquecer o aviso (6)
+        const a = r() * Math.PI * 2, d = s >= 6 && r() < 0.7 ? 3.8 + r() : r() * 8;
+        const pos = near
+          ? [LANDER.x + 0.5 + Math.cos(a) * d, 21, LANDER.z + 0.5 + Math.sin(a) * d]
+          : [r() * 60 - 30, 21, r() * 60 - 30];
+        const pp = r() < 0.5 ? [pos[0] + r() * 8 - 4, 21, pos[2] + r() * 8 - 4] : null;
+        op = { op: 'step', dt: r() < 0.2 ? 2 : r() * 0.5, pos, prop: pp, active: r() < 0.3 ? 1 : 0 };
+      } else if (k < 0.8) {
+        const want = cur.kind === 'collect' ? [cur.item] : cur.kind === 'deliver' ? (Object.keys(cur.needs) as ItemId[]) : [];
+        const item = want.length && r() < 0.6 ? want[Math.floor(r() * want.length)] : items[Math.floor(r() * items.length)];
+        op = { op: 'collect', item, n: 1 + Math.floor(r() * 4) };
+      } else if (k < 0.88) op = { op: 'broken', type: r() < 0.7 ? 'meteorite' : 'rock' };
+      else if (k < 0.97) op = { op: 'drop', item: items[Math.floor(r() * items.length)], n: 1 + Math.floor(r() * 3) };
+      else op = { op: 'skip' };
+      log.length = 0;
+      switch (op.op) {
+        case 'step': {
+          const p = op.pos as number[];
+          player.pos.set(p[0], p[1], p[2]);
+          const pp = op.prop as number[] | null;
+          prop = pp ? new THREE.Vector3(pp[0], pp[1], pp[2]) : null;
+          active = op.active as number;
+          m.update(op.dt as number);
+          break;
+        }
+        case 'collect':
+          inv.add(op.item as ItemId, op.n as number);
+          break;
+        case 'broken':
+          bus.emit('prop:broken', { x: 0, y: 0, z: 0, type: op.type as never });
+          break;
+        case 'drop':
+          inv.remove(op.item as ItemId, op.n as number);
+          break;
+        case 'skip':
+          m.skip();
+          break;
+      }
+      const v = m.view();
+      const t = m.target();
+      frames.push({
+        op,
+        ret: null,
+        state: snap({
+          save: m.serialize(),
+          view: { ...v, step: v.step.id },
+          target: t ? [t.x, t.y, t.z] : null,
+          launches,
+        }),
+        events: [...log],
+      });
+    }
+    sessions.push({ saved: saved ?? null, frames });
+  }
+  return sessions;
+}
+
+/** mapa descoberto (Exploration.ts) */
+function explorationScript(): unknown {
+  const r = mulberry32(23);
+  const bus = createBus();
+  const log = recorder(bus);
+  const saved = { '0,0': 0b1010_0000_0000_0101, '-1,2': 3, '5,5': 0 };
+  const e = new Exploration(bus, saved);
+  let x = 0, z = 0;
+  const ops: Op[] = [];
+  for (let i = 0; i < 300; i++) {
+    x += r() * 16 - 8;
+    z += r() * 16 - 8;
+    ops.push(r() < 0.85 ? { op: 'reveal', x, z, radius: r() < 0.7 ? null : 3 + r() * 30 } : { op: 'jump', x: (x = r() * 200 - 100), z: (z = r() * 200 - 100) });
+  }
+  let px = 0, pz = 0;
+  const probe = (): boolean[] => {
+    const out: boolean[] = [];
+    for (let k = -3; k <= 3; k++) out.push(e.at(px + k * 3, pz - k * 2));
+    return out;
+  };
+  const frames = run(
+    ops,
+    (o) => {
+      px = o.x as number;
+      pz = o.z as number;
+      if (o.op !== 'reveal') return null;
+      return o.radius === null ? e.revealAround(px, pz) : e.revealAround(px, pz, o.radius as number);
+    },
+    () => ({ save: e.serialize(), revealed: e.revealed, probe: probe() }),
+    log,
+  );
+  return { saved, frames };
+}
+
+/** salvamentos de todas as versões, inteiros e estragados, e o que o migrate e o renewWorld fazem com eles (save.ts) */
+function saveScript(): unknown {
+  const r = mulberry32(29);
+  const full = (): Record<string, unknown> => ({
+    version: 12,
+    seed: 4242,
+    worldGen: 2,
+    savedAt: 1731600000000,
+    world: {
+      edits: { '0,0': [[5, 3], [70, 0]], '-1,2': [[4095, 7]] },
+      removedProps: ['3,4', '10,-2', 'x'],
+      extraProps: [
+        { wx: 4, wz: 9, type: 'solarPanel', variant: 0, rot: 0.5, scale: 1, key: 'p:4,9' },
+        { wx: 6, wz: 9, type: 'solarPanel', variant: 0, rot: 0, scale: 1, key: 'p:6,9' },
+        { wx: 1, wz: 1, type: 'solarPanel', variant: 0, rot: 0, scale: 1, key: 'x' },
+      ],
+    },
+    inventory: {
+      slots: [{ item: 'regolith', n: 40 }, null, { item: 'iron', n: 7 }, { item: 'circuit', n: 1 }, { item: 'nada', n: 3 }, { item: 'ice', n: 0.5 }, { item: 'rock', n: 999 }],
+      selected: 2,
+    },
+    player: { x: 3.5, y: 22.25, z: -4 },
+    missions: { step: 3, count: 2.7 },
+    suit: { suit: 'emergency', o2: 55.5, battery: 120, integrity: -3, energy: 40 },
+    loot: [
+      { item: 'iron', amount: 3, x: 1, y: 22, z: 2, pile: 1 },
+      { item: 'ice', amount: 0.5, x: 1, y: 22, z: 2, pile: 2.6 },
+      { item: 'nada', amount: 3, x: 1, y: 22, z: 2, pile: 1 },
+      { item: 'rock', amount: 2, x: 'a', y: 22, z: 2, pile: 1 },
+    ],
+    equipment: { drill: 'drill_iron', map: 'map', suit: 'map' },
+    base: { inside: true, respawn: 'base', visited: 1 },
+    explored: { '0,0': 65535, '1,1': 0, '2,x': 5, '-3,4': 70000, '5,5': 2.5, '7,-8': 12 },
+    crafting: {
+      built: ['furnace', 'workbench', 'nada', 'electrolyzer'],
+      jobs: [
+        { station: 'furnace', slot: 1, recipe: 'iron_ingot', batch: 3, prep: 4, unit: 10, done: 12, taken: { iron: 2, nada: 1, ice: 0 } },
+        { station: 'workbench', slot: 0, recipe: 'x', batch: 1, prep: 0, unit: 5, done: 5, delivered: true, paused: true, leftover: {} },
+        { station: 'nada', slot: 0, recipe: 'y' },
+        { station: 'electrolyzer', slot: 1.7, recipe: 'oxygen', batch: 0, prep: -2, unit: 3, done: 1, leftover: { ice: 2 } },
+      ],
+    },
+    power: { battery: 12.5 },
+    greenhouse: {
+      chest: ['estufa', 'x', 'cultivo'],
+      chestOpened: true,
+      site: {
+        x: 10.5, z: -6, floorY: 21.9, parts: ['nada', ...PARTS.map((p) => p.id).reverse()], done: true,
+        beds: [
+          { x: 12, z: -4, soil: true, water: 2, crop: { growth: 1.4 } },
+          { x: 12, z: -4, soil: false, water: 0.5, crop: null },
+          { x: 13, z: -3, soil: false, water: -1, crop: { growth: 0.5 } },
+          { x: 10, z: -3, soil: true, water: 0.2, crop: null },
+          { x: 13.5, z: -3, soil: true, water: 0.2, crop: null },
+          { x: 11, z: -2, soil: true, water: 0.2, crop: { growth: 0.3 } },
+        ],
+      },
+    },
+  });
+  const junk = (): unknown => [-5, 3.7, 0, 'x', null, [], {}, true, 1e6][Math.floor(r() * 9)];
+  const cases: unknown[] = [null, 'texto', 7, [], {}, { version: 99 }, { version: null }, { version: 2.5 }, { version: 0 }, full()];
+  // a v0.1 (sem versão) e cada versão com o formato inteiro
+  cases.push({ world: full().world, inventory: { regolith: 12, iron: 3.6, nada: 2, ice: -1 }, player: { x: 1 }, missions: { step: 2, count: 1 } });
+  for (let v = 1; v <= 13; v++) {
+    const s = full();
+    s.version = v;
+    if (v < 4) s.inventory = { regolith: 70, iron: 3, circuit: v === 2 ? 1 : 0, rock: 130 };
+    if (v < 7) s.crafting = { built: ['furnace'], jobs: [{ station: 'furnace', recipe: 'iron_ingot', t: 3, duration: 8 }] };
+    if (v === 7 || v === 8)
+      (s.crafting as { jobs: unknown[] }).jobs = [
+        { station: 'furnace', slot: 2, recipe: 'iron_ingot', batch: 2, work: 20, done: 20, left: { iron: 1 }, rest: false },
+        { station: 'furnace', recipe: 'iron_ingot', t: 9, duration: 8, left: { ice: 2 }, rest: false },
+        { station: 'workbench', recipe: 'map', t: 1, duration: 8 },
+        { station: 'electrolyzer', slot: 0, recipe: 'oxygen', batch: 3, work: 0, done: 0 },
+      ];
+    if (v === 11) s.greenhouse = { chestOpened: true, site: { x: 3, z: 4, floorY: 21, parts: ['frame'], done: false } };
+    cases.push(s);
+    if (v === 5 || v === 6) {
+      const t = full();
+      t.version = v;
+      t.equipment = {};
+      t.inventory = { slots: [{ item: 'circuit', n: 1 }], selected: 0 };
+      cases.push(t);
+      const u = full();
+      u.version = v;
+      u.equipment = {};
+      cases.push(u);
+    }
+  }
+  // estragados: campos que somem ou viram lixo, em todos os níveis
+  for (let i = 0; i < 160; i++) {
+    const s = full();
+    s.version = 1 + Math.floor(r() * 12);
+    if (r() < 0.1) delete s.version;
+    const top = Object.keys(s).filter((k) => k !== 'version');
+    for (let k = 0; k < 3; k++) {
+      const key = top[Math.floor(r() * top.length)];
+      if (r() < 0.5) delete s[key];
+      else if (key !== 'world') s[key] = junk();
+    }
+    const nested = (o: unknown): void => {
+      if (typeof o !== 'object' || o === null) return;
+      const keys = Object.keys(o);
+      if (!keys.length) return;
+      const key = keys[Math.floor(r() * keys.length)];
+      const rec = o as Record<string, unknown>;
+      if (r() < 0.5 && typeof rec[key] === 'object' && rec[key] !== null) nested(rec[key]);
+      else if (r() < 0.3) delete rec[key];
+      else rec[key] = junk();
+    };
+    for (const key of ['inventory', 'suit', 'loot', 'equipment', 'base', 'explored', 'crafting', 'greenhouse', 'player', 'missions', 'power'])
+      if (r() < 0.4) nested(s[key]);
+    cases.push(s);
+  }
+  return cases.map((raw) => {
+    const out = migrate(snap(raw), 77);
+    return { raw, out, renewed: out ? renewWorld(snap(out), 99, 3) : null };
+  });
+}
+
 test('exporta as regras e os roteiros de referência', () => {
   exportData();
   write(
@@ -615,6 +865,9 @@ test('exporta as regras e os roteiros de referência', () => {
       survival: survivalScript(),
       power: powerScript(),
       greenhouse: greenhouseScript(),
+      missions: missionsScript(),
+      exploration: explorationScript(),
+      save: saveScript(),
     },
     true,
   );

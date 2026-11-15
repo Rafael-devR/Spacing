@@ -10,8 +10,10 @@ pub mod crafting;
 pub mod data;
 pub mod equipment;
 pub mod events;
+pub mod exploration;
 pub mod greenhouse;
 pub mod inventory;
+pub mod missions;
 pub mod power;
 pub mod survival;
 

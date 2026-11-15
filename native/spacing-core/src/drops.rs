@@ -110,6 +110,17 @@ pub struct LootPiece {
     cooldown: f64,
 }
 
+/// uma pilha da morte no salvamento (`LootSave` do TS)
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct LootSave {
+    pub item: ItemId,
+    pub amount: u32,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub pile: u32,
+}
+
 pub struct LootPiles {
     pub pieces: Vec<LootPiece>,
     next_pile: u32,
@@ -121,6 +132,39 @@ impl LootPiles {
     /// `gravity` = loot_gravity do planeta
     pub fn new(gravity: f64, seed: u64) -> Self {
         Self { pieces: Vec::new(), next_pile: 1, gravity, rng: Rng::new(seed) }
+    }
+
+    pub fn serialize(&self) -> Vec<LootSave> {
+        self.pieces
+            .iter()
+            .map(|p| LootSave {
+                item: p.item,
+                amount: p.amount,
+                pile: p.pile,
+                x: p.pos[0],
+                y: if p.resting { p.rest_y + HOVER } else { p.pos[1] },
+                z: p.pos[2],
+            })
+            .collect()
+    }
+
+    /// ao carregar, os pedaços assentam no chão sem esperar
+    pub fn load(&mut self, list: &[LootSave]) {
+        for l in list {
+            let phase = self.rng.f() * 6.0;
+            self.pieces.push(LootPiece {
+                item: l.item,
+                amount: l.amount,
+                pile: l.pile,
+                pos: [l.x, l.y, l.z],
+                vel: [0.0; 3],
+                resting: false,
+                rest_y: l.y,
+                phase,
+                cooldown: 0.0,
+            });
+            self.next_pile = self.next_pile.max(l.pile + 1);
+        }
     }
 
     /// espalha os itens a partir de um ponto (morte); devolve quantos pedaços

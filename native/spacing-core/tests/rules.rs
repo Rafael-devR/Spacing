@@ -459,3 +459,100 @@ fn estufa_igual_ao_ts() {
         check("estufa", k, &fr2, ret, state, &ev);
     }
 }
+
+#[test]
+fn missoes_iguais_ao_ts() {
+    use spacing_core::rules::missions::{MissionInput, Missions, MissionsSave};
+    let g = golden();
+    for (si, sess) in g["missions"].as_array().unwrap().iter().enumerate() {
+        let saved = (!sess["saved"].is_null()).then(|| MissionsSave { step: u(&sess["saved"]["step"]) as usize, count: u(&sess["saved"]["count"]) });
+        let mut m = Missions::new(false, saved);
+        let mut inv = Inventory::new();
+        let mut prop: Option<[f64; 3]> = None;
+        let mut launches = 0;
+        let v3 = |v: &Value| [f(&v[0]), f(&v[1]), f(&v[2])];
+        for (k, fr) in sess["frames"].as_array().unwrap().iter().enumerate() {
+            let o = &fr["op"];
+            let mut ev = Events::new();
+            match o["op"].as_str().unwrap() {
+                "step" => {
+                    prop = (!o["prop"].is_null()).then(|| v3(&o["prop"]));
+                    let inp = MissionInput { player: v3(&o["pos"]), prop, meteors_active: u(&o["active"]) > 0, lander_y: 21.5 };
+                    if m.update(f(&o["dt"]), &inp, &mut inv, &mut ev).is_some() {
+                        launches += 1;
+                    }
+                }
+                "collect" => {
+                    inv.add(item(&o["item"]), u(&o["n"]), true, &mut ev);
+                    ev = m.react(ev);
+                }
+                "broken" => {
+                    let kind: &'static str = if o["type"] == "meteorite" { "meteorite" } else { "rock" };
+                    ev = m.react(vec![spacing_core::rules::GameEvent::PropBroken { pos: [0.0; 3], kind }]);
+                }
+                "drop" => {
+                    inv.remove(item(&o["item"]), u(&o["n"]), &mut ev);
+                    ev = m.react(ev);
+                }
+                "skip" => m.skip(&mut ev),
+                x => panic!("{x}"),
+            }
+            let v = m.view(&inv);
+            let t = m.target(prop, 21.5);
+            let state = json!({
+                "save": m.serialize(),
+                "view": {
+                    "index": v.index, "total": v.total, "step": v.step.id, "progress": v.progress, "collected": v.collected,
+                    "needs": v.needs.map(|n| n.iter().map(|(i, have, need)| json!({ "item": i.key(), "have": have, "need": need })).collect::<Vec<_>>()),
+                    "done": v.done,
+                },
+                "target": t,
+                "launches": launches,
+            });
+            check(&format!("missões {si}"), k, fr, Value::Null, state, &ev);
+        }
+    }
+}
+
+#[test]
+fn mapa_descoberto_igual_ao_ts() {
+    use spacing_core::rules::exploration::{Exploration, ExplorationSave, REVEAL_RADIUS};
+    let g = &golden()["exploration"];
+    let saved: ExplorationSave = g["saved"].as_object().unwrap().iter().map(|(k, v)| (k.clone(), u(v))).collect();
+    let mut e = Exploration::new(Some(&saved));
+    let (mut x, mut z);
+    for (k, fr) in g["frames"].as_array().unwrap().iter().enumerate() {
+        let o = &fr["op"];
+        let mut ev = Events::new();
+        x = f(&o["x"]);
+        z = f(&o["z"]);
+        let ret = if o["op"] == "reveal" {
+            let r = if o["radius"].is_null() { REVEAL_RADIUS } else { f(&o["radius"]) };
+            json!(e.reveal_around(x, z, r, &mut ev))
+        } else {
+            Value::Null
+        };
+        let probe: Vec<bool> = (-3..=3).map(|k| e.at(x + k as f64 * 3.0, z - k as f64 * 2.0)).collect();
+        let state = json!({ "save": e.serialize(), "revealed": e.revealed, "probe": probe });
+        check("mapa", k, fr, ret, state, &ev);
+    }
+}
+
+#[test]
+fn salvamento_igual_ao_ts() {
+    use spacing_core::save::{migrate, renew_world};
+    let g = golden();
+    let cases = g["save"].as_array().unwrap();
+    for (k, c) in cases.iter().enumerate() {
+        let out = migrate(&c["raw"], 77.0);
+        let got = serde_json::to_value(&out).unwrap();
+        if let Err(e) = same(&got, &c["out"], "migrate") {
+            panic!("salvamento {k}: {e}\n  entrada: {}", c["raw"]);
+        }
+        let renewed = out.as_ref().map(|s| renew_world(s, 99.0, 3));
+        if let Err(e) = same(&serde_json::to_value(&renewed).unwrap(), &c["renewed"], "renewWorld") {
+            panic!("salvamento {k}: {e}");
+        }
+    }
+    assert!(cases.len() > 150);
+}

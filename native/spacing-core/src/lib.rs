@@ -19,6 +19,7 @@ pub mod meteors;
 pub mod noise;
 pub mod planet;
 pub mod rules;
+pub mod save;
 pub mod scaler;
 pub mod player;
 pub mod terrain;

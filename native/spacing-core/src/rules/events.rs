@@ -85,6 +85,14 @@ pub enum GameEvent {
     BuildMode { on: bool },
     /// tocou um bloco com um projeto na mão (estufa, canteiro): o jogo decide
     SiteTap { pos: [i32; 3], item: ItemId },
+    /// missões (Missions.ts)
+    MissionStarted { id: &'static str, hint: Option<&'static str> },
+    MissionUpdated { step: usize },
+    MissionCompleted { id: &'static str, title: &'static str },
+    /// chegou ao módulo sem tudo: quanto falta de cada item
+    MissionMissing { items: Vec<(ItemId, u32)> },
+    /// ladrilhos do mapa descobertos nestes chunks ("cx,cz")
+    MapRevealed { chunks: Vec<String> },
 }
 
 impl GameEvent {
@@ -119,6 +127,20 @@ impl GameEvent {
             ActionDenied { reason, item } => ("action:denied", json!({ "reason": reason, "item": opt(item) })),
             BuildMode { on } => ("build:mode", json!({ "on": on })),
             SiteTap { pos, item } => ("site:tap", json!({ "x": pos[0], "y": pos[1], "z": pos[2], "item": item.key() })),
+            MissionStarted { id, hint } => (
+                "mission:started",
+                match hint {
+                    Some(h) => json!({ "id": id, "hint": h }),
+                    None => json!({ "id": id }),
+                },
+            ),
+            MissionUpdated { step } => ("mission:updated", json!({ "step": step })),
+            MissionCompleted { id, title } => ("mission:completed", json!({ "id": id, "title": title })),
+            MissionMissing { items } => (
+                "mission:missing",
+                json!({ "items": items.iter().map(|(i, n)| json!({ "item": i.key(), "missing": n })).collect::<Vec<_>>() }),
+            ),
+            MapRevealed { chunks } => ("map:revealed", json!({ "chunks": chunks })),
         }
     }
 }
