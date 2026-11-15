@@ -255,3 +255,19 @@ o fato numa fila (`rules/events.rs`); o jogo esvazia a fila a cada passo. `GameE
 salvar no meio), energia, sobrevivência e estufa (baú, obra, canteiros). `tests/rules.rs` repete cinco roteiros sorteados do TS
 (400 a 600 operações cada) e confere o retorno, o estado e os eventos de cada operação: tudo igual. Um erro de propósito numa
 conta (0,6 virando 0,61) é pego no passo 12.
+
+**Feito do M4b:** minerar, construir, pedaços, itens soltos, dano e morte, jogável no app.
+- `spacing-core/src/interaction.rs` (porte do `Interaction.ts`): a mira é um raio da câmera; segurar minera com a dureza do alvo
+  e o nível da broca (a broca fraca avisa uma vez), com golpes que soltam lascas e faíscas; quebrar solta pedaços, poeira e os
+  itens; o modo construir coloca blocos e o painel solar; toque longe anda até o alvo e pula se travar.
+- `debris.rs` (porte do `Debris.ts`): pedaços que quicam nos blocos e uns nos outros, dormem parados, acordam quando o chão some
+  e são chutados pelo astronauta. Diferença de propósito: no TS um pedaço apoiado com a folga de 0,001 alterna "no chão" e
+  "caindo" a cada passo e nunca dorme; aqui ele conta como apoiado.
+- `drops.rs` (portes do `ItemDrops.ts` e `LootPiles.ts`): itens que saltam e voam até o astronauta (o que não cabe vira pilha) e
+  as pilhas da morte, que brilham até ele passar perto.
+- No app: medidores do traje rodando no passo fixo (recarga no módulo, oxigênio, bateria gasta pela broca, fome), dano de queda,
+  de meteoro e de lava (Marte), cilindro de O₂ de reserva, morte com o cartão e renascer no módulo. HUD: barra de itens, medidores,
+  botão CONSTR., mira acima do dedo com anel de progresso, contorno do alvo e do bloco a colocar, avisos.
+- Os itens soltos e as pilhas são cubos com a cor do item; os modelos 3D de cada item (ItemModels) ficam para o M5, junto dos
+  ícones da mochila. A estufa e os canteiros (itens de projeto) entram com a base no M4c; hoje o modo construir recusa.
+- Capturas novas (`--captura`): minerando, depois de quebrar, modo construir, morte e renascer.

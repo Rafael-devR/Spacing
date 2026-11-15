@@ -220,6 +220,7 @@ impl App {
                 Some(b) => vec![b.running_label(), "fique parado: o tempo do quadro é medido sem cada efeito".into()],
                 None => Vec::new(),
             },
+            game,
         };
         let controls = &self.controls;
         let out = self.egui.run_ui(raw, |ui| hud::draw(ui.ctx(), controls, &info));
@@ -308,15 +309,17 @@ impl ApplicationHandler for App {
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor = (position.x as f32, position.y as f32);
                 self.controls.touch_move(u64::MAX, self.cursor.0, self.cursor.1);
-            }
-            WindowEvent::MouseInput { state, .. } => {
-                if state == ElementState::Pressed {
-                    self.controls.touch_start(u64::MAX, self.cursor.0, self.cursor.1, w);
-                    self.controls.touched = true;
-                } else {
-                    self.controls.touch_end(u64::MAX);
+                if !cfg!(target_os = "android") {
+                    self.controls.hover = Some(self.cursor);
                 }
             }
+            // botão esquerdo: aperta os botões da tela ou mira e minera segurando; direito: constrói no ponto
+            WindowEvent::MouseInput { state, button, .. } => match (button, state) {
+                (winit::event::MouseButton::Right, ElementState::Pressed) => self.controls.tap(self.cursor.0, self.cursor.1, true),
+                (winit::event::MouseButton::Left, ElementState::Pressed) => self.controls.finger_down(u64::MAX, self.cursor.0, self.cursor.1, w, false),
+                (winit::event::MouseButton::Left, ElementState::Released) => self.controls.touch_end(u64::MAX),
+                _ => {}
+            },
             _ => {}
         }
     }

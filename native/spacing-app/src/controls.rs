@@ -15,6 +15,22 @@ pub enum Button {
     Vsync,
     Meteor,
     Bench,
+    /// liga e desliga o modo construir
+    Build,
+    /// um espaço da barra de itens
+    Slot(u8),
+}
+
+/// a mira de um dedo (ou do mouse) fora dos botões e do joystick
+#[derive(Clone, Copy, Debug)]
+pub struct Pointer {
+    /// o dedo
+    pub fx: f32,
+    pub fy: f32,
+    /// para onde a mira aponta (acima do dedo no toque, para o dedo não cobrir o bloco)
+    pub x: f32,
+    pub y: f32,
+    pub touch: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -29,8 +45,9 @@ pub struct ButtonRect {
 #[derive(Clone, Copy, Debug)]
 enum Finger {
     Stick { ox: f32, oy: f32, x: f32, y: f32 },
+    /// mira (minera segurando); `moved` e `t` dizem se foi um toque rápido
+    Aim { x: f32, y: f32, moved: f32, t: std::time::Instant, touch: bool },
     Button(Button),
-    None,
 }
 
 /// pedidos de um quadro (consumidos pelo jogo)
@@ -44,6 +61,10 @@ pub struct Actions {
     pub toggle_vsync: bool,
     pub meteor: bool,
     pub bench: bool,
+    pub toggle_build: bool,
+    pub select: Option<u8>,
+    /// toques rápidos (x, y em pixels, construir mesmo fora do modo = botão direito do mouse)
+    pub taps: [Option<(f32, f32, bool)>; 2],
 }
 
 pub struct Controls {
@@ -57,11 +78,17 @@ pub struct Controls {
     pub actions: Actions,
     /// houve toque alguma vez (mostra os botões)
     pub touched: bool,
+    /// quanto a mira fica acima do dedo (pixels; TOUCH_AIM_OFFSET do jogo web = 80 px de CSS)
+    pub aim_offset: f32,
+    /// o mouse parado em cima da tela (no computador a mira segue o mouse mesmo sem apertar)
+    pub hover: Option<(f32, f32)>,
+    /// tamanho da tela (pixels)
+    pub screen: (f32, f32),
 }
 
 impl Default for Controls {
     fn default() -> Self {
-        Self { scripted: None, fingers: HashMap::new(), keys: Default::default(), buttons: Vec::new(), stick_r: 60.0, actions: Actions::default(), touched: cfg!(target_os = "android") }
+        Self { scripted: None, fingers: HashMap::new(), keys: Default::default(), buttons: Vec::new(), stick_r: 60.0, actions: Actions::default(), touched: cfg!(target_os = "android"), aim_offset: 80.0, hover: None, screen: (1.0, 1.0) }
     }
 }
 
@@ -73,6 +100,8 @@ impl Controls {
         let big = 46.0 * u;
         let small = 24.0 * u;
         self.stick_r = 56.0 * u;
+        self.aim_offset = 80.0 * u;
+        self.screen = (w, h);
         let jx = w - m - big;
         let jy = h - m - big;
         self.buttons = vec![
@@ -86,12 +115,27 @@ impl Controls {
             ButtonRect { b: Button::Vsync, x: m + small * 6.2, y: m + small, r: small },
             ButtonRect { b: Button::Meteor, x: m + small * 8.8, y: m + small, r: small },
             ButtonRect { b: Button::Bench, x: m + small * 11.4, y: m + small, r: small },
+            ButtonRect { b: Button::Build, x: jx - big * 2.1, y: jy - big * 1.4, r: small * 1.25 },
         ];
+        // barra de itens embaixo, no meio
+        let (slot, gap) = (40.0 * u, 5.0 * u);
+        let n = 8.0;
+        let x0 = w * 0.5 - (n * slot + (n - 1.0) * gap) * 0.5 + slot * 0.5;
+        for i in 0..8 {
+            self.buttons.push(ButtonRect { b: Button::Slot(i), x: x0 + i as f32 * (slot + gap), y: h - 10.0 * u - slot * 0.5, r: slot * 0.5 });
+        }
         let _ = h;
     }
 
     fn hit(&self, x: f32, y: f32) -> Option<Button> {
-        self.buttons.iter().find(|b| (x - b.x).powi(2) + (y - b.y).powi(2) <= (b.r * 1.25).powi(2)).map(|b| b.b)
+        self.buttons
+            .iter()
+            .find(|b| match b.b {
+                // espaços da barra: quadrados encostados (sem folga a mais)
+                Button::Slot(_) => (x - b.x).abs() <= b.r && (y - b.y).abs() <= b.r,
+                _ => (x - b.x).powi(2) + (y - b.y).powi(2) <= (b.r * 1.25).powi(2),
+            })
+            .map(|b| b.b)
     }
 
     fn press(&mut self, b: Button) {
@@ -107,31 +151,74 @@ impl Controls {
             Button::Vsync => a.toggle_vsync = true,
             Button::Meteor => a.meteor = true,
             Button::Bench => a.bench = true,
+            Button::Build => a.toggle_build = true,
+            Button::Slot(i) => a.select = Some(i),
         }
     }
 
     pub fn touch_start(&mut self, id: u64, x: f32, y: f32, screen_w: f32) {
         self.touched = true;
+        self.finger_down(id, x, y, screen_w, true);
+    }
+
+    /// dedo (ou botão esquerdo do mouse, `touch` = false) apertou
+    pub fn finger_down(&mut self, id: u64, x: f32, y: f32, screen_w: f32, touch: bool) {
         let f = if let Some(b) = self.hit(x, y) {
             self.press(b);
             Finger::Button(b)
-        } else if x < screen_w * 0.5 {
+        } else if touch && x < screen_w * 0.5 {
             Finger::Stick { ox: x, oy: y, x, y }
         } else {
-            Finger::None
+            Finger::Aim { x, y, moved: 0.0, t: std::time::Instant::now(), touch }
         };
         self.fingers.insert(id, f);
     }
 
     pub fn touch_move(&mut self, id: u64, x: f32, y: f32) {
-        if let Some(Finger::Stick { x: fx, y: fy, .. }) = self.fingers.get_mut(&id) {
-            *fx = x;
-            *fy = y;
+        match self.fingers.get_mut(&id) {
+            Some(Finger::Stick { x: fx, y: fy, .. }) => {
+                *fx = x;
+                *fy = y;
+            }
+            Some(Finger::Aim { x: fx, y: fy, moved, .. }) => {
+                *moved += (x - *fx).hypot(y - *fy);
+                *fx = x;
+                *fy = y;
+            }
+            _ => {}
         }
     }
 
     pub fn touch_end(&mut self, id: u64) {
-        self.fingers.remove(&id);
+        if let Some(Finger::Aim { x, y, moved, t, .. }) = self.fingers.remove(&id) {
+            // toque rápido e parado: construir (no modo construir) ou andar até lá (Input.ts: 260 ms e 12 px)
+            if t.elapsed().as_secs_f32() < 0.26 && moved < 12.0 * self.aim_offset / 80.0 {
+                self.tap(x, y, false);
+            }
+        }
+    }
+
+    /// botão direito do mouse: construir no ponto
+    pub fn tap(&mut self, x: f32, y: f32, place: bool) {
+        if let Some(slot) = self.actions.taps.iter_mut().find(|t| t.is_none()) {
+            *slot = Some((x, y, place));
+        }
+    }
+
+    /// A mira de agora e se está segurando (um dedo mirando, ou o mouse por cima da tela).
+    pub fn pointer(&self) -> Option<(Pointer, bool)> {
+        let held = self.fingers.values().find_map(|f| match *f {
+            Finger::Aim { x, y, touch, .. } => {
+                let off = if touch { self.aim_offset } else { 0.0 };
+                Some(Pointer { fx: x, fy: y, x, y: (y - off).max(6.0), touch })
+            }
+            _ => None,
+        });
+        match (held, self.hover) {
+            (Some(p), _) => Some((p, true)),
+            (None, Some((x, y))) if self.hit(x, y).is_none() => Some((Pointer { fx: x, fy: y, x, y, touch: false }, false)),
+            _ => None,
+        }
     }
 
     /// botão de zoom seguro: zoom contínuo enquanto o dedo estiver em cima
@@ -183,6 +270,8 @@ impl Controls {
                     "v" => self.actions.toggle_vsync = true,
                     "t" => self.actions.meteor = true,
                     "b" => self.actions.bench = true,
+                    "c" | "x" => self.actions.toggle_build = true,
+                    "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" => self.actions.select = k.parse::<u8>().ok().map(|n| n - 1),
                     _ => {}
                 }
             }

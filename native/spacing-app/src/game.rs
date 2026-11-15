@@ -10,9 +10,41 @@ use spacing_core::player::{MoveInput, Player, PlayerEvent};
 use spacing_core::terrain::{LANDER, SPAWN};
 use spacing_core::world::{World, SYNC_BUDGET};
 use spacing_render::astronaut::{Astronaut, StaticModel};
-use spacing_render::{camera_matrix, load_glb, prop_mesh, Frame, PartDraw, PropDraw, PropInstance, Renderer, ScreenFx};
+use spacing_core::blocks::{hex_to_linear, is_hot, registry};
+use spacing_core::debris::Debris;
+use spacing_core::drops::{ItemDrops, LootPiles, DROP_SIZE};
+use spacing_core::interaction::{self, Ctx, Interaction, Target};
+use spacing_core::rules::equipment::Equipment;
+use spacing_core::rules::events::DeathCause;
+use spacing_core::rules::inventory::Inventory;
+use spacing_core::rules::survival::{SuitInput, Survival};
+use spacing_core::rules::{rules, Events, GameEvent, ItemId};
+use spacing_render::{camera_matrix, load_glb, prop_mesh, Frame, PartDraw, PropDraw, PropInstance, Renderer, ScreenFx, MESH_CUBE, MESH_SHARD};
 
-use crate::controls::Controls;
+use crate::controls::{Controls, Pointer};
+
+/// lava de Marte: dano por segundo em pé nela (MarsDirector, MARS.lavaDps)
+const LAVA_DPS: f64 = 22.0;
+/// segundos da morte até o cartão (SurvivalDirector)
+const DEATH_CARD_DELAY: f64 = 1.6;
+
+/// a cor de um item: a do bloco que ele é, senão a de destaque (linear)
+pub fn item_color(item: ItemId) -> [f64; 3] {
+    let d = item.data();
+    match d.block.or(d.icon_block) {
+        Some(b) => registry()[b as usize].side,
+        None => hex_to_linear(&d.tint, 1.0),
+    }
+}
+
+/// a morte em andamento
+#[derive(Clone, Copy, Debug)]
+pub struct Death {
+    pub t: f64,
+    pub cause: DeathCause,
+    /// perdeu itens (ficaram numa pilha no chão)
+    pub lost: bool,
+}
 
 /// passo fixo da simulação e limite de passos por quadro (src/app/config.ts)
 const FIXED_STEP: f64 = 1.0 / 60.0;
@@ -88,6 +120,23 @@ pub struct Game {
     hit_stop: f64,
     slow_mo: (f64, f64),
     draw_pos: [f64; 3],
+    pub inv: Inventory,
+    pub equip: Equipment,
+    pub survival: Survival,
+    pub interaction: Interaction,
+    pub debris: Debris,
+    pub drops: ItemDrops,
+    pub loot: LootPiles,
+    /// avisos na tela (texto, segundos restantes)
+    pub toasts: Vec<(String, f64)>,
+    pub death: Option<Death>,
+    /// vermelho de dano na tela (0..1)
+    hurt: f64,
+    burn_toast: f64,
+    /// a mira de agora (para o HUD) e a matriz da câmera do último quadro
+    pub pointer: Option<(Pointer, bool)>,
+    pub view_proj: Mat4,
+    pub screen: (f32, f32),
 }
 
 impl Game {
@@ -134,7 +183,228 @@ impl Game {
             hit_stop: 0.0,
             slow_mo: (0.0, 1.0),
             draw_pos,
+            inv: Inventory::new(),
+            equip: Equipment::new(),
+            survival: Survival::new(pd.physics.fall_safe_speed, None),
+            interaction: Interaction::default(),
+            debris: Debris::new(pd.physics.debris_gravity, pd.physics.debris_drag, seed as u64 ^ 0x5eed),
+            drops: ItemDrops::new(pd.physics.debris_gravity, seed as u64 ^ 0xd0),
+            loot: LootPiles::new(pd.physics.loot_gravity, seed as u64 ^ 0x100),
+            toasts: Vec::new(),
+            death: None,
+            hurt: 0.0,
+            burn_toast: 0.0,
+            pointer: None,
+            view_proj: Mat4::IDENTITY,
+            screen: (1.0, 1.0),
         }
+    }
+
+    /// o raio da câmera por um ponto da tela (pixels)
+    fn ray(&self, x: f32, y: f32) -> ([f64; 3], [f64; 3]) {
+        let inv = self.view_proj.inverse();
+        let nx = x / self.screen.0 * 2.0 - 1.0;
+        let ny = 1.0 - y / self.screen.1 * 2.0;
+        let a = inv.project_point3(Vec3::new(nx, ny, 0.0));
+        let b = inv.project_point3(Vec3::new(nx, ny, 1.0));
+        let d = (b - a).normalize();
+        ([a.x as f64, a.y as f64, a.z as f64], [d.x as f64, d.y as f64, d.z as f64])
+    }
+
+    fn pick(&self, x: f32, y: f32) -> Option<Target> {
+        let (o, d) = self.ray(x, y);
+        interaction::pick(&self.world, o, d)
+    }
+
+    pub fn toast(&mut self, msg: impl Into<String>) {
+        let msg = msg.into();
+        self.toasts.retain(|(m, _)| *m != msg);
+        self.toasts.push((msg, 3.5));
+        if self.toasts.len() > 3 {
+            self.toasts.remove(0);
+        }
+    }
+
+    /// o que a mira, o toque e o modo construir fazem neste quadro (Interaction.update)
+    fn interact(&mut self, dt: f64, c: &mut Controls, taps: &[(f32, f32, bool)], ev: &mut Events) {
+        self.screen = c.screen;
+        self.pointer = if self.death.is_some() { None } else { c.pointer() };
+        let alive = self.death.is_none();
+        let target = match self.pointer {
+            // construir mira no dedo, minerar na mira acima dele
+            Some((p, _)) if alive => if self.interaction.build_mode { self.pick(p.fx, p.fy) } else { self.pick(p.x, p.y) },
+            _ => None,
+        };
+        let holding = alive && self.pointer.is_some_and(|(_, h)| h);
+        let touch = self.pointer.is_some_and(|(p, _)| p.touch);
+        let tap_targets: Vec<(Option<Target>, bool)> = taps.iter().map(|&(x, y, place)| (self.pick(x, y), place)).collect();
+        let rate = self.survival.drill_rate() * self.equip.drill().data().speed;
+        let tier = self.equip.drill().data().tier;
+        let mut cx = Ctx {
+            world: &mut self.world,
+            player: &mut self.player,
+            inv: &mut self.inv,
+            debris: &mut self.debris,
+            drops: &mut self.drops,
+            particles: &mut self.particles,
+            ev,
+        };
+        if alive {
+            for (t, place) in tap_targets {
+                self.interaction.tap(t, place, &mut cx);
+            }
+        }
+        self.interaction.update(dt, target, holding, touch, rate, tier, &mut cx);
+    }
+
+    /// as respostas aos fatos do passo (Game.wireEvents, SurvivalDirector)
+    fn react(&mut self, ev: Events) {
+        for e in ev {
+            match e {
+                GameEvent::PlayerDamaged { amount, .. } => {
+                    self.rig.shake((0.2 + amount / 60.0).min(0.7));
+                    self.hurt = (self.hurt + 0.4 + amount / 60.0).min(1.0);
+                }
+                GameEvent::PlayerDied { cause, .. } => self.die(cause),
+                GameEvent::DrillWeak { tier, target } => self.toast(format!("{target}: precisa da broca de nível {tier}")),
+                GameEvent::InventoryFull { .. } => self.toast("Mochila cheia"),
+                GameEvent::ActionDenied { reason, .. } => self.toast(match reason {
+                    "emptySlot" => "Escolha um item na barra para construir",
+                    "notBlock" => "Esse item não é um bloco",
+                    "blocked" => "Não dá para colocar aí",
+                    _ => "Não dá",
+                }),
+                GameEvent::SuitWarning { meter, level } if level > 0 => {
+                    use spacing_core::rules::events::Meter;
+                    self.toast(match (meter, level) {
+                        (Meter::O2, 2) => "Oxigênio crítico! Volte ao módulo",
+                        (Meter::O2, _) => "Oxigênio baixo",
+                        (Meter::Battery, _) => "Bateria do traje fraca: a broca fica lenta",
+                        (Meter::Energy, 2) => "Fome forte: coma alguma coisa",
+                        (Meter::Energy, _) => "Com fome",
+                        _ => "Traje danificado",
+                    });
+                }
+                GameEvent::SuitRecharge { on: true } => {
+                    let s = &self.survival;
+                    if s.o2.min(s.battery).min(s.integrity) < 95.0 {
+                        self.toast("Recarregando o traje");
+                    }
+                }
+                GameEvent::BuildMode { on } => self.toast(if on { "Modo construir: toque para colocar o item da barra" } else { "Modo minerar: segure para minerar" }),
+                _ => {}
+            }
+        }
+    }
+
+    fn die(&mut self, cause: DeathCause) {
+        let mut ev = Events::new();
+        self.interaction.cancel(&mut self.player);
+        self.player.dead = true;
+        let items = self.inv.take_everything(&mut ev);
+        let lost = !items.is_empty();
+        self.loot.drop(self.player.pos, &items);
+        self.death = Some(Death { t: 0.0, cause, lost });
+        self.rig.shake(0.5);
+        self.slow_mo = (1.1, 0.3);
+    }
+
+    /// traje novo no módulo de pouso (SurvivalDirector.respawn)
+    fn respawn(&mut self) {
+        let mut ev = Events::new();
+        let lost = self.death.is_some_and(|d| d.lost);
+        self.death = None;
+        self.survival.respawn(&mut ev);
+        self.player.dead = false;
+        self.player.vel = [0.0; 3];
+        self.player.spawn(&mut self.world, SPAWN.0, SPAWN.1);
+        self.rig.snap(focus(self.player.pos));
+        self.draw_pos = self.player.pos;
+        let c = self.player.pos;
+        for _ in 0..46 {
+            let g = &mut self.particles.rng;
+            let (a, r) = (g.f() * std::f64::consts::TAU, g.f() * 0.9);
+            let (vy, size, life, up) = (3.0 + g.f() * 6.0, 0.07 + g.f() * 0.08, 0.8 + g.f() * 0.8, g.f() * 0.5);
+            self.particles.spawn([c[0] + a.cos() * r, c[1] + up, c[2] + a.sin() * r], [a.cos() * 0.3, vy, a.sin() * 0.3], size, [0.6, 2.0, 2.4], life, -1.0);
+        }
+        if lost {
+            self.toast("Seus itens ficaram onde você caiu: o brilho azul");
+        }
+    }
+
+    /// Dano direto (capturas de teste): passa pelos mesmos eventos da sobrevivência.
+    pub fn hurt_player(&mut self, amount: f64) {
+        let mut ev = Events::new();
+        self.survival.damage(amount, DeathCause::Meteor, false, self.player.pos, &mut ev);
+        self.react(ev);
+    }
+
+    /// o texto da causa da morte
+    pub fn death_text(c: DeathCause) -> &'static str {
+        match c {
+            DeathCause::Asphyxia => "Acabou o oxigênio",
+            DeathCause::Meteor => "Atingido por um meteoro",
+            DeathCause::Fall => "Queda forte demais",
+            DeathCause::Heat => "Queimado na lava",
+            DeathCause::Hunger => "Fome",
+        }
+    }
+
+    /// a cada quadro: morte, reserva de O₂, lava, itens soltos
+    fn survive(&mut self, real_dt: f64, dt: f64, ev: &mut Events, respawn: bool) {
+        if let Some(d) = &mut self.death {
+            d.t += real_dt;
+            if d.t >= DEATH_CARD_DELAY && respawn {
+                self.respawn();
+            }
+        }
+        let playing = self.death.is_none();
+        // reserva: cilindro de O₂ conecta sozinho
+        let r = &rules().survival.o2_reserve;
+        let o2 = ItemId::of("o2");
+        if playing && !self.survival.in_pressure && self.survival.o2 / 100.0 <= r.at && self.inv.has(o2, 1) {
+            self.inv.remove(o2, 1, ev);
+            self.survival.o2 = (self.survival.o2 + r.amount).min(100.0);
+            let left = self.inv.count(o2);
+            self.toast(format!("Cilindro de O₂ conectado (+{:.0}%). Restam {left}", r.amount));
+        }
+        // lava (Marte): em pé em cima ou dentro
+        let p = self.player.pos;
+        let (fx, fy, fz) = (p[0].floor() as i32, p[1].floor() as i32, p[2].floor() as i32);
+        let mut hot = false;
+        for dx in -1..=1 {
+            for dz in -1..=1 {
+                let (nx, nz) = (p[0] + dx as f64 * 0.45, p[2] + dz as f64 * 0.45);
+                let (bx, bz) = (nx.floor() as i32, nz.floor() as i32);
+                if (dx != 0 || dz != 0) && bx == fx && bz == fz {
+                    continue;
+                }
+                if is_hot(self.world.peek_block(bx, fy - 1, bz)) || is_hot(self.world.peek_block(bx, fy, bz)) {
+                    hot = true;
+                }
+            }
+        }
+        self.burn_toast -= real_dt;
+        if hot && playing {
+            self.survival.damage(LAVA_DPS * dt, DeathCause::Heat, true, p, ev);
+            if self.burn_toast <= 0.0 {
+                self.burn_toast = 4.0;
+                self.toast("A lava está queimando o traje!");
+                self.rig.shake(0.25);
+            }
+        }
+        // pedaços, itens voando, pilhas
+        self.debris.update(dt, &self.world, self.player.pos, self.player.vel);
+        let over = self.drops.update(dt, self.player.center(), &mut self.inv, ev);
+        for (item, n, at) in over {
+            self.loot.drop(at, &spacing_core::rules::Counts::from_pairs(&[(item, n)]));
+        }
+        self.loot.update(dt, self.time, &mut self.world, self.player.center(), playing, &self.inv, &mut self.drops);
+        self.hurt = (self.hurt - real_dt * 1.5).max(0.0);
+        for t in &mut self.toasts {
+            t.1 -= real_dt;
+        }
+        self.toasts.retain(|t| t.1 > 0.0);
     }
 
     /// Um quadro: entrada, passos fixos de física, câmera, chunks.
@@ -152,6 +422,17 @@ impl Game {
         };
         self.time += dt;
         let a = c.take_actions();
+        let mut ev = Events::new();
+        if a.toggle_build {
+            let on = !self.interaction.build_mode;
+            self.interaction.set_build_mode(on, &mut ev);
+        }
+        if let Some(i) = a.select {
+            self.inv.select(i as i64, &mut ev);
+        }
+        let taps: Vec<(f32, f32, bool)> = a.taps.iter().flatten().copied().collect();
+        // morto: qualquer toque (ou o pulo) depois do cartão renasce
+        let respawn = self.death.is_some() && (a.jump || !taps.is_empty());
         if a.meteor {
             let p = self.player.pos;
             self.meteors.launch_random(&mut self.world, p, self.rig.yaw);
@@ -172,6 +453,9 @@ impl Game {
         let (mx, my) = c.move_dir();
         self.input.move_x = mx;
         self.input.move_y = my;
+        self.interact(dt, c, &taps, &mut ev);
+        let has_input = mx != 0.0 || my != 0.0;
+        self.interaction.steer(&mut self.input, has_input, &self.player, self.rig.yaw, dt);
 
         self.acc += dt;
         let mut n = (self.acc / FIXED_STEP).floor() as u32;
@@ -181,10 +465,22 @@ impl Game {
         } else {
             self.acc -= n as f64 * FIXED_STEP;
         }
+        let pressure = [LANDER.0 + 0.5, self.lander_y, LANDER.1 + 0.5];
         for _ in 0..n {
             self.player.step(&mut self.world, FIXED_STEP, &mut self.input, self.rig.yaw);
+            let v = self.player.vel;
+            let suit = SuitInput {
+                pos: self.player.pos,
+                moving: spacing_core::js::hypot(v[0], v[2]) > 0.3,
+                mining: self.player.mining,
+                pressure_center: pressure,
+                sheltered: false,
+                drill_drain: self.equip.drill().data().drain,
+                base_charge: 1.0,
+            };
+            self.survival.step(FIXED_STEP, &suit, &mut ev);
         }
-        self.player_fx();
+        self.player_fx(&mut ev);
         let alpha = self.acc / FIXED_STEP;
         self.draw_pos = self.player.animate(dt, alpha);
 
@@ -206,8 +502,10 @@ impl Game {
         }
         let impacts = self.meteors.update(dt, &mut self.world, self.player.pos, self.rig.yaw, &mut self.puffs, &mut self.particles);
         for e in impacts {
+            self.survival.on_meteor(e.distance, false, self.player.pos, &mut ev);
             self.impact(e);
         }
+        self.survive(real_dt, dt, &mut ev, respawn);
         self.flash = (self.flash - real_dt * meteors::camera::FLASH_DECAY).max(0.0);
         self.puffs.update(dt);
         self.particles.update(dt);
@@ -219,7 +517,9 @@ impl Game {
         for e in self.world.events.drain(..) {
             let spacing_core::world::WorldEvent::BlockChanged { x, y, z, .. } = e;
             self.footprints.clear_at(x, y, z);
+            self.debris.disturb(x, y, z);
         }
+        self.react(ev);
     }
 
     pub fn sprite_count(&self) -> usize {
@@ -259,7 +559,7 @@ impl Game {
     }
 
     /// poeira e pegadas dos eventos do astronauta (Game.wireEvents)
-    fn player_fx(&mut self) {
+    fn player_fx(&mut self, ev: &mut Events) {
         let events: Vec<PlayerEvent> = self.player.events.drain(..).collect();
         for e in events {
             let dust = dust_of(self.ground());
@@ -273,6 +573,7 @@ impl Game {
                     self.footstep(false);
                 }
                 PlayerEvent::Land(p, speed) => {
+                    self.survival.on_land(speed, p, ev);
                     if let Some(d) = dust {
                         self.dust.land(&mut self.puffs, &mut self.particles, p, d, ((speed - 7.0) / 8.0).min(1.0));
                     }
@@ -382,6 +683,45 @@ impl Game {
                 }
             }
         }
+        // pedaços que quicam, itens voando e pilhas da morte
+        for it in &self.debris.items {
+            let c = it.color();
+            let inst = PropInstance {
+                pos: [it.pos[0] as f32, it.pos[1] as f32, it.pos[2] as f32],
+                rot: it.rot[1] as f32,
+                scale: [it.draw_size() as f32, it.rot[0] as f32, it.rot[2] as f32, 0.0],
+                tint: [c[0] as f32, c[1] as f32, c[2] as f32, 1.0],
+            };
+            self.props.push(PropDraw { mesh: if it.kind == 0 { MESH_CUBE } else { MESH_SHARD }, inst });
+        }
+        for d in &self.drops.drops {
+            if d.age < 0.0 {
+                continue;
+            }
+            let c = item_color(d.item);
+            let s = (DROP_SIZE * d.scale) as f32;
+            let inst = PropInstance {
+                pos: [d.pos[0] as f32, d.pos[1] as f32 - s * 0.5, d.pos[2] as f32],
+                rot: d.spin[1] as f32,
+                scale: [s, d.spin[0] as f32, 0.0, 0.0],
+                tint: [c[0] as f32, c[1] as f32, c[2] as f32, 1.0],
+            };
+            self.props.push(PropDraw { mesh: MESH_CUBE, inst });
+        }
+        for p in &self.loot.pieces {
+            let c = item_color(p.item);
+            let t = self.time + p.phase;
+            let s = DROP_SIZE as f32 * 1.15;
+            let inst = PropInstance {
+                pos: [p.pos[0] as f32, p.pos[1] as f32 - s * 0.5, p.pos[2] as f32],
+                rot: (t * 1.4) as f32,
+                scale: [s, (t.sin() * 0.3) as f32, 0.0, 0.0],
+                tint: [c[0] as f32, c[1] as f32, c[2] as f32, 1.0],
+            };
+            self.props.push(PropDraw { mesh: MESH_CUBE, inst });
+            let pulse = 1.0 + ((self.time * 3.0 + p.phase).sin() * 0.12) as f32;
+            signal_lamp([p.pos[0] as f32, p.pos[1] as f32, p.pos[2] as f32], [0.5, 1.5, 1.9], 0.0, 1.1 * pulse, 0.6, &mut self.sprites);
+        }
         let r = &self.rig;
         let d = self.dark as f32;
         // ondas de choque na tela (shockwave.fill): projeta com a mesma câmera do desenho
@@ -389,6 +729,7 @@ impl Game {
         let target = Vec3::new(r.target[0] as f32, r.target[1] as f32, r.target[2] as f32);
         let fov = base_fov(aspect) as f32;
         let vp = camera_matrix(eye, target, r.roll as f32, fov, aspect as f32);
+        self.view_proj = vp;
         let right = (target - eye).normalize().cross(Vec3::Y).normalize();
         let project = |p: [f64; 3]| {
             let c = vp * glam::Vec4::new(p[0] as f32, p[1] as f32, p[2] as f32, 1.0);
@@ -415,7 +756,13 @@ impl Game {
             parts: &self.parts,
             props: &self.props,
             sprites: &self.sprites,
-            screen: ScreenFx { flash: self.flash as f32, ..Default::default() },
+            screen: {
+                let s = &self.survival;
+                // pouco oxigênio tira a cor; morto, a tela escurece
+                let desat = (1.0 - s.o2 / 30.0).clamp(0.0, 1.0) as f32 * 0.7;
+                let dark = self.death.map_or(0.0, |d| (d.t / DEATH_CARD_DELAY).min(1.0) as f32 * 0.55);
+                ScreenFx { flash: self.flash as f32, hurt: self.hurt as f32, desat, dark }
+            },
             point,
             shocks: &self.shocks,
             storm: self.mars.as_ref().map(|m| m.dust() as f32).unwrap_or(0.0),

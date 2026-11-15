@@ -43,7 +43,10 @@ O APK de teste sai do GitHub Actions (`.github/workflows/native-apk.yml`), artef
 
 - **Celular:** joystick na metade esquerda (aparece onde o dedo toca), PULAR embaixo à direita, `<` `>` giram a câmera,
   `+` `-` (segurar) aproximam e afastam, `i` liga e desliga o medidor, `M` troca Lua e Marte, `V` liga e desliga o vsync (por padrão o FPS é **sem limite**, para ver quanto o aparelho aguenta; o medidor mostra o modo), `*` solta um meteoro, `B` mede o custo de cada efeito (fique parado; aperte de novo para fechar o resultado).
-- **Computador:** WASD ou setas, espaço pula, Q e E giram, roda do mouse dá zoom, Tab ou F3 liga o medidor, M troca o planeta, V liga/desliga o vsync, T solta um meteoro, B mede os efeitos.
+- **Minerar e construir (celular):** segure o dedo na metade direita da tela: a mira fica acima do dedo e o anel mostra o
+  progresso. Longe demais, o astronauta anda até o alvo. `CONSTR.` liga o modo construir: um toque rápido coloca o item
+  selecionado na face mirada. A barra de itens fica embaixo; toque num espaço para escolher.
+- **Computador:** WASD ou setas, espaço pula, Q e E giram, roda do mouse dá zoom, Tab ou F3 liga o medidor, M troca o planeta, V liga/desliga o vsync, T solta um meteoro, B mede os efeitos. Mouse: segurar o botão esquerdo minera, o direito constrói, 1 a 8 escolhem o espaço da barra, C liga o modo construir.
 
 ## Comparar com o jogo web
 

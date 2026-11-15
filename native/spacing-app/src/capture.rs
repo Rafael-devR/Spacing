@@ -36,10 +36,10 @@ pub fn run(dir: &str, opts: Options) {
     let meter = hud::Meter::default();
     let dt = 1.0 / 60.0;
     // (quadro, nome da captura)
-    let shots = [(30, "1-pouso"), (150, "2-andando"), (200, "3-pulo"), (275, "6-meteoro-voo"), (312, "7-meteoro-impacto"), (330, "8-meteoro-onda"), (360, "4-girou"), (420, "5-longe")];
+    let shots = [(30, "1-pouso"), (150, "2-andando"), (200, "3-pulo"), (275, "6-meteoro-voo"), (312, "7-meteoro-impacto"), (330, "8-meteoro-onda"), (360, "4-girou"), (420, "5-longe"), (450, "9-minerando"), (530, "10-quebrou"), (575, "11-construiu"), (690, "12-morte"), (740, "13-renasceu")];
     let mut stats = Default::default();
     game.meteors.auto_spawn = false;
-    for f in 0..=420 {
+    for f in 0..=740 {
         c.scripted = Some(match f {
             0..=60 => (0.0, 0.0),
             61..=180 => (0.0, 1.0),
@@ -71,6 +71,39 @@ pub fn run(dir: &str, opts: Options) {
                 m.force_storm();
             }
         }
+        // minerar: o mouse segura num bloco do chão logo à frente; depois constrói com o que saiu
+        let screen_of = |game: &Game, p: [f64; 3]| {
+            let q = game.view_proj * glam::Vec4::new(p[0] as f32, p[1] as f32, p[2] as f32, 1.0);
+            ((q.x / q.w * 0.5 + 0.5) * w as f32, (0.5 - q.y / q.w * 0.5) * h as f32)
+        };
+        if f == 425 {
+            c.layout(w as f32, h as f32, 1.0);
+            let p = game.player.pos;
+            let ground = [p[0].floor() + 2.5, p[1] - 0.5, p[2].floor() + 0.5];
+            let (x, y) = screen_of(&game, ground);
+            c.finger_down(7, x, y, w as f32, false);
+        }
+        if f == 526 {
+            c.touch_end(7);
+            // o que saiu vai para a barra (os itens voam até o astronauta nesses quadros)
+        }
+        if f == 580 {
+            // dá regolito e coloca no espaço 2 da barra, para a morte espalhar alguma coisa
+            let mut ev = Vec::new();
+            game.inv.add(spacing_core::rules::ItemId::of("regolith"), 12, false, &mut ev);
+            game.hurt_player(500.0);
+        }
+        if f == 700 {
+            c.tap(10.0, 10.0, false);
+        }
+        if f == 545 {
+            c.actions.toggle_build = true;
+        }
+        if f == 560 {
+            let p = game.player.pos;
+            let (x, y) = screen_of(&game, [p[0].floor() - 1.5, p[1] - 0.5, p[2].floor() + 0.5]);
+            c.tap(x, y, false);
+        }
         game.update(dt, &mut c);
         game.sync(&mut r);
         let Some((_, name)) = shots.iter().find(|s| s.0 == f) else { continue };
@@ -97,6 +130,7 @@ pub fn run(dir: &str, opts: Options) {
             chunks: game.world.chunk_count(),
             show_stats: true,
             bench: Vec::new(),
+            game: &game,
         };
         let raw = egui::RawInput {
             screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(w as f32, h as f32))),
@@ -114,7 +148,8 @@ pub fn run(dir: &str, opts: Options) {
         enc.set_color(png::ColorType::Rgba);
         enc.set_depth(png::BitDepth::Eight);
         enc.write_header().and_then(|mut wr| wr.write_image_data(&px)).expect("png");
-        println!("  sprites: {} (baforadas {}, pedrinhas {})", game.sprite_count(), game.puffs.active(), game.particles.active());
+        println!("  sprites: {} (baforadas {}, pedrinhas {}), pedaços {}, itens voando {}, inventário {:?}", game.sprite_count(), game.puffs.active(), game.particles.active(), game.debris.count(), game.drops.drops.len(), game.inv.totals());
+        println!("  mira {:?} progresso {:?} alvo {:?} dureza {:?}", game.interaction.aim, game.interaction.progress, game.interaction.target.as_ref().map(|t| t.key()), game.interaction.target.as_ref().map(|t| t.hardness()));
         println!(
             "{path}: {} chamadas, {} triângulos, {}/{} chunks, {:.0} ms (software), jogador {:.1} {:.1} {:.1}",
             stats.draws,
