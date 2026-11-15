@@ -340,3 +340,7 @@ conta (0,6 virando 0,61) é pego no passo 12.
   itens e mapa e carregar dá o mesmo salvamento).
 - Ficou de fora: o feixe azul do objetivo no mundo (o marcador é do HUD), o módulo de pouso consertado no fim da cadeia, o atraso de
   1,2 s do meteoro da missão, e tirar painéis solares de baixo da base ao carregar (a base do nativo não muda de tamanho).
+
+**M5 (interface, em planejamento):** o estilo das telas do nativo (fonte de pixel, ícones flutuantes, telas refeitas) está em
+[INTERFACE_NATIVA.md](INTERFACE_NATIVA.md), decidido em [ADR 0024](../adr/0024-interface-nativa-em-egui-com-estilo-proprio.md).
+A tela de itens atual é uma versão de trabalho (commit `2ce9076`), não a final.
