@@ -385,9 +385,10 @@ impl Renderer {
             }
             None => (wgpu::TextureFormat::Rgba8UnormSrgb, wgpu::CompositeAlphaMode::Opaque, Vec::new()),
         };
-        // MSAA 2x, como a qualidade Alta do jogo web: na resolução de celular as bordas já saem finas e o 4x custava caro
-        let ms_ok = |f| adapter.get_texture_format_features(f).flags.sample_count_supported(2);
-        let msaa = if ms_ok(HDR) && ms_ok(DEPTH) { 2 } else { 1 };
+        // MSAA 4x quando o aparelho deixa (o 2x derrubou o app no celular do dono logo ao abrir: caminho que nunca rodou
+        // aqui, onde o simulador não tem MSAA); o custo é compensado pela escala da cena
+        let ms_ok = |f| adapter.get_texture_format_features(f).flags.sample_count_supported(4);
+        let msaa = if ms_ok(HDR) && ms_ok(DEPTH) { 4 } else { 1 };
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format,
