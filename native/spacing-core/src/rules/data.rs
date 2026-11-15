@@ -396,9 +396,30 @@ pub struct Rules {
     pub needs: Needs,
     pub greenhouse: GreenhouseData,
     pub missions: Missions,
+    pub props: Vec<PropData>,
+}
+
+/// objeto solto no chão (data/props.ts)
+#[derive(Deserialize, Debug)]
+pub struct PropData {
+    pub id: String,
+    pub name: String,
+    /// segundos para minerar com a broca inicial
+    pub hardness: f64,
+    /// nível mínimo da broca
+    pub tier: u32,
+    pub drop: ItemId,
+    pub amount: u32,
+    pub bonus: Vec<(ItemId, u32)>,
+    /// cores (lineares) dos pedaços
+    pub debris: Vec<[f64; 3]>,
 }
 
 impl Rules {
+    pub fn prop(&self, kind: &str) -> Option<&PropData> {
+        self.props.iter().find(|p| p.id == kind)
+    }
+
     pub fn slot_count(&self) -> usize {
         self.hotbar + self.bag
     }

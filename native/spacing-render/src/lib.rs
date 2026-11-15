@@ -82,9 +82,24 @@ struct TerrainVertex {
 #[derive(Clone, Copy, Pod, Zeroable, Debug)]
 pub struct PropInstance {
     pub pos: [f32; 3],
+    /// giro em y
     pub rot: f32,
+    /// x = escala, y = giro em x, z = giro em z (os pedaços que rolam; pedras paradas usam 0)
     pub scale: [f32; 4],
+    /// multiplica a cor do vértice (pedaços: a cor do bloco; pedras: 1)
+    pub tint: [f32; 4],
 }
+
+impl PropInstance {
+    /// pedra parada: posição, giro em y e escala
+    pub fn still(pos: [f32; 3], rot: f32, scale: f32) -> Self {
+        Self { pos, rot, scale: [scale, 0.0, 0.0, 0.0], tint: [1.0; 4] }
+    }
+}
+
+/// malhas extras depois das pedras: cubo e lasca (os pedaços de Debris.ts) e cubo de item solto
+pub const MESH_CUBE: usize = PROP_TYPES.len() * 3;
+pub const MESH_SHARD: usize = MESH_CUBE + 1;
 
 /// um sprite na GPU (sprite.wgsl): centro e diâmetro, cor e opacidade, giro, semente e tipo
 #[repr(C)]
@@ -335,7 +350,46 @@ fn load_props(device: &wgpu::Device) -> Vec<(wgpu::Buffer, u32)> {
         let buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("pedra"), contents: bytemuck::cast_slice(&verts), usage: wgpu::BufferUsages::VERTEX });
         out.push((buf, n as u32));
     }
+    for verts in [cube_verts(), shard_verts()] {
+        let buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("pedaço"), contents: bytemuck::cast_slice(&verts), usage: wgpu::BufferUsages::VERTEX });
+        out.push((buf, verts.len() as u32));
+    }
     out
+}
+
+/// cubo de lado 1 centrado, branco (a cor vem da instância)
+fn cube_verts() -> Vec<model::ModelVertex> {
+    let c = [[-0.5, -0.5, -0.5], [0.5, -0.5, -0.5], [0.5, 0.5, -0.5], [-0.5, 0.5, -0.5], [-0.5, -0.5, 0.5], [0.5, -0.5, 0.5], [0.5, 0.5, 0.5], [-0.5, 0.5, 0.5]];
+    let faces = [[4, 5, 6, 7], [1, 0, 3, 2], [5, 1, 2, 6], [0, 4, 7, 3], [7, 6, 2, 3], [0, 1, 5, 4]];
+    let mut v = Vec::new();
+    for f in faces {
+        for i in [0, 1, 2, 0, 2, 3] {
+            v.push(model::ModelVertex { pos: c[f[i]], color: [1.0; 4] });
+        }
+    }
+    v
+}
+
+/// lasca: icosaedro de raio 0,55 com os vértices puxados por um sorteio fixo e achatado em y (shardGeometry do Debris.ts)
+fn shard_verts() -> Vec<model::ModelVertex> {
+    let t = (1.0 + 5f32.sqrt()) / 2.0;
+    let raw = [[-1.0, t, 0.0], [1.0, t, 0.0], [-1.0, -t, 0.0], [1.0, -t, 0.0], [0.0, -1.0, t], [0.0, 1.0, t], [0.0, -1.0, -t], [0.0, 1.0, -t], [t, 0.0, -1.0], [t, 0.0, 1.0], [-t, 0.0, -1.0], [-t, 0.0, 1.0]];
+    let tris = [
+        [0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11], [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
+        [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9], [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1],
+    ];
+    let mut s: u64 = 7;
+    let pts: Vec<[f32; 3]> = raw
+        .iter()
+        .map(|p: &[f32; 3]| {
+            s = (s * 16807) % 2147483647;
+            let j = 0.75 + (s as f32 / 2147483647.0) * 0.5;
+            let l = (p[0] * p[0] + p[1] * p[1] + p[2] * p[2]).sqrt();
+            let k = 0.55 / l * j;
+            [p[0] * k, p[1] * k * 0.8, p[2] * k]
+        })
+        .collect();
+    tris.iter().flat_map(|t| t.iter().map(|&i| model::ModelVertex { pos: pts[i], color: [1.0; 4] })).collect()
 }
 
 impl Renderer {
@@ -504,7 +558,7 @@ impl Renderer {
         let inst_vb = wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<PropInstance>() as u64,
             step_mode: wgpu::VertexStepMode::Instance,
-            attributes: &wgpu::vertex_attr_array![2 => Float32x4, 3 => Float32x4],
+            attributes: &wgpu::vertex_attr_array![2 => Float32x4, 3 => Float32x4, 4 => Float32x4],
         };
         let depth_state = |format, write: bool, cmp: wgpu::CompareFunction| wgpu::DepthStencilState {
             format,
@@ -1207,7 +1261,7 @@ mod tests {
     #[test]
     fn vertice_compacto() {
         assert_eq!(std::mem::size_of::<TerrainVertex>(), 28);
-        assert_eq!(std::mem::size_of::<PropInstance>(), 32);
+        assert_eq!(std::mem::size_of::<PropInstance>(), 48);
     }
     #[test]
     fn pedras_exportadas_do_ts() {

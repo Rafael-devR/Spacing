@@ -377,7 +377,7 @@ impl Game {
         for c in self.world.chunks.values().filter(|c| c.meshed) {
             for p in &c.props {
                 if let Some(mesh) = prop_mesh(p.kind, p.variant) {
-                    let inst = PropInstance { pos: [p.wx as f32 + 0.5, p.y as f32, p.wz as f32 + 0.5], rot: p.rot as f32, scale: [p.scale as f32, 0.0, 0.0, 0.0] };
+                    let inst = PropInstance::still([p.wx as f32 + 0.5, p.y as f32, p.wz as f32 + 0.5], p.rot as f32, p.scale as f32);
                     self.props.push(PropDraw { mesh, inst });
                 }
             }

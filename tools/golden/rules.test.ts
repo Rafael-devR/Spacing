@@ -27,6 +27,7 @@ import {
 } from '../../src/data/items';
 import { MISSION_01, MISSION_MARS, type MissionStep } from '../../src/data/missions';
 import { POWER, SUN_DIRECTION } from '../../src/data/power';
+import { PROPS, PROP_DEBRIS, PROP_TYPES } from '../../src/data/props';
 import { JITTER, MAX_BATCH, RECIPES } from '../../src/data/recipes';
 import { STATIONS, STATION_ORDER, type StationId } from '../../src/data/stations';
 import { NEEDS, SUITS, SURVIVAL } from '../../src/data/survival';
@@ -121,6 +122,13 @@ function exportData(): void {
       farm: FARM,
     },
     missions: { lua: MISSION_01.map(stepOut), marte: MISSION_MARS.map(stepOut) },
+    props: PROP_TYPES.map((t) => ({
+      id: t,
+      ...PROPS[t],
+      tier: PROPS[t].tier ?? 0,
+      bonus: entries(PROPS[t].bonus ?? {}),
+      debris: PROP_DEBRIS[t],
+    })),
   });
 }
 

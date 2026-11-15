@@ -521,6 +521,56 @@ impl World {
         }
     }
 
+    /// Objeto solto atingido pelo raio (caixa de 0,9 × escala sobre o chão da coluna). Devolve o objeto e a distância.
+    pub fn pick_prop(&self, o: [f64; 3], d: [f64; 3], max_t: f64) -> Option<(PropSpawn, f64)> {
+        let mut best: Option<(PropSpawn, f64)> = None;
+        for c in self.chunks.values() {
+            for p in &c.props {
+                let h = 0.45 * p.scale.max(0.4);
+                let lo = [p.wx as f64 + 0.5 - h, p.y as f64, p.wz as f64 + 0.5 - h];
+                let hi = [p.wx as f64 + 0.5 + h, p.y as f64 + 2.0 * h, p.wz as f64 + 0.5 + h];
+                let (mut t0, mut t1) = (0.0f64, max_t);
+                let mut ok = true;
+                for k in 0..3 {
+                    if d[k].abs() < 1e-12 {
+                        if o[k] < lo[k] || o[k] > hi[k] {
+                            ok = false;
+                            break;
+                        }
+                        continue;
+                    }
+                    let (a, b) = ((lo[k] - o[k]) / d[k], (hi[k] - o[k]) / d[k]);
+                    t0 = t0.max(a.min(b));
+                    t1 = t1.min(a.max(b));
+                    if t0 > t1 {
+                        ok = false;
+                        break;
+                    }
+                }
+                if ok && best.as_ref().is_none_or(|(_, bt)| t0 < *bt) {
+                    best = Some((p.clone(), t0));
+                }
+            }
+        }
+        best
+    }
+
+    /// o objeto solto da coluna (x, z), se houver
+    pub fn prop_at(&self, wx: i32, wz: i32) -> Option<&PropSpawn> {
+        self.chunks.get(&Self::chunk_key(wx, wz))?.props.iter().find(|p| p.wx == wx && p.wz == wz)
+    }
+
+    /// Tira o objeto da coluna (minerado): fica marcado no salvamento. Devolve o que saiu.
+    pub fn remove_prop_at(&mut self, wx: i32, wz: i32) -> Option<PropSpawn> {
+        let ch = self.chunks.get_mut(&Self::chunk_key(wx, wz))?;
+        let i = ch.props.iter().position(|p| p.wx == wx && p.wz == wz)?;
+        let p = ch.props.remove(i);
+        let key = p.key.clone().unwrap_or_else(|| format!("{},{}", p.wx, p.wz));
+        self.extra_props.retain(|e| e.get("key").and_then(|k| k.as_str()) != Some(key.as_str()));
+        self.removed_props.insert(key);
+        Some(p)
+    }
+
     pub fn prop_removed(&self, p: &PropSpawn) -> bool {
         let k = p.key.clone().unwrap_or_else(|| format!("{},{}", p.wx, p.wz));
         self.removed_props.contains(&k)

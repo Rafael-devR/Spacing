@@ -5,6 +5,7 @@ struct VIn {
   @location(1) color: vec4<f32>,
   @location(2) inst: vec4<f32>, // x, y, z, giro
   @location(3) scale: vec4<f32>,
+  @location(4) tint: vec4<f32>,
 };
 struct VOut {
   @builtin(position) clip: vec4<f32>,
@@ -12,20 +13,27 @@ struct VOut {
   @location(1) color: vec3<f32>,
 };
 
-fn place(v: VIn) -> vec3<f32> {
-  let c = cos(v.inst.w);
-  let s = sin(v.inst.w);
-  let p = v.pos * v.scale.x;
-  return vec3<f32>(c * p.x + s * p.z, p.y, -s * p.x + c * p.z) + v.inst.xyz;
+fn place_prop(pos: vec3<f32>, inst: vec4<f32>, scale: vec4<f32>) -> vec3<f32> {
+  // giro em z, depois em x, depois em y (os pedaços rolam; as pedras só giram em y)
+  var p = pos * scale.x;
+  let cz = cos(scale.z);
+  let sz = sin(scale.z);
+  p = vec3<f32>(cz * p.x - sz * p.y, sz * p.x + cz * p.y, p.z);
+  let cx = cos(scale.y);
+  let sx = sin(scale.y);
+  p = vec3<f32>(p.x, cx * p.y - sx * p.z, sx * p.y + cx * p.z);
+  let c = cos(inst.w);
+  let s = sin(inst.w);
+  return vec3<f32>(c * p.x + s * p.z, p.y, -s * p.x + c * p.z) + inst.xyz;
 }
 
 @vertex
 fn vs(v: VIn) -> VOut {
   var o: VOut;
-  let w = place(v);
+  let w = place_prop(v.pos, v.inst, v.scale);
   o.clip = G.view_proj * vec4<f32>(w, 1.0);
   o.wp = w;
-  o.color = v.color.rgb;
+  o.color = v.color.rgb * v.tint.rgb;
   return o;
 }
 

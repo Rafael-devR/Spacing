@@ -70,6 +70,19 @@ pub enum GameEvent {
     SuitRecharge { on: bool },
     PlayerDamaged { amount: f64, cause: DeathCause, integrity: f64 },
     PlayerDied { pos: [f64; 3], cause: DeathCause },
+    /// o jogador quebrou um bloco
+    BlockBroken { pos: [i32; 3], id: u8 },
+    BlockPlaced { pos: [i32; 3], id: u8 },
+    /// o jogador minerou um objeto solto
+    PropBroken { pos: [f64; 3], kind: &'static str },
+    PropPlaced { pos: [i32; 3], kind: &'static str },
+    /// um golpe da broca acertou
+    MineHit { pos: [f64; 3], block: bool },
+    /// a broca é fraca para o alvo (`tier` = nível que ele pede)
+    DrillWeak { tier: u32, target: &'static str },
+    /// ação recusada: "notBlock", "noItems", "blocked", "emptySlot"
+    ActionDenied { reason: &'static str, item: Option<ItemId> },
+    BuildMode { on: bool },
 }
 
 impl GameEvent {
@@ -95,6 +108,14 @@ impl GameEvent {
             SuitRecharge { on } => ("suit:recharge", json!({ "on": on })),
             PlayerDamaged { amount, cause, integrity } => ("player:damaged", json!({ "amount": amount, "cause": cause.key(), "integrity": integrity })),
             PlayerDied { pos, cause } => ("player:died", json!({ "x": pos[0], "y": pos[1], "z": pos[2], "cause": cause.key() })),
+            BlockBroken { pos, id } => ("block:broken", json!({ "x": pos[0], "y": pos[1], "z": pos[2], "id": id })),
+            BlockPlaced { pos, id } => ("block:placed", json!({ "x": pos[0], "y": pos[1], "z": pos[2], "id": id })),
+            PropBroken { pos, kind } => ("prop:broken", json!({ "x": pos[0], "y": pos[1], "z": pos[2], "type": kind })),
+            PropPlaced { pos, kind } => ("prop:placed", json!({ "x": pos[0], "y": pos[1], "z": pos[2], "type": kind })),
+            MineHit { pos, block } => ("mine:hit", json!({ "x": pos[0], "y": pos[1], "z": pos[2], "target": if *block { "block" } else { "prop" } })),
+            DrillWeak { tier, target } => ("drill:weak", json!({ "tier": tier, "target": target })),
+            ActionDenied { reason, item } => ("action:denied", json!({ "reason": reason, "item": opt(item) })),
+            BuildMode { on } => ("build:mode", json!({ "on": on })),
         }
     }
 }
