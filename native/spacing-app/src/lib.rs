@@ -5,6 +5,7 @@ pub mod base;
 pub mod capture;
 pub mod controls;
 pub mod effects;
+pub mod fonte;
 pub mod game;
 pub mod greenhouse;
 pub mod hand;
@@ -479,6 +480,10 @@ pub fn run_desktop() {
     let mut opts = Options::default();
     let args: Vec<String> = std::env::args().skip(1).collect();
     let capture = args.iter().position(|a| a == "--captura").and_then(|i| args.get(i + 1).cloned());
+    if let Some(dir) = args.iter().position(|a| a == "--fonte").and_then(|i| args.get(i + 1)) {
+        fonte::run(dir);
+        return;
+    }
     if let Some(dir) = args.iter().position(|a| a == "--roteiro").and_then(|i| args.get(i + 1)) {
         roteiro::run(dir);
         return;

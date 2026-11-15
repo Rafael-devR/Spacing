@@ -233,46 +233,51 @@ pub fn run(dir: &str, opts: Options) {
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn shoot(r: &mut Renderer, models: &Models, egui: &egui::Context, c: &Controls, game: &mut Game, meter: &hud::Meter, stats: spacing_render::FrameStats, path: &str, pending: Option<&mut egui::TexturesDelta>) -> spacing_render::FrameStats {
     let (w, h) = r.size();
+    let (backend, msaa, present, scene) = (r.backend.clone(), r.msaa(), r.present_mode(), r.scene_size());
+    let draw = |ctx: &egui::Context, g: &Game| {
+        let info = hud::HudInfo {
+            meter,
+            stats,
+            backend: &backend,
+            size: (w, h),
+            scene,
+            msaa,
+            present,
+            planet: planet(g.planet).name,
+            seed: g.seed,
+            pos: g.player.pos,
+            chunks: g.world.chunk_count(),
+            show_stats: true,
+            bench: Vec::new(),
+            saved_ago: None,
+            save_path: None,
+            game: g,
+        };
+        hud::draw(ctx, c, &info);
+    };
+    shoot_with(r, models, egui, game, path, pending, &draw)
+}
+
+/// Desenha o mundo do jogo e, por cima, o que `draw` pedir (o HUD do jogo ou uma tela de teste). Grava um PNG.
+pub(crate) fn shoot_with(r: &mut Renderer, models: &Models, egui: &egui::Context, game: &mut Game, path: &str, pending: Option<&mut egui::TexturesDelta>, draw: &dyn Fn(&egui::Context, &Game)) -> spacing_render::FrameStats {
+    let (w, h) = r.size();
     let (prims, textures, ppp) = {
-    let info = hud::HudInfo {
-        meter,
-        stats,
-        backend: &r.backend,
-        size: (w, h),
-        scene: r.scene_size(),
-        msaa: r.msaa(),
-        present: r.present_mode(),
-        planet: planet(game.planet).name,
-        seed: game.seed,
-        pos: game.player.pos,
-        chunks: game.world.chunk_count(),
-        show_stats: true,
-        bench: Vec::new(),
-        saved_ago: None,
-        save_path: None,
-        game,
-    };
-    let raw = egui::RawInput {
-        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(w as f32, h as f32))),
-        ..Default::default()
-    };
-    // uma janela nova do egui só aparece no segundo quadro (o primeiro mede) e só fica no lugar certo no terceiro
-    let mut first = egui.run_ui(raw.clone(), |ui| {
-        hud::draw(ui.ctx(), c, &info);
-    });
-    let second = egui.run_ui(raw.clone(), |ui| {
-        hud::draw(ui.ctx(), c, &info);
-    });
-    first.textures_delta.append(second.textures_delta);
-    let mut out = egui.run_ui(raw, |ui| {
-        hud::draw(ui.ctx(), c, &info);
-    });
-    // as texturas do primeiro quadro (a fonte) precisam chegar ao desenho
-    let mut tex = pending.map(std::mem::take).unwrap_or_default();
-    tex.append(first.textures_delta);
-    tex.append(std::mem::take(&mut out.textures_delta));
-    out.textures_delta = tex;
-    (egui.tessellate(out.shapes, out.pixels_per_point), out.textures_delta, out.pixels_per_point)
+        let raw = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(w as f32, h as f32))),
+            ..Default::default()
+        };
+        // uma janela nova do egui só aparece no segundo quadro (o primeiro mede) e só fica no lugar certo no terceiro
+        let g: &Game = game;
+        let mut first = egui.run_ui(raw.clone(), |ui| draw(ui.ctx(), g));
+        let second = egui.run_ui(raw.clone(), |ui| draw(ui.ctx(), g));
+        first.textures_delta.append(second.textures_delta);
+        let mut out = egui.run_ui(raw, |ui| draw(ui.ctx(), g));
+        // as texturas do primeiro quadro (a fonte) precisam chegar ao desenho
+        let mut tex = pending.map(std::mem::take).unwrap_or_default();
+        tex.append(first.textures_delta);
+        tex.append(std::mem::take(&mut out.textures_delta));
+        out.textures_delta = tex;
+        (egui.tessellate(out.shapes, out.pixels_per_point), out.textures_delta, out.pixels_per_point)
     };
     let frame = game.frame(models, w as f64 / h as f64);
     let stats = r.render(&frame, Some(Ui { primitives: &prims, textures: &textures, pixels_per_point: ppp })).unwrap_or_default();
