@@ -83,6 +83,8 @@ pub enum GameEvent {
     /// ação recusada: "notBlock", "noItems", "blocked", "emptySlot"
     ActionDenied { reason: &'static str, item: Option<ItemId> },
     BuildMode { on: bool },
+    /// tocou um bloco com um projeto na mão (estufa, canteiro): o jogo decide
+    SiteTap { pos: [i32; 3], item: ItemId },
 }
 
 impl GameEvent {
@@ -116,6 +118,7 @@ impl GameEvent {
             DrillWeak { tier, target } => ("drill:weak", json!({ "tier": tier, "target": target })),
             ActionDenied { reason, item } => ("action:denied", json!({ "reason": reason, "item": opt(item) })),
             BuildMode { on } => ("build:mode", json!({ "on": on })),
+            SiteTap { pos, item } => ("site:tap", json!({ "x": pos[0], "y": pos[1], "z": pos[2], "item": item.key() })),
         }
     }
 }

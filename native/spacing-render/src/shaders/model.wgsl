@@ -33,6 +33,19 @@ fn fs(i: VOut) -> @location(0) vec4<f32> {
   let n = normalize(cross(dpdx(i.wp), dpdy(i.wp)));
   // a derivada em y da tela aponta para baixo no wgpu: a normal sai ao contrário
   let nn = -n;
+  let dark0 = G.sun_dir.w;
+  if (P.tint.w > 1.5) {
+    // vidro (cor do vértice) ou holograma (cor lisa, com brilho próprio): opacidade em emissive.w
+    var a = i.color;
+    var glow = vec3<f32>(0.0);
+    if (P.tint.w > 2.5) {
+      a = P.tint.rgb;
+      glow = P.tint.rgb * 0.35;
+    }
+    var g = lambert(a, nn, i.wp) * mix(1.0, CAVE_AMBIENT * 3.0, dark0) + glow;
+    g = fog(g, i.wp, frag, 1.0);
+    return vec4<f32>(g, P.emissive.w);
+  }
   var albedo = i.color * P.tint.rgb;
   if (P.tint.w > 0.5) {
     albedo = P.tint.rgb;

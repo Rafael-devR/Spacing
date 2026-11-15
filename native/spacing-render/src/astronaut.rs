@@ -38,6 +38,9 @@ fn material_for(name: &str) -> Material {
         Material::Glow(lin("#070b1e", 1.0))
     } else if name.starts_with("lit") || name.starts_with("fx") {
         Material::Lit(1.7)
+    } else if name.starts_with("glass") {
+        // vidro da estufa (greenhouseModel.ts: Phong azulado, opacidade 0,34)
+        Material::Glass { alpha: 0.34, color: Some(lin("#8fdcef", 1.0)) }
     } else if name.starts_with("glow") {
         Material::Glow(lin("#1b2a6a", 1.0))
     } else {

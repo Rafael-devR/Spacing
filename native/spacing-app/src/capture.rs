@@ -36,10 +36,10 @@ pub fn run(dir: &str, opts: Options) {
     let meter = hud::Meter::default();
     let dt = 1.0 / 60.0;
     // (quadro, nome da captura)
-    let shots = [(30, "1-pouso"), (150, "2-andando"), (200, "3-pulo"), (275, "6-meteoro-voo"), (312, "7-meteoro-impacto"), (330, "8-meteoro-onda"), (360, "4-girou"), (420, "5-longe"), (450, "9-minerando"), (530, "10-quebrou"), (575, "11-construiu"), (690, "12-morte"), (740, "13-renasceu"), (770, "14-base-fora"), (800, "15-camara"), (1000, "16-dentro"), (1040, "16b-estacao"), (1100, "16c-maquinas"), (1360, "17-saiu")];
+    let shots = [(30, "1-pouso"), (150, "2-andando"), (200, "3-pulo"), (275, "6-meteoro-voo"), (312, "7-meteoro-impacto"), (330, "8-meteoro-onda"), (360, "4-girou"), (420, "5-longe"), (450, "9-minerando"), (530, "10-quebrou"), (575, "11-construiu"), (690, "12-morte"), (740, "13-renasceu"), (770, "14-base-fora"), (800, "15-camara"), (1000, "16-dentro"), (1040, "16b-estacao"), (1100, "16c-maquinas"), (1360, "17-saiu"), (1380, "18-estufa-obra"), (1420, "19-estufa-pronta")];
     let mut stats = Default::default();
     game.meteors.auto_spawn = false;
-    for f in 0..=1360 {
+    for f in 0..=1420 {
         c.scripted = Some(match f {
             0..=60 => (0.0, 0.0),
             61..=180 => (0.0, 1.0),
@@ -123,6 +123,26 @@ pub fn run(dir: &str, opts: Options) {
         if f == 1060 {
             game.screen_open = None;
             c.modal = false;
+        }
+        // a estufa: assenta perto, entrega três peças; depois termina e planta
+        if f == 1362 {
+            let ok = game.test_place_site();
+            println!("  estufa assentada: {ok}");
+            if let Some(s) = game.greenhouse.site.clone() {
+                let mut ev = Vec::new();
+                for (k, n) in [("brick", 12), ("iron_bar", 8)] {
+                    game.inv.add(spacing_core::rules::ItemId::of(k), n, false, &mut ev);
+                }
+                for _ in 0..3 {
+                    game.site_use(crate::greenhouse::SiteUse::Build);
+                }
+                let gy = game.world.top_y(s.x + 3, s.z + 10) as f64 + 1.0;
+                game.player.pos = [s.x as f64 + 3.5, gy, s.z as f64 + 9.0];
+                game.player.prev_pos = game.player.pos;
+            }
+        }
+        if f == 1390 {
+            game.test_build_and_farm(0.55);
         }
         if f == 775 || f == 1110 {
             println!("  base: {:?} usar {:?}", game.base.mode, game.base.use_label);

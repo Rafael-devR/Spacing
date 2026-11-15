@@ -101,6 +101,7 @@ pub struct Models {
     /// as três rochas do meteor.glb (rock_a, rock_b, rock_c)
     rocks: Vec<StaticModel>,
     pub base: BaseModels,
+    pub greenhouse: crate::greenhouse::GreenhouseModels,
 }
 
 /// cor das luzes do módulo de pouso avariado (models.ts: vermelho; verde quando reparado)
@@ -127,7 +128,8 @@ impl Models {
             log::warn!("astronauta não carregou");
         }
         let base = BaseModels::load(r);
-        Self { astronaut, lander, rocks, base }
+        let greenhouse = crate::greenhouse::GreenhouseModels::load(r);
+        Self { astronaut, lander, rocks, base, greenhouse }
     }
 }
 
@@ -397,7 +399,7 @@ impl Game {
     }
 
     /// as respostas aos fatos do passo (Game.wireEvents, SurvivalDirector)
-    fn react(&mut self, ev: Events) {
+    pub(crate) fn react(&mut self, ev: Events) {
         for e in ev {
             match e {
                 GameEvent::PlayerDamaged { amount, .. } => {
@@ -434,6 +436,7 @@ impl Game {
                     let name = crate::hud::output_name(recipe.data().outputs[0]);
                     self.toast(if self.base.inside() { format!("{} pronto: {name}", station.data().name) } else { format!("{} terminou: {name} espera na base", station.data().name) });
                 }
+                GameEvent::SiteTap { pos, item } => self.site_tap(pos, item),
                 GameEvent::BuildMode { on } => self.toast(if on { "Modo construir: toque para colocar o item da barra" } else { "Modo minerar: segure para minerar" }),
                 _ => {}
             }
@@ -641,6 +644,7 @@ impl Game {
         self.player_fx(&mut ev);
         self.base_update(dt);
         self.run_base_systems(dt, &mut ev);
+        self.greenhouse_update(dt);
         let alpha = self.acc / FIXED_STEP;
         self.draw_pos = self.player.animate(dt, alpha);
 
@@ -812,6 +816,9 @@ impl Game {
         // dentro da base só a base, o astronauta e as partículas (ADR 0006)
         let indoor = self.base.indoor_view;
         self.base_draw(&models.base);
+        if !indoor {
+            self.greenhouse_draw(&models.greenhouse, models.base.cube);
+        }
         if let (Some(l), false) = (&models.lander, indoor) {
             let base = Vec3::new(LANDER.0 as f32 + 0.5, self.lander_y as f32, LANDER.1 as f32 + 0.5);
             l.draw(Mat4::from_translation(base), &mut self.parts);

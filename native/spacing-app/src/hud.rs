@@ -367,6 +367,24 @@ fn draw_play(painter: &egui::Painter, c: &Controls, g: &Game, ppp: f32, ink: Col
         painter.rect_filled(Rect::from_min_size(Pos2::ZERO, Vec2::new(sw, sh)), 0.0, Color32::from_black_alpha(210));
         painter.text(Pos2::new(sw * 0.5, sh * 0.5), Align2::CENTER_CENTER, msg, FontId::proportional(20.0), ink);
     }
+    // etiqueta da obra da estufa, presa acima dela
+    if let Some((at, pips, next, foot)) = g.site_label() {
+        if let Some(p) = project(Vec3::new(at[0] as f32, at[1] as f32, at[2] as f32)) {
+            let r = Rect::from_center_size(p, Vec2::new(250.0, 92.0));
+            painter.rect_filled(r, 10.0, Color32::from_rgba_unmultiplied(8, 24, 32, 220));
+            painter.rect_stroke(r, 10.0, Stroke::new(1.5, Color32::from_rgb(111, 231, 255)), egui::StrokeKind::Inside);
+            painter.text(r.left_top() + Vec2::new(12.0, 8.0), Align2::LEFT_TOP, "Estufa", FontId::proportional(16.0), Color32::from_rgb(159, 240, 255));
+            for (i, on) in pips.iter().enumerate() {
+                let x = r.right() - 14.0 - (pips.len() - 1 - i) as f32 * 14.0;
+                painter.circle_filled(Pos2::new(x, r.top() + 17.0), 5.0, if *on { Color32::from_rgb(127, 224, 138) } else { Color32::from_rgba_unmultiplied(127, 163, 173, 90) });
+            }
+            if let Some((name, cost)) = next {
+                painter.text(r.left_top() + Vec2::new(12.0, 32.0), Align2::LEFT_TOP, name, FontId::proportional(14.0), Color32::WHITE);
+                painter.text(r.left_top() + Vec2::new(12.0, 50.0), Align2::LEFT_TOP, cost, FontId::proportional(12.0), Color32::from_rgb(191, 234, 242));
+            }
+            painter.text(r.left_bottom() + Vec2::new(12.0, -8.0), Align2::LEFT_BOTTOM, foot, FontId::proportional(12.0), Color32::from_rgb(255, 211, 122));
+        }
+    }
     // avisos
     let mut y = c.screen.1 / ppp * 0.3;
     for (msg, t) in &g.toasts {

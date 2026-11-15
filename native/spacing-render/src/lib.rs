@@ -178,6 +178,8 @@ pub enum Material {
     Flat([f32; 3]),
     /// sem luz: a cor do vértice vezes `k` (lâmpadas)
     Lit(f32),
+    /// transparente (vidro da estufa, holograma): opacidade e cor lisa opcional; desenhado depois dos opacos, sem sombra
+    Glass { alpha: f32, color: Option<[f32; 3]> },
 }
 
 /// uma parte de modelo para desenhar neste quadro
@@ -317,6 +319,7 @@ pub struct Renderer {
     sprite_pipes: [wgpu::RenderPipeline; 3],
     terrain_pipe: wgpu::RenderPipeline,
     model_pipe: wgpu::RenderPipeline,
+    glass_pipe: wgpu::RenderPipeline,
     prop_pipe: wgpu::RenderPipeline,
     sky_pipe: wgpu::RenderPipeline,
     shadow_terrain: wgpu::RenderPipeline,
@@ -606,6 +609,18 @@ impl Renderer {
         let model_pipe = scene_pipe("model", &scene2, &model_sh, &[Some(model_vb.clone())], None, less);
         let prop_pipe = scene_pipe("prop", &scene1, &prop_sh, &[Some(model_vb.clone()), Some(inst_vb.clone())], None, less);
         let sky_pipe = scene_pipe("sky", &scene1, &sky_sh, &[], None, wgpu::CompareFunction::LessEqual);
+        let glass_target = [Some(wgpu::ColorTargetState { format: HDR, blend: Some(wgpu::BlendState::ALPHA_BLENDING), write_mask: wgpu::ColorWrites::ALL })];
+        let glass_pipe = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("vidro"),
+            layout: Some(&scene2),
+            vertex: wgpu::VertexState { module: &model_sh, entry_point: Some("vs"), buffers: &[Some(model_vb.clone())], compilation_options: Default::default() },
+            fragment: Some(wgpu::FragmentState { module: &model_sh, entry_point: Some("fs"), targets: &glass_target, compilation_options: Default::default() }),
+            primitive: Default::default(),
+            depth_stencil: Some(depth_state(DEPTH, false, less)),
+            multisample: ms,
+            multiview_mask: None,
+            cache: None,
+        });
         let sprite_vb = wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<SpriteInst>() as u64,
             step_mode: wgpu::VertexStepMode::Instance,
@@ -692,6 +707,7 @@ impl Renderer {
             sprite_pipes,
             terrain_pipe,
             model_pipe,
+            glass_pipe,
             prop_pipe,
             sky_pipe,
             shadow_terrain,
@@ -1068,6 +1084,8 @@ impl Renderer {
                     Material::Glow(e) => ([1.0, 1.0, 1.0, 0.0], [e[0], e[1], e[2], 0.0]),
                     Material::Flat(c) => ([c[0], c[1], c[2], 1.0], [0.0; 4]),
                     Material::Lit(k) => ([k, k, k, 0.0], [0.0, 0.0, 0.0, 1.0]),
+                    Material::Glass { alpha, color: None } => ([1.0, 1.0, 1.0, 2.0], [0.0, 0.0, 0.0, alpha]),
+                    Material::Glass { alpha, color: Some(c) } => ([c[0], c[1], c[2], 3.0], [0.0, 0.0, 0.0, alpha]),
                 };
                 let u = PartU { model: p.world.to_cols_array_2d(), tint, emissive };
                 let at = i * self.part_stride as usize;
@@ -1116,7 +1134,7 @@ impl Renderer {
             if !parts.is_empty() {
                 pass.set_pipeline(&self.shadow_model);
                 for (i, p) in parts.iter().enumerate() {
-                    if matches!(p.material, Material::Lit(_)) {
+                    if matches!(p.material, Material::Lit(_) | Material::Glass { .. }) {
                         continue;
                     }
                     let Some(m) = self.meshes.get(p.mesh.0) else { continue };
@@ -1178,6 +1196,9 @@ impl Renderer {
             if !parts.is_empty() {
                 pass.set_pipeline(&self.model_pipe);
                 for (i, p) in parts.iter().enumerate() {
+                    if matches!(p.material, Material::Glass { .. }) {
+                        continue;
+                    }
                     let Some(m) = self.meshes.get(p.mesh.0) else { continue };
                     pass.set_bind_group(1, &self.parts_bg, &[i as u32 * self.part_stride]);
                     pass.set_vertex_buffer(0, m.vb.slice(..));
@@ -1190,6 +1211,21 @@ impl Renderer {
             // o céu depois dos opacos, só onde nada foi desenhado (profundidade 1)
             pass.set_pipeline(&self.sky_pipe);
             pass.draw(0..3, 0..1);
+            // vidro e hologramas: por cima do céu e dos opacos, sem escrever profundidade
+            if parts.iter().any(|p| matches!(p.material, Material::Glass { .. })) {
+                pass.set_pipeline(&self.glass_pipe);
+                for (i, p) in parts.iter().enumerate() {
+                    if !matches!(p.material, Material::Glass { .. }) {
+                        continue;
+                    }
+                    let Some(m) = self.meshes.get(p.mesh.0) else { continue };
+                    pass.set_bind_group(1, &self.parts_bg, &[i as u32 * self.part_stride]);
+                    pass.set_vertex_buffer(0, m.vb.slice(..));
+                    pass.set_index_buffer(m.ib.slice(..), wgpu::IndexFormat::Uint32);
+                    pass.draw_indexed(0..m.count, 0, 0..1);
+                    stats.draws += 1;
+                }
+            }
             // transparentes depois do céu (não escrevem profundidade)
             if !sprite_groups.is_empty() {
                 pass.set_vertex_buffer(0, self.sprite_inst.slice(..));

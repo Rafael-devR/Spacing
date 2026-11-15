@@ -31,7 +31,7 @@ pub struct BaseModels {
     /// as máquinas, com o laço do Blender (bancada, forno, eletrolisador)
     machines: Vec<(StationId, AnimatedModel)>,
     /// cubo de lado 1 (pernas do casco)
-    cube: MeshId,
+    pub cube: MeshId,
 }
 
 fn cube_model() -> ModelData {
@@ -102,6 +102,10 @@ pub enum UseKind {
     Console,
     Chest,
     Station(StationId),
+    /// a obra da estufa ou um canteiro
+    Site(crate::greenhouse::SiteUse),
+    /// comer o item da barra
+    Eat,
 }
 
 /// o que acontece ao chegar no fim de uma caminhada da cena
@@ -282,6 +286,8 @@ impl Game {
             UseKind::Station(s) => {
                 self.screen_open = Some(crate::game::Screen::Station(s));
             }
+            UseKind::Site(u) => self.site_use(u),
+            UseKind::Eat => self.eat(),
         }
     }
 
@@ -401,10 +407,20 @@ impl Game {
         };
         let ur = rules().base.use_radius;
         let mut options: Vec<(UseKind, f64)> = Vec::new();
+        let site = self.site_option();
+        let eat = self.eat_label();
         let l = &self.base.layout;
         if self.death.is_none() && !self.base.busy() && self.screen_open.is_none() {
+            if eat.is_some() {
+                options.push((UseKind::Eat, 50.0));
+            }
             match self.base.mode {
-                Mode::Outside => options.push((UseKind::Enter, near(l.outside, 1.6))),
+                Mode::Outside => {
+                    options.push((UseKind::Enter, near(l.outside, 1.6)));
+                    if let Some((u, d, _)) = &site {
+                        options.push((UseKind::Site(*u), *d));
+                    }
+                }
                 Mode::Inside => {
                     options.push((UseKind::Exit, near(l.inside, ur)));
                     for f in &l.furniture {
@@ -430,7 +446,9 @@ impl Game {
             UseKind::Exit => "Sair da base".to_string(),
             UseKind::Bed => "Descansar".to_string(),
             UseKind::Console => "Energia da base".to_string(),
-            UseKind::Chest => "Baú de suprimentos".to_string(),
+            UseKind::Chest => "Abrir o baú".to_string(),
+            UseKind::Site(_) => site.as_ref().map_or_else(String::new, |s| s.2.clone()),
+            UseKind::Eat => eat.clone().unwrap_or_default(),
             UseKind::Station(s) => {
                 let name = &s.data().name;
                 if !self.crafting.is_built(s) {

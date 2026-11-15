@@ -298,3 +298,16 @@ conta (0,6 virando 0,61) é pego no passo 12.
   todos (o eletrolisador tem um por bolha). A impressora da bancada (peça crescendo, lasers) e o holograma do lugar de uma máquina
   ainda não fabricada ficam para depois.
 - O egui recebe os toques (antes só o desenho usava o egui).
+
+**M4c, parte 3 (estufa):**
+- Núcleo: a colisão da estufa (`greenhouse_structure`/`apply_parts`, porte do `greenhouseLayout.ts`): piso nivelado sólido desde o
+  começo, cada peça entregue fecha as células dela, vão da porta aberto, canteiros de um bloco. O `World` serve de chão para a regra.
+- App (`spacing-app/src/greenhouse.rs`, porte do `GreenhouseDirector.ts`, `greenhouseModel.ts` e `farmModel.ts`): com o projeto na
+  barra e o modo construir, o holograma da estufa segue a mira (verde cabe, vermelho não); tocar assenta, nivela o chão e a faixa da
+  porta; o botão de ação entrega a próxima peça (o material sai da mochila) e finaliza; a etiqueta da obra mostra as peças, a
+  próxima e o que falta. Pronta, a cúpula de vidro (transparente: material novo `Glass` no renderizador) recebe canteiros: encher de
+  solo, plantar, regar com gelo e colher, com a luz do canteiro e os estágios da batata do Blender. Comer a batata da barra pelo
+  botão de ação.
+- Diferenças: o holograma é o preenchimento sem o contorno das arestas; a etiqueta é desenhada pelo HUD em vez de uma textura no
+  mundo; o fantasma do canteiro (cubo verde/vermelho) ainda não existe.
+- Para testar sem jogar até lá: `Game::test_place_site` e `test_build_and_farm` (as capturas usam).

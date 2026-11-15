@@ -472,3 +472,87 @@ impl Greenhouse {
         GreenhouseSave { chest: self.chest.clone(), site: self.site.clone() }
     }
 }
+
+/// O `World` serve de chão para a regra (só lê o que já foi gerado).
+impl GroundView for crate::world::World {
+    fn top_y(&self, x: i32, z: i32) -> i32 {
+        (0..CH as i32).rev().find(|&y| self.peek_block(x, y, z) != crate::blocks::AIR).unwrap_or(0)
+    }
+    fn block(&self, x: i32, y: i32, z: i32) -> BlockId {
+        self.peek_block(x, y, z)
+    }
+}
+
+/// Colisão da estufa (porte de `src/world/greenhouseLayout.ts`): uma estrutura como a base. O chão nivelado é sólido desde o
+/// início; cada peça entregue fecha as células dela; o vão da porta fica aberto; canteiros ocupam um bloco.
+pub fn greenhouse_structure(site: &Site) -> crate::base::Structure {
+    let g = &rules().greenhouse;
+    let mut s = crate::base::Structure::new(
+        "greenhouse",
+        crate::base::CellBox { x0: site.x, y0: site.floor_y, z0: site.z, x1: site.x + g.size - 1, y1: site.floor_y + g.wall_height + 1, z1: site.z + g.size - 1 },
+    );
+    // teto e paredes altas são de vidro: a mira passa e acerta o piso e os canteiros
+    s.cutaway = true;
+    apply_parts(&mut s, site);
+    s
+}
+
+/// refaz as células segundo as peças entregues
+pub fn apply_parts(s: &mut crate::base::Structure, site: &Site) {
+    use crate::base::Cell;
+    let g = &rules().greenhouse;
+    let b = s.bx;
+    for y in b.y0..=b.y1 {
+        for z in b.z0..=b.z1 {
+            for x in b.x0..=b.x1 {
+                s.set(x, y, z, Cell::Air);
+            }
+        }
+    }
+    let has = |id: &str| site.parts.iter().any(|p| p == id);
+    let (x0, z0, fy) = (site.x, site.z, site.floor_y);
+    let (x1, z1) = (x0 + g.size - 1, z0 + g.size - 1);
+    for z in z0..=z1 {
+        for x in x0..=x1 {
+            s.set(x, fy, z, Cell::Floor);
+        }
+    }
+    let wall = |s: &mut crate::base::Structure, x: i32, z: i32, door: bool| {
+        for y in fy + 1..=fy + g.wall_height {
+            if door && y <= fy + 2 {
+                continue;
+            }
+            s.set(x, y, z, if y == fy + 1 { Cell::Wall } else { Cell::WallHigh });
+        }
+    };
+    if has("wallS") {
+        for x in x0..=x1 {
+            wall(s, x, z1, x == x0 + g.door_at);
+        }
+    }
+    if has("wallN") {
+        for x in x0..=x1 {
+            wall(s, x, z0, false);
+        }
+    }
+    if has("wallW") {
+        for z in z0 + 1..z1 {
+            wall(s, x0, z, false);
+        }
+    }
+    if has("wallE") {
+        for z in z0 + 1..z1 {
+            wall(s, x1, z, false);
+        }
+    }
+    if has("frame") {
+        for z in z0..=z1 {
+            for x in x0..=x1 {
+                s.set(x, fy + g.wall_height + 1, z, Cell::Roof);
+            }
+        }
+    }
+    for bed in &site.beds {
+        s.set(bed.x, fy + 1, bed.z, Cell::Furniture);
+    }
+}

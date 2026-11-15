@@ -6,6 +6,7 @@ pub mod capture;
 pub mod controls;
 pub mod effects;
 pub mod game;
+pub mod greenhouse;
 pub mod hud;
 
 use std::sync::Arc;

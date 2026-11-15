@@ -188,8 +188,8 @@ impl Interaction {
         };
         let d = item.data();
         if d.site.is_some() {
-            // estufa e canteiros entram com a base (M4c)
-            c.ev.push(GameEvent::ActionDenied { reason: "notBlock", item: Some(item) });
+            // projeto (estufa, canteiro): o jogo decide com o bloco tocado (Interaction.onSite)
+            c.ev.push(GameEvent::SiteTap { pos: [t.x, t.y, t.z], item });
             return;
         }
         let (x, y, z) = (t.x + t.normal[0], t.y + t.normal[1], t.z + t.normal[2]);
