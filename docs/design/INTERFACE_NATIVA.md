@@ -1,6 +1,7 @@
 # Interface do nativo: direção de arte e planejamento das telas
 
-> Status: **planejamento** (2026-11-15). Nada disto foi aplicado ainda. Decisão registrada em [ADR 0024](../adr/0024-interface-nativa-em-egui-com-estilo-proprio.md).
+> Status: **título, configurações, pausa, controles e carregamento feitos no jogo** (2026-11-15), a partir do canvas de design
+> aprovado pelo dono (ver "Telas feitas"). Mochila, estações e medidores ainda não. Decisão registrada em [ADR 0024](../adr/0024-interface-nativa-em-egui-com-estilo-proprio.md).
 > Substitui a direção de arte do HUD antigo (`INTERFACE.md`, Fredoka/Chakra Petch/JetBrains Mono) **só no nativo**. A versão web não muda.
 
 Pedido do dono: refazer todas as telas do jogo com um design e uma estrutura novos, simples, com **fonte de pixel**, e com os
@@ -146,6 +147,36 @@ Cada tela tem uma **proposta** e um **critério** para aprovar. Antes de codar, 
 - **Comportamento:** aparece enquanto carrega e some com um fade quando o jogo abre; fica visível por pelo menos 1 s para não
   piscar. Até o dono entregar os desenhos, usa-se um ícone provisório (círculos), só para marcar tamanho e lugar.
 - **Critério:** o jogador entende que está carregando sem ler nada.
+
+## Telas feitas (2026-11-15)
+
+O dono desenhou com o Claude, tela por tela, num canvas de design (tela deitada de 844×390 pontos), e mandou implementar. O que
+ficou decidido nesse caminho, e vale para as próximas telas:
+
+- **Tela deitada.** O jogo é em paisagem; a referência é 844×390 pontos e tudo escala junto (`Tela` em `telas.rs`).
+- **Céu noturno com estrelas e três morros em silhueta** (`#1C1333`, morros `#2B1A3D`, `#1F1230`, `#0E0818`); o carregamento é
+  preto (`#05070E`) com estrelas e sem morros.
+- **Tudo na coluna da esquerda, a 28 pontos da borda**: título da tela (36), linhas de 34 a 36 pontos, sem caixas. Cada linha tem
+  três colunas fixas: o marcador, o nome e o valor à direita. A escolhida fica clara e em negrito, com um **quadradinho ciano** (pixel).
+- **Pixel art só nos detalhes**: o quadradinho da escolhida, a marca ao lado do logo, o quadradinho de ligado/desligado. O dono pediu
+  para não fazer a tela inteira em pixel.
+- **Sem textos soltos**: o dono tirou o subtítulo do logo, a dica do rodapé e a hora do salvamento. Resposta de uma ação aparece na
+  própria linha (Salvar → "salvo").
+- **Ação perigosa separada por um fio fino** (Sair para o título); o Novo jogo saiu da pausa e ficou só no título, com segundo toque.
+
+| Tela | Linhas | Código |
+| --- | --- | --- |
+| Título | SPACING + marca; Continuar missão (planeta · há quanto tempo; só com salvamento), Novo jogo, Planeta ‹ Lua ›, Configurações; versão no canto | `telas::titulo` |
+| Configurações (a mesma no título e na pausa) | Gráficos ‹ Automática/Baixa/Média/Alta ›, Som, Vibração, Tremor de tela ‹ Desligado/Baixo/Normal ›, Mira ao segurar ‹ Acima do dedo/No dedo ›, Tela cheia (só no computador); fio; Voltar | `telas::config`, `prefs.rs` |
+| Pausa | Pausado; Continuar, Salvar, Configurações, Controles, Teste de desempenho; fio; Sair para o título | `telas::pausa` |
+| Controles | duas colunas (ação e como fazer; no celular, os botões; no computador, as teclas); Voltar | `telas::controles` |
+| Carregamento | fundo preto estrelado; só o ícone da Terra com a Lua em órbita no canto inferior direito (provisório até o desenho do dono) | `telas::carregando` |
+
+O que cada configuração faz hoje: **Gráficos** fixa a escala da cena (Baixa 50%, Média 75%, Alta 100%; Automática deixa a resolução
+dinâmica decidir); **Tremor** multiplica o tremor da câmera (0, 0,5, 1); **Mira ao segurar** põe a mira acima do dedo ou embaixo
+dele; **Tela cheia** muda a janela do computador. **Som e Vibração ficam guardados, mas ainda não fazem nada**: o nativo ainda não
+tem som nem vibração (M6). Teclado nas telas: setas ou WASD andam, Enter escolhe, esquerda e direita mudam a escolha, Esc volta.
+Para olhar as telas sem jogar: `spacing --telas <pasta>` (native/README.md).
 
 ## Como visualizar antes de aplicar
 

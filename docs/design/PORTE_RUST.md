@@ -341,6 +341,8 @@ conta (0,6 virando 0,61) é pego no passo 12.
 - Ficou de fora: o feixe azul do objetivo no mundo (o marcador é do HUD), o módulo de pouso consertado no fim da cadeia, o atraso de
   1,2 s do meteoro da missão, e tirar painéis solares de baixo da base ao carregar (a base do nativo não muda de tamanho).
 
-**M5 (interface, em planejamento):** o estilo das telas do nativo (fonte de pixel, ícones flutuantes, telas refeitas) está em
+**M5 (interface):** título, configurações, pausa, controles e carregamento feitos (2026-11-15), com o desenho aprovado pelo dono
+em [INTERFACE_NATIVA.md](INTERFACE_NATIVA.md) ("Telas feitas"): o app abre no título, carrega o planeta numa tela própria e a pausa
+tem Sair para o título. Mochila, estações e medidores seguem no plano. **Em planejamento:** o estilo das telas do nativo (fonte de pixel, ícones flutuantes, telas refeitas) está em
 [INTERFACE_NATIVA.md](INTERFACE_NATIVA.md), decidido em [ADR 0024](../adr/0024-interface-nativa-em-egui-com-estilo-proprio.md).
 A tela de itens atual é uma versão de trabalho (commit `2ce9076`), não a final.

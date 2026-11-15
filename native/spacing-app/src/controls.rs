@@ -95,6 +95,8 @@ pub struct Controls {
     pub touched: bool,
     /// quanto a mira fica acima do dedo (pixels; TOUCH_AIM_OFFSET do jogo web = 80 px de CSS)
     pub aim_offset: f32,
+    /// configuração "Mira ao segurar": acima do dedo (true) ou embaixo dele
+    pub aim_above: bool,
     /// o mouse parado em cima da tela (no computador a mira segue o mouse mesmo sem apertar)
     pub hover: Option<(f32, f32)>,
     /// tamanho da tela (pixels)
@@ -107,7 +109,7 @@ pub struct Controls {
 
 impl Default for Controls {
     fn default() -> Self {
-        Self { scripted: None, fingers: HashMap::new(), keys: Default::default(), buttons: Vec::new(), stick_r: 60.0, actions: Actions::default(), touched: cfg!(target_os = "android"), aim_offset: 80.0, hover: None, screen: (1.0, 1.0), use_visible: false, modal: false }
+        Self { scripted: None, fingers: HashMap::new(), keys: Default::default(), buttons: Vec::new(), stick_r: 60.0, actions: Actions::default(), touched: cfg!(target_os = "android"), aim_offset: 80.0, aim_above: true, hover: None, screen: (1.0, 1.0), use_visible: false, modal: false }
     }
 }
 
@@ -247,7 +249,7 @@ impl Controls {
     pub fn pointer(&self) -> Option<(Pointer, bool)> {
         let held = self.fingers.values().find_map(|f| match *f {
             Finger::Aim { x, y, touch, .. } => {
-                let off = if touch { self.aim_offset } else { 0.0 };
+                let off = if touch && self.aim_above { self.aim_offset } else { 0.0 };
                 Some(Pointer { fx: x, fy: y, x, y: (y - off).max(6.0), touch })
             }
             _ => None,

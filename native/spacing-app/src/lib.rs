@@ -15,16 +15,19 @@ pub mod hud;
 pub mod icons;
 pub mod items_screen;
 pub mod map;
+pub mod prefs;
 #[cfg(not(target_os = "android"))]
 pub mod roteiro;
 pub mod storage;
+pub mod telas;
 
 use std::sync::Arc;
 use std::time::Instant;
 
+use glam::{Vec3, Vec4};
 use spacing_core::planet::{planet, PlanetId};
 use spacing_core::scaler::ResolutionScaler;
-use spacing_render::{FrameStats, Renderer, Ui};
+use spacing_render::{Frame, FrameStats, Renderer, Ui};
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, MouseScrollDelta, TouchPhase, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
@@ -48,8 +51,59 @@ pub struct Options {
     pub save_dir: Option<std::path::PathBuf>,
 }
 
+/// onde o app está: no título (e nas configurações dele), carregando um planeta, ou no jogo (com a pausa por cima)
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Fase {
+    Titulo,
+    Carregando,
+    Jogo,
+}
+
+/// some o carregamento por cima do jogo neste tempo (s)
+const FADE_S: f32 = 0.35;
+/// a tela de carregamento fica pelo menos isto (s), para não piscar; e no máximo isto, se o mundo demorar
+const CARREGA_MIN_S: f64 = 1.0;
+const CARREGA_MAX_S: f64 = 12.0;
+
+/// um quadro sem mundo (título e começo do carregamento): as telas cobrem tudo; "dentro" não desenha chunks
+fn quadro_vazio() -> Frame<'static> {
+    Frame {
+        eye: Vec3::new(0.0, 10.0, 10.0),
+        target: Vec3::ZERO,
+        roll: 0.0,
+        fov_deg: 50.0,
+        time: 0.0,
+        dark: 1.0,
+        lamp: Vec4::ZERO,
+        mist_y: 0.0,
+        fog: (1000.0, 2000.0),
+        parts: &[],
+        props: &[],
+        sprites: &[],
+        screen: Default::default(),
+        storm: 0.0,
+        point: None,
+        shocks: &[],
+        indoor: true,
+    }
+}
+
 struct App {
     opts: Options,
+    fase: Fase,
+    /// segundos na tela de carregamento (também gira a Lua do ícone durante o fade de saída)
+    load_t: f64,
+    /// o carregamento some aos poucos por cima do jogo (1 → 0)
+    fade: f32,
+    menus: telas::Menus,
+    /// teclas de navegação das telas de menu deste quadro
+    nav: telas::Nav,
+    prefs: prefs::Prefs,
+    /// a pausa estava aberta no quadro anterior (ao abrir, ela volta à página principal)
+    pausado: bool,
+    /// a tela cheia que a janela já recebeu (só no computador: no celular o jogo já ocupa a tela toda)
+    #[cfg_attr(target_os = "android", allow(dead_code))]
+    fs_aplicada: Option<bool>,
     window: Option<Arc<Window>>,
     renderer: Option<Renderer>,
     models: Option<Models>,
@@ -87,8 +141,18 @@ impl App {
     fn new(opts: Options) -> Self {
         let egui = egui::Context::default();
         fontes::install(&egui);
+        let store = storage::Store::new(opts.save_dir.clone());
+        let prefs = prefs::Prefs::ler(store.prefs_path().as_deref());
         Self {
-            store: storage::Store::new(opts.save_dir.clone()),
+            store,
+            fase: Fase::Titulo,
+            load_t: 0.0,
+            fade: 0.0,
+            menus: telas::Menus::default(),
+            nav: telas::Nav::default(),
+            prefs,
+            pausado: false,
+            fs_aplicada: None,
             save_t: 0.0,
             saved_at: None,
             opts,
@@ -145,11 +209,42 @@ impl App {
             self.egui.set_pixels_per_point(ppp);
             self.controls.layout(s.width as f32, s.height as f32, ppp);
             self.base_scale = (2.0 / ppp).min(1.0);
-            self.scaler.reset();
-            if let Some(r) = &mut self.renderer {
-                r.set_scale(self.base_scale);
+        }
+        self.aplicar_prefs();
+    }
+
+    /// a escala da cena: a da qualidade escolhida, ou a da resolução dinâmica (Automática)
+    fn escala_cena(&self) -> f32 {
+        self.base_scale * self.prefs.qualidade.escala().unwrap_or(self.scaler.scale() as f32)
+    }
+
+    /// Aplica as configurações ao que já existe: escala da cena, mira, tremor (no quadro) e tela cheia.
+    fn aplicar_prefs(&mut self) {
+        self.controls.aim_above = self.prefs.mira_acima;
+        self.scaler.reset();
+        let s = self.escala_cena();
+        if let Some(r) = &mut self.renderer {
+            r.set_scale(s);
+        }
+        #[cfg(not(target_os = "android"))]
+        if self.fs_aplicada != Some(self.prefs.tela_cheia) {
+            if let Some(w) = &self.window {
+                w.set_fullscreen(self.prefs.tela_cheia.then_some(winit::window::Fullscreen::Borderless(None)));
+                self.fs_aplicada = Some(self.prefs.tela_cheia);
             }
         }
+    }
+
+    /// uma tela de menu ocupa a tela toda: os toques e as teclas vão para ela, não para os controles do jogo
+    fn ui_cheia(&self) -> bool {
+        self.fase != Fase::Jogo || self.game.as_ref().is_some_and(|g| g.screen_open == Some(game::Screen::Menu))
+    }
+
+    /// começa a carregar o planeta escolhido (o jogo é montado no quadro seguinte, com a tela já à mostra)
+    fn carregar(&mut self) {
+        self.game = None;
+        self.fase = Fase::Carregando;
+        self.load_t = 0.0;
     }
 
     /// um dedo ou o mouse para o egui: mover, e apertar (Some(true)) ou soltar (Some(false))
@@ -205,10 +300,10 @@ impl App {
             PlanetId::Marte => PlanetId::Lua,
         };
         // o desenho fica (a superfície não pode ser recriada no Android): só a luz e o céu mudam; o mundo é refeito
-        self.game = None;
         if let Some(r) = &mut self.renderer {
             r.set_planet(planet(self.opts.planet));
         }
+        self.carregar();
     }
 
     fn frame(&mut self, _event_loop: &ActiveEventLoop) {
@@ -241,13 +336,15 @@ impl App {
         let dt = self.last.map(|l| (now - l).as_secs_f64()).unwrap_or(1.0 / 60.0);
         self.last = Some(now);
         self.meter.frame(dt);
+        let alvo = self.escala_cena();
+        let auto = self.prefs.qualidade == prefs::Qualidade::Auto;
         if let (Some(b), Some(r)) = (self.bench.as_mut(), self.renderer.as_mut()) {
             if b.frame(dt, r) {
                 // acabou: a resolução volta à de antes
-                r.set_scale(self.base_scale * self.scaler.scale() as f32);
+                r.set_scale(alvo);
             }
-        } else if let Some(r) = self.renderer.as_mut() {
-            // alvo de 60 quadros, como o jogo web sem limite escolhido
+        } else if let (Some(r), true) = (self.renderer.as_mut(), auto) {
+            // gráficos "Automática": alvo de 60 quadros, como o jogo web sem limite escolhido
             if let Some(s) = self.scaler.frame(dt * 1000.0, self.cpu_ms, 1000.0 / 60.0) {
                 r.set_scale(self.base_scale * s as f32);
             }
@@ -255,8 +352,12 @@ impl App {
         if self.renderer.is_none() || self.window.is_none() {
             return;
         }
-        if self.game.is_none() {
-            self.game = Some(self.start_game());
+        if self.fase != Fase::Jogo || self.game.is_none() {
+            if self.fase == Fase::Jogo {
+                self.fase = Fase::Titulo;
+            }
+            self.frame_menu(dt);
+            return;
         }
         self.save_t += dt;
         if self.save_t >= AUTOSAVE_SECONDS {
@@ -267,8 +368,13 @@ impl App {
         let game = self.game.as_mut().unwrap();
         self.controls.use_visible = game.base.use_label.is_some();
         self.controls.modal = game.screen_open.is_some();
-        // menu aberto: o jogo para (como a pausa do jogo web)
+        // pausa aberta: o jogo para (como a pausa do jogo web); ao abrir, ela começa na página principal
         let paused = game.screen_open == Some(game::Screen::Menu);
+        if paused && !self.pausado {
+            self.menus = telas::Menus::default();
+        }
+        self.pausado = paused;
+        game.rig.shake_scale = self.prefs.tremor.escala();
         game.update(if paused { 0.0 } else { dt }, &mut self.controls);
         game.sync(r);
         let size = r.size();
@@ -305,20 +411,33 @@ impl App {
                 Some(b) => vec![b.running_label(), "fique parado: o tempo do quadro é medido sem cada efeito".into()],
                 None => Vec::new(),
             },
-            saved_ago: self.saved_at.map(|t| ((storage::now_ms() - t) / 1000.0).max(0.0)),
-            save_path: self.store.path(game.planet).map(|p| p.display().to_string()),
             game,
         };
         let controls = &self.controls;
+        let toque = self.controls.touched;
+        let (menus, prefs) = (&mut self.menus, &mut self.prefs);
+        let nav = std::mem::take(&mut self.nav);
+        let (fade, load_t) = (self.fade, self.load_t);
         let mut actions = Vec::new();
-        let out = self.egui.run_ui(raw, |ui| actions = hud::draw(ui.ctx(), controls, &info));
-        let prims = self.egui.tessellate(out.shapes, out.pixels_per_point);
-        let mut app_actions = Vec::new();
-        for a in actions {
-            match a {
-                hud::UiAction::Save | hud::UiAction::NewGame => app_actions.push(a),
-                a => game.ui_action(a),
+        let (mut pausa_acao, mut cfg_acao, mut ctrl_voltar) = (None, None, false);
+        let out = self.egui.run_ui(raw, |ui| {
+            let ctx = ui.ctx();
+            actions = hud::draw(ctx, controls, &info);
+            // a pausa e o que ela abre (configurações, controles) cobrem o jogo
+            if paused {
+                match menus.pagina {
+                    telas::Pagina::Principal => pausa_acao = telas::pausa(ctx, menus, &nav, dt),
+                    telas::Pagina::Config => cfg_acao = telas::config(ctx, prefs, menus, &nav),
+                    telas::Pagina::Controles => ctrl_voltar = telas::controles(ctx, &nav, toque),
+                }
             }
+            if fade > 0.0 {
+                telas::carregando(ctx, load_t, fade);
+            }
+        });
+        let prims = self.egui.tessellate(out.shapes, out.pixels_per_point);
+        for a in actions {
+            game.ui_action(a);
         }
         let models = self.models.as_ref().unwrap();
         let frame = game.frame(models, aspect);
@@ -326,25 +445,161 @@ impl App {
             self.stats = s;
         }
         self.cpu_ms = now.elapsed().as_secs_f64() * 1000.0;
-        for a in app_actions {
-            match a {
-                hud::UiAction::Save => {
-                    let ok = self.persist();
-                    if let Some(g) = &mut self.game {
-                        g.toast(if ok { "Jogo salvo" } else { "Não deu para salvar agora" });
-                    }
+        if self.fade > 0.0 {
+            self.fade = (self.fade - dt as f32 / FADE_S).max(0.0);
+            self.load_t += dt;
+        }
+        if let Some(a) = cfg_acao {
+            self.config_acao(a);
+        }
+        if ctrl_voltar {
+            self.menus.pagina = telas::Pagina::Principal;
+            self.menus.sel = 3;
+        }
+        if let Some(a) = pausa_acao {
+            self.pausa_acao(a);
+        }
+        window.request_redraw();
+    }
+
+    fn pausa_acao(&mut self, a: telas::PausaAcao) {
+        use telas::PausaAcao as P;
+        match a {
+            P::Continuar => {
+                if let Some(g) = &mut self.game {
+                    g.ui_action(hud::UiAction::Close);
                 }
-                hud::UiAction::NewGame => {
-                    // o salvamento deste planeta sai; o jogo novo tem semente sorteada
-                    self.store.clear(self.opts.planet);
-                    self.saved_at = None;
-                    self.game = Some(self.start_game());
-                    if let Some(r) = &mut self.renderer {
-                        r.clear_chunks();
-                    }
-                }
-                _ => {}
             }
+            P::Salvar => {
+                // a resposta aparece na própria linha ("salvo"), porque os avisos do HUD ficam atrás da pausa
+                self.menus.salvo_ok = self.persist();
+                self.menus.salvo = 2.0;
+            }
+            P::Config => {
+                self.menus.pagina = telas::Pagina::Config;
+                self.menus.sel_cfg = 0;
+            }
+            P::Controles => self.menus.pagina = telas::Pagina::Controles,
+            P::Teste => {
+                if let Some(g) = &mut self.game {
+                    g.ui_action(hud::UiAction::Close);
+                }
+                self.controls.actions.bench = true;
+            }
+            P::Sair => {
+                // grava e volta ao título; o mundo sai da memória e do desenho
+                self.persist();
+                self.game = None;
+                self.saved_at = None;
+                if let Some(r) = &mut self.renderer {
+                    r.clear_chunks();
+                }
+                self.fase = Fase::Titulo;
+                self.menus = telas::Menus::default();
+                self.pausado = false;
+            }
+        }
+    }
+
+    fn config_acao(&mut self, a: telas::CfgAcao) {
+        match a {
+            telas::CfgAcao::Mudou => {
+                self.prefs.gravar(self.store.prefs_path().as_deref());
+                self.aplicar_prefs();
+            }
+            telas::CfgAcao::Voltar => {
+                self.menus.pagina = telas::Pagina::Principal;
+                // de volta à linha "Configurações" (a última do título, a terceira da pausa)
+                self.menus.sel = if self.fase == Fase::Jogo { 2 } else { usize::MAX };
+            }
+        }
+    }
+
+    /// Título (e as configurações dele) e carregamento: sem jogo rodando, só a tela.
+    fn frame_menu(&mut self, dt: f64) {
+        // carregando: o primeiro quadro já mostra a tela; o jogo é montado no seguinte (Game::load trava enquanto gera o
+        // começo do mundo)
+        if self.fase == Fase::Carregando && self.game.is_none() && self.load_t > 0.0 {
+            if let Some(r) = &mut self.renderer {
+                r.clear_chunks();
+                r.set_planet(planet(self.opts.planet));
+            }
+            self.game = Some(self.start_game());
+            self.saved_at = None;
+            self.save_t = 0.0;
+        }
+        let (Some(r), Some(window)) = (self.renderer.as_mut(), self.window.clone()) else { return };
+        let size = r.size();
+        let ppp = window.scale_factor() as f32;
+        let raw = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(size.0 as f32 / ppp, size.1 as f32 / ppp))),
+            events: std::mem::take(&mut self.egui_events),
+            ..Default::default()
+        };
+        let nav = std::mem::take(&mut self.nav);
+        let info = telas::TituloInfo { planeta: self.opts.planet, salvo: self.store.save_age(self.opts.planet) };
+        let carregando = self.fase == Fase::Carregando;
+        let load_t = self.load_t;
+        let (menus, prefs) = (&mut self.menus, &mut self.prefs);
+        let (mut titulo_acao, mut cfg_acao) = (None, None);
+        let out = self.egui.run_ui(raw, |ui| {
+            let ctx = ui.ctx();
+            if carregando {
+                telas::carregando(ctx, load_t, 1.0);
+            } else if menus.pagina == telas::Pagina::Config {
+                cfg_acao = telas::config(ctx, prefs, menus, &nav);
+            } else {
+                titulo_acao = telas::titulo(ctx, &info, menus, &nav, dt);
+            }
+        });
+        let prims = self.egui.tessellate(out.shapes, out.pixels_per_point);
+        let ui = Ui { primitives: &prims, textures: &out.textures_delta, pixels_per_point: out.pixels_per_point };
+        let aspect = size.0 as f64 / size.1.max(1) as f64;
+        // carregando com o jogo já montado: o mundo anda (parado) e as malhas sobem, escondidos atrás da tela
+        let stats = match (&mut self.game, &self.models) {
+            (Some(g), Some(m)) => {
+                g.update(0.0, &mut Controls::default());
+                g.sync(r);
+                let f = g.frame(m, aspect);
+                r.render(&f, Some(ui))
+            }
+            _ => r.render(&quadro_vazio(), Some(ui)),
+        };
+        if let Some(s) = stats {
+            self.stats = s;
+        }
+        if carregando {
+            self.load_t += dt;
+            let pronto = self.game.as_ref().is_some_and(|g| g.chunks_left == 0);
+            if self.game.is_some() && ((pronto && self.load_t >= CARREGA_MIN_S) || self.load_t > CARREGA_MAX_S) {
+                self.fase = Fase::Jogo;
+                self.fade = 1.0;
+                self.menus = telas::Menus::default();
+                self.pausado = false;
+            }
+        }
+        if let Some(a) = cfg_acao {
+            self.config_acao(a);
+        }
+        match titulo_acao {
+            Some(telas::TituloAcao::Continuar) => self.carregar(),
+            Some(telas::TituloAcao::NovoJogo) => {
+                // o salvamento deste planeta sai; o jogo novo tem semente sorteada
+                self.store.clear(self.opts.planet);
+                self.carregar();
+            }
+            Some(telas::TituloAcao::TrocarPlaneta) => {
+                self.opts.planet = match self.opts.planet {
+                    PlanetId::Lua => PlanetId::Marte,
+                    PlanetId::Marte => PlanetId::Lua,
+                };
+                self.menus.confirmar = 0.0;
+            }
+            Some(telas::TituloAcao::Config) => {
+                self.menus.pagina = telas::Pagina::Config;
+                self.menus.sel_cfg = 0;
+            }
+            None => {}
         }
         window.request_redraw();
     }
@@ -399,6 +654,8 @@ impl ApplicationHandler for App {
                     TouchPhase::Moved => None,
                 });
                 match t.phase {
+                    // com uma tela de menu por cima, o dedo novo é só dela (os que já estavam continuam até soltar)
+                    TouchPhase::Started if self.ui_cheia() => {}
                     TouchPhase::Started => self.controls.touch_start(t.id, x, y, w),
                     TouchPhase::Moved => self.controls.touch_move(t.id, x, y),
                     TouchPhase::Ended | TouchPhase::Cancelled => self.controls.touch_end(t.id),
@@ -416,10 +673,16 @@ impl ApplicationHandler for App {
                     Key::Named(NamedKey::Tab) => "tab".into(),
                     Key::Named(NamedKey::F3) => "f3".into(),
                     Key::Named(NamedKey::Enter) => "enter".into(),
-                    Key::Named(NamedKey::Escape) => "escape".into(),
+                    // o Voltar do Android vale como Esc
+                    Key::Named(NamedKey::Escape | NamedKey::GoBack | NamedKey::BrowserBack) => "escape".into(),
                     _ => return,
                 };
-                self.controls.key(&name, down);
+                // tela de menu por cima: a tecla navega nela; soltar sempre chega aos controles (nada fica preso)
+                if down && self.ui_cheia() {
+                    self.nav.key(&name);
+                } else {
+                    self.controls.key(&name, down);
+                }
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 let lines = match delta {
@@ -439,10 +702,12 @@ impl ApplicationHandler for App {
             }
             // botão esquerdo: aperta os botões da tela ou mira e minera segurando; direito: constrói no ponto
             WindowEvent::MouseInput { state, button, .. } => match (button, state) {
-                (winit::event::MouseButton::Right, ElementState::Pressed) => self.controls.tap(self.cursor.0, self.cursor.1, true),
+                (winit::event::MouseButton::Right, ElementState::Pressed) if !self.ui_cheia() => self.controls.tap(self.cursor.0, self.cursor.1, true),
                 (winit::event::MouseButton::Left, ElementState::Pressed) => {
                     self.pointer_event(self.cursor.0, self.cursor.1, Some(true));
-                    self.controls.finger_down(u64::MAX, self.cursor.0, self.cursor.1, w, false)
+                    if !self.ui_cheia() {
+                        self.controls.finger_down(u64::MAX, self.cursor.0, self.cursor.1, w, false)
+                    }
                 }
                 (winit::event::MouseButton::Left, ElementState::Released) => {
                     self.pointer_event(self.cursor.0, self.cursor.1, Some(false));
@@ -486,6 +751,10 @@ pub fn run_desktop() {
     let capture = args.iter().position(|a| a == "--captura").and_then(|i| args.get(i + 1).cloned());
     if let Some(dir) = args.iter().position(|a| a == "--fonte").and_then(|i| args.get(i + 1)) {
         fonte::run(dir);
+        return;
+    }
+    if let Some(dir) = args.iter().position(|a| a == "--telas").and_then(|i| args.get(i + 1)) {
+        telas::capturas(dir);
         return;
     }
     if let Some(dir) = args.iter().position(|a| a == "--roteiro").and_then(|i| args.get(i + 1)) {

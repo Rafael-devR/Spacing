@@ -57,6 +57,17 @@ impl Store {
         self.dir.as_ref().map(|d| d.join(format!("save-{}.json", name(p))))
     }
 
+    /// as configurações do jogador (prefs.rs)
+    pub fn prefs_path(&self) -> Option<PathBuf> {
+        self.dir.as_ref().map(|d| d.join("prefs.json"))
+    }
+
+    /// há quantos segundos o salvamento do planeta foi gravado (None = não há); para o "Continuar missão" do título
+    pub fn save_age(&self, p: PlanetId) -> Option<f64> {
+        let modified = std::fs::metadata(self.path(p)?).ok()?.modified().ok()?;
+        Some(modified.elapsed().map_or(0.0, |d| d.as_secs_f64()))
+    }
+
     /// o salvamento do planeta, já na versão atual; nenhum, estragado ou de versão futura: None
     pub fn load(&self, p: PlanetId, fresh_seed: u32) -> Option<SaveData> {
         let path = self.path(p)?;

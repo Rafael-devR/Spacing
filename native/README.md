@@ -38,6 +38,16 @@ export VK_ICD_FILENAMES=$(ls /opt/pw-browsers/chromium-*/chrome-linux64/vk_swift
 Joga um roteiro curto (parado, andando, pulando, um meteoro, girando, afastando; em Marte, um redemoinho e a tempestade) e salva os PNGs; no fim troca de planeta e roda o teste de efeitos. Usa o Vulkan por software que vem
 com o Chromium do Playwright; o tempo do quadro dali não vale para o celular.
 
+### Telas de menu (título, configurações, pausa, controles, carregamento)
+
+```bash
+./target/release/spacing --telas /tmp/telas
+```
+
+Grava uma captura de cada tela de menu no tamanho de um celular deitado (844×390 pontos, densidade 2): `titulo.png`,
+`titulo-sem-salvo.png`, `config.png`, `pausa.png`, `controles.png`, `carregando.png`. O desenho fica em `spacing-app/src/telas.rs`
+(segue o canvas aprovado pelo dono, `docs/design/INTERFACE_NATIVA.md`); as configurações, em `spacing-app/src/prefs.rs`.
+
 ### Roteiro jogado (o `play.mjs` do nativo)
 
 ```bash
@@ -53,8 +63,10 @@ ficam na pasta. Rode depois de mudar jogabilidade ou salvamento.
 
 Um arquivo JSON por planeta (`save-lua.json`, `save-marte.json`), no mesmo formato do jogo web (versão 12, `spacing-core/src/save.rs`).
 No Android fica na pasta interna do app (some ao desinstalar); no computador, em `$SPACING_SAVES` ou `~/.local/share/spacing-nativo`.
-O jogo grava sozinho a cada 5 s, ao ir para o fundo e ao fechar; o menu (`||`) tem "Salvar agora" e "Novo jogo". Um jogo novo tem
-semente sorteada; no computador, `spacing lua 12345` começa um jogo novo com essa semente (se não houver salvamento).
+O jogo grava sozinho a cada 5 s, ao ir para o fundo e ao fechar; a pausa (`||`, Esc ou P) tem "Salvar" e "Sair para o título".
+O jogo abre no título: "Continuar missão" (só com salvamento do planeta escolhido), "Novo jogo" (com salvamento, pede um segundo
+toque: apaga o progresso daquele planeta), o planeta e as configurações. Um jogo novo tem semente sorteada; no computador,
+`spacing lua 12345` escolhe o planeta do título e a semente de um jogo novo. As configurações ficam em `prefs.json`, na mesma pasta.
 
 Na raiz do projeto, `npm run golden` refaz os vetores dourados a partir do TS. Mudou o gerador, a malha ou a animação no TS?
 Rode de novo e faça o Rust passar.

@@ -3,7 +3,6 @@
 use egui::{Align2, Color32, FontId, Pos2, Rect, Stroke, Vec2};
 use glam::Vec3;
 use spacing_core::interaction::{AimState, Target};
-use spacing_core::planet::planet;
 use spacing_render::FrameStats;
 
 use crate::controls::{Button, Controls};
@@ -23,9 +22,6 @@ pub enum UiAction {
     Move { from: usize, to: usize, n: u32 },
     QuickMove(usize),
     Sort,
-    /// menu: gravar agora, e começar de novo (apaga o salvamento deste planeta)
-    Save,
-    NewGame,
 }
 
 /// nome curto do que a receita entrega
@@ -75,58 +71,6 @@ fn power_screen(ui: &mut egui::Ui, g: &Game) {
     let _ = rules();
 }
 
-/// o menu (pausa): continuar, salvar, novo jogo com confirmação
-fn menu_screen(ui: &mut egui::Ui, info: &HudInfo, actions: &mut Vec<UiAction>) {
-    let accent = Color32::from_rgb(127, 231, 255);
-    let g = info.game;
-    ui.heading(egui::RichText::new("Pausa").color(accent).strong());
-    ui.label(egui::RichText::new(format!("{} · semente {}", planet(g.planet).name, g.seed)).weak());
-    ui.separator();
-    let v = g.missions.view(&g.inv);
-    ui.label(format!("Missão {} de {}: {}", (v.index + 1).min(v.total.max(1)), v.total, v.step.title));
-    ui.label(egui::RichText::new(&v.step.text).weak());
-    ui.label(format!("Mapa descoberto: {} ladrilhos", g.exploration.revealed));
-    ui.separator();
-    match info.saved_ago {
-        Some(s) if s < 90.0 => ui.label(format!("Salvo há {s:.0} s (grava sozinho a cada 5 s e ao sair)")),
-        Some(s) => ui.label(format!("Salvo há {:.0} min", s / 60.0)),
-        None => ui.label("Ainda não salvo nesta sessão (grava sozinho a cada 5 s e ao sair)"),
-    };
-    if let Some(p) = &info.save_path {
-        ui.label(egui::RichText::new(p).weak().small());
-    }
-    ui.add_space(8.0);
-    ui.horizontal(|ui| {
-        if ui.button("Continuar").clicked() {
-            actions.push(UiAction::Close);
-        }
-        if ui.button("Salvar agora").clicked() {
-            actions.push(UiAction::Save);
-        }
-    });
-    ui.add_space(14.0);
-    // novo jogo pede um segundo toque
-    let id = egui::Id::unique("confirmar-novo-jogo");
-    let armed = ui.ctx().data(|d| d.get_temp::<bool>(id)).unwrap_or(false);
-    if !armed {
-        if ui.button("Novo jogo…").clicked() {
-            ui.ctx().data_mut(|d| d.insert_temp(id, true));
-        }
-    } else {
-        ui.label(egui::RichText::new(format!("Apagar o progresso de {} e começar um mundo novo?", planet(g.planet).name)).color(Color32::from_rgb(255, 180, 90)));
-        ui.horizontal(|ui| {
-            if ui.button("Sim, começar de novo").clicked() {
-                ui.ctx().data_mut(|d| d.insert_temp(id, false));
-                actions.push(UiAction::NewGame);
-                actions.push(UiAction::Close);
-            }
-            if ui.button("Não").clicked() {
-                ui.ctx().data_mut(|d| d.insert_temp(id, false));
-            }
-        });
-    }
-}
-
 /// média de FPS e pior quadro a cada meio segundo
 #[derive(Default)]
 pub struct Meter {
@@ -170,9 +114,6 @@ pub struct HudInfo<'a> {
     pub show_stats: bool,
     /// teste de efeitos: o que está medindo agora, ou o resultado
     pub bench: Vec<String>,
-    /// segundos desde o último salvamento, e onde ele fica
-    pub saved_ago: Option<f64>,
-    pub save_path: Option<String>,
     pub game: &'a Game,
 }
 
@@ -474,7 +415,8 @@ pub fn draw(ctx: &egui::Context, c: &Controls, info: &HudInfo) -> Vec<UiAction> 
     if let Some(screen) = info.game.screen_open.filter(|_| item_screen) {
         crate::items_screen::draw(ctx, info.game, screen, &mut actions);
     }
-    if let Some(screen) = info.game.screen_open.filter(|_| !item_screen) {
+    // a pausa (Screen::Menu) é uma tela cheia de telas.rs, desenhada pelo App por cima do HUD
+    if let Some(screen) = info.game.screen_open.filter(|s| !item_screen && *s != Screen::Menu) {
         let r = ctx.content_rect();
         let size = egui::vec2(r.width() * 0.86, r.height() * 0.8);
         egui::Window::new("tela")
@@ -490,7 +432,7 @@ pub fn draw(ctx: &egui::Context, c: &Controls, info: &HudInfo) -> Vec<UiAction> 
                 match screen {
                     Screen::Bag | Screen::Station(_) => {}
                     Screen::Power => power_screen(ui, info.game),
-                    Screen::Menu => menu_screen(ui, info, &mut actions),
+                    Screen::Menu => {}
                     Screen::Map => crate::map::map_screen(ui, info.game, &mut actions),
                 }
             });

@@ -206,6 +206,8 @@ pub struct Game {
     pub banner: Option<(String, f64)>,
     /// topo das colunas descobertas, para o mapa do tablet
     pub map: crate::map::MapSurface,
+    /// chunks perto do jogador que ainda não têm malha (a tela de carregamento espera chegar a zero)
+    pub chunks_left: usize,
 }
 
 /// versão do gerador de mundo de cada planeta (WORLD_GEN do TS)
@@ -335,6 +337,8 @@ impl Game {
             reveal_t: 0.0,
             banner: None,
             map: Default::default(),
+            // ainda não se sabe: o primeiro `update` conta
+            chunks_left: usize::MAX,
         }
         .placed(save.is_some_and(|s| s.base.inside))
     }
@@ -456,8 +460,6 @@ impl Game {
                 self.inv.quick_move(from as i64, &mut ev);
             }
             A::Sort => self.inv.sort_bag(&mut ev),
-            // quem cuida é o app (arquivo e jogo novo)
-            A::Save | A::NewGame => {}
         }
         self.react(ev);
     }
@@ -831,7 +833,7 @@ impl Game {
         self.cover(dt);
         self.rig.update(real_dt, focus(self.draw_pos), false);
         self.world.radius = self.rig.chunk_radius();
-        self.world.update(self.player.pos[0], self.player.pos[2], 2);
+        self.chunks_left = self.world.update(self.player.pos[0], self.player.pos[2], 2);
         for e in self.world.events.drain(..) {
             let spacing_core::world::WorldEvent::BlockChanged { x, y, z, .. } = e;
             self.footprints.clear_at(x, y, z);

@@ -249,8 +249,6 @@ pub(crate) fn shoot(r: &mut Renderer, models: &Models, egui: &egui::Context, c: 
             chunks: g.world.chunk_count(),
             show_stats: true,
             bench: Vec::new(),
-            saved_ago: None,
-            save_path: None,
             game: g,
         };
         hud::draw(ctx, c, &info);

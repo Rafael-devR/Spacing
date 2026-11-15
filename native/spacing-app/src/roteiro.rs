@@ -104,8 +104,6 @@ impl Run {
                 chunks: self.game.world.chunk_count(),
                 show_stats: false,
                 bench: Vec::new(),
-                saved_ago: None,
-                save_path: None,
                 game: &self.game,
             };
             let raw = egui::RawInput {
