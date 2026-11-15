@@ -1,7 +1,7 @@
 //! Spacing nativo (docs/design/PORTE_RUST.md): o jogo em Rust no Android (NativeActivity, Vulkan) e no computador.
 //! Este arquivo cuida da janela e do ciclo de vida; o jogo está em `game.rs`, os controles em `controls.rs`, o HUD em `hud.rs`.
-#[cfg(not(target_os = "android"))]
 pub mod base;
+#[cfg(not(target_os = "android"))]
 pub mod capture;
 pub mod controls;
 pub mod effects;

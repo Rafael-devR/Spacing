@@ -24,6 +24,10 @@ cargo run -p spacing-app --release -- lua 12345   # no computador (planeta e sem
 ./build-android.sh                     # APK (precisa de Android SDK, NDK, cargo-ndk e Java 21)
 ```
 
+**Antes de enviar, compile também para o Android** (`cargo ndk -t arm64-v8a -P 26 build --release -p spacing-app --lib`): partes do app
+só existem fora do Android (a captura, `#[cfg(not(target_os = "android"))]`), e um módulo posto no lugar errado compila no computador e
+quebra o APK. Foi o que derrubou as execuções 14 e 15 do Actions.
+
 ### Olhar o jogo sem placa de vídeo (Codespace, servidor)
 
 ```bash
