@@ -216,9 +216,8 @@ impl Post {
         p.draw(0..3, 0..1);
     }
 
-    /// Grava o bloom e a passada final em `out`. Devolve quantas passadas de tela foram feitas.
-    #[allow(clippy::too_many_arguments)]
-    pub fn run(&self, enc: &mut wgpu::CommandEncoder, queue: &wgpu::Queue, out: &wgpu::TextureView, (w, h): (u32, u32), time: f32, screen: ScreenFx, shocks: &[([f32; 4], [f32; 4])]) -> u32 {
+    /// Grava o bloom e prepara a passada final (que `final_pass` abre). Devolve quantas passadas de tela serão feitas.
+    pub fn run(&self, enc: &mut wgpu::CommandEncoder, queue: &wgpu::Queue, (w, h): (u32, u32), time: f32, screen: ScreenFx, shocks: &[([f32; 4], [f32; 4])]) -> u32 {
         let s = self.settings;
         let Some(g) = &self.grade_step else { return 0 };
         let flag = |b: bool| if b { 1.0 } else { 0.0 };
@@ -249,8 +248,30 @@ impl Post {
             }
             passes += 2 * MIPS as u32 - 1;
         }
-        Self::pass(enc, out, wgpu::LoadOp::Clear(wgpu::Color::BLACK), &self.grade, &g.bind);
         passes
+    }
+
+    /// Abre a passada final em `out` (a tela), já com a imagem desenhada; quem chama pode desenhar por cima (a
+    /// interface) antes de soltá-la.
+    pub fn final_pass(&self, enc: &mut wgpu::CommandEncoder, out: &wgpu::TextureView) -> wgpu::RenderPass<'static> {
+        let mut p = enc
+            .begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("final"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: out,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: wgpu::StoreOp::Store },
+                })],
+                ..Default::default()
+            })
+            .forget_lifetime();
+        if let Some(g) = &self.grade_step {
+            p.set_pipeline(&self.grade);
+            p.set_bind_group(0, &g.bind, &[]);
+            p.draw(0..3, 0..1);
+        }
+        p
     }
 
     /// para os testes saberem que os buffers existem

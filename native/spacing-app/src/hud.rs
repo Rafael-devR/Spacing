@@ -37,6 +37,8 @@ pub struct HudInfo<'a> {
     pub stats: FrameStats,
     pub backend: &'a str,
     pub size: (u32, u32),
+    /// onde a cena 3D é desenhada (a resolução dinâmica mexe)
+    pub scene: (u32, u32),
     pub msaa: u32,
     pub present: &'a str,
     pub planet: &'a str,
@@ -92,7 +94,7 @@ pub fn draw(ctx: &egui::Context, c: &Controls, info: &HudInfo) {
         let tris = if s.triangles >= 1_000_000 { format!("{:.2} mi", s.triangles as f64 / 1e6) } else { format!("{} mil", s.triangles / 1000) };
         lines.push(format!("{} chamadas (+{} na sombra) · {} triângulos · {} passadas de pós", s.draws, s.shadow_draws, tris, s.post_passes).replace('.', ","));
         lines.push(format!("chunks: {} na tela de {} ({} no mundo)", s.chunks_drawn, s.chunks_total, info.chunks));
-        lines.push(format!("{} · {}×{} · MSAA {}x · {}", info.backend, info.size.0, info.size.1, info.msaa, info.present));
+        lines.push(format!("{} · cena {}×{} de {}×{} · MSAA {}x · {}", info.backend, info.scene.0, info.scene.1, info.size.0, info.size.1, info.msaa, info.present));
         lines.push(format!("{} · semente {} · nativo (Rust)", info.planet, info.seed));
         lines.push(format!("x {:.1}  y {:.1}  z {:.1}", info.pos[0], info.pos[1], info.pos[2]).replace('.', ","));
     }

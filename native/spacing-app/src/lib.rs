@@ -11,6 +11,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use spacing_core::planet::{planet, PlanetId};
+use spacing_core::scaler::ResolutionScaler;
 use spacing_render::{FrameStats, Renderer, Ui};
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, MouseScrollDelta, TouchPhase, WindowEvent};
@@ -48,6 +49,12 @@ struct App {
     show_stats: bool,
     vsync: bool,
     bench: Option<effects::EffectBench>,
+    /// resolução dinâmica (só fora do teste de efeitos)
+    scaler: ResolutionScaler,
+    /// escala da cena antes da dinâmica: densidade 2 como a qualidade Alta do jogo web (devicePixelRatio até 2)
+    base_scale: f32,
+    /// quanto da CPU o quadro anterior gastou (a dinâmica só baixa a resolução quando o atraso é da GPU)
+    cpu_ms: f64,
     last: Option<Instant>,
     cursor: (f32, f32),
     /// por que o desenho não subiu (fica no log; a tela só mostra preto)
@@ -73,6 +80,9 @@ impl App {
             show_stats: true,
             vsync: false,
             bench: None,
+            scaler: ResolutionScaler::default(),
+            base_scale: 1.0,
+            cpu_ms: 0.0,
             last: None,
             cursor: (0.0, 0.0),
             failed: None,
@@ -109,6 +119,11 @@ impl App {
             let ppp = w.scale_factor() as f32;
             self.egui.set_pixels_per_point(ppp);
             self.controls.layout(s.width as f32, s.height as f32, ppp);
+            self.base_scale = (2.0 / ppp).min(1.0);
+            self.scaler.reset();
+            if let Some(r) = &mut self.renderer {
+                r.set_scale(self.base_scale);
+            }
         }
     }
 
@@ -155,7 +170,15 @@ impl App {
         self.last = Some(now);
         self.meter.frame(dt);
         if let (Some(b), Some(r)) = (self.bench.as_mut(), self.renderer.as_mut()) {
-            b.frame(dt, r);
+            if b.frame(dt, r) {
+                // acabou: a resolução volta à de antes
+                r.set_scale(self.base_scale * self.scaler.scale() as f32);
+            }
+        } else if let Some(r) = self.renderer.as_mut() {
+            // alvo de 60 quadros, como o jogo web sem limite escolhido
+            if let Some(s) = self.scaler.frame(dt * 1000.0, self.cpu_ms, 1000.0 / 60.0) {
+                r.set_scale(self.base_scale * s as f32);
+            }
         }
         let (Some(r), Some(window)) = (self.renderer.as_mut(), self.window.clone()) else { return };
         if self.game.is_none() {
@@ -178,6 +201,7 @@ impl App {
             stats: self.stats,
             backend: &r.backend,
             size,
+            scene: r.scene_size(),
             msaa: r.msaa(),
             present: r.present_mode(),
             planet: planet(game.planet).name,
@@ -205,6 +229,7 @@ impl App {
         if let Some(s) = r.render(&frame, Some(Ui { primitives: &prims, textures: &out.textures_delta, pixels_per_point: out.pixels_per_point })) {
             self.stats = s;
         }
+        self.cpu_ms = now.elapsed().as_secs_f64() * 1000.0;
         window.request_redraw();
     }
 }

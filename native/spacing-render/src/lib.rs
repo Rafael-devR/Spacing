@@ -262,6 +262,8 @@ pub struct Renderer {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     msaa: u32,
+    /// fração da tela em que a cena 3D é desenhada (a interface fica sempre na resolução cheia)
+    scale: f32,
     present_modes: Vec<wgpu::PresentMode>,
     hdr_ms: Option<wgpu::TextureView>,
     hdr: wgpu::TextureView,
@@ -383,8 +385,9 @@ impl Renderer {
             }
             None => (wgpu::TextureFormat::Rgba8UnormSrgb, wgpu::CompositeAlphaMode::Opaque, Vec::new()),
         };
-        let ms_ok = |f| adapter.get_texture_format_features(f).flags.sample_count_supported(4);
-        let msaa = if ms_ok(HDR) && ms_ok(DEPTH) { 4 } else { 1 };
+        // MSAA 2x, como a qualidade Alta do jogo web: na resolução de celular as bordas já saem finas e o 4x custava caro
+        let ms_ok = |f| adapter.get_texture_format_features(f).flags.sample_count_supported(2);
+        let msaa = if ms_ok(HDR) && ms_ok(DEPTH) { 2 } else { 1 };
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format,
@@ -587,7 +590,7 @@ impl Renderer {
         let egui = egui_wgpu::Renderer::new(&device, format, egui_wgpu::RendererOptions::default());
         let post = Post::new(&device, format);
         let prop_meshes = load_props(&device);
-        let (hdr_ms, hdr, depth) = Self::targets(&device, &config, msaa);
+        let (hdr_ms, hdr, depth) = Self::targets(&device, (config.width, config.height), msaa);
         let mut r = Self {
             surface,
             offscreen,
@@ -595,6 +598,7 @@ impl Renderer {
             queue,
             config,
             msaa,
+            scale: 1.0,
             present_modes,
             hdr_ms,
             hdr,
@@ -631,7 +635,8 @@ impl Renderer {
             backend: format!("{:?}", info.backend),
             adapter_name: info.name,
         };
-        r.post.resize(&r.device, &r.queue, &r.hdr, r.config.width, r.config.height);
+        let (sw, sh) = r.scene_size();
+        r.post.resize(&r.device, &r.queue, &r.hdr, sw, sh);
         Ok(r)
     }
 
@@ -714,8 +719,8 @@ impl Renderer {
     }
 
     /// cor HDR com MSAA (se houver), cor HDR resolvida (o pós lê) e profundidade
-    fn targets(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, msaa: u32) -> (Option<wgpu::TextureView>, wgpu::TextureView, wgpu::TextureView) {
-        let size = wgpu::Extent3d { width: config.width, height: config.height, depth_or_array_layers: 1 };
+    fn targets(device: &wgpu::Device, (w, h): (u32, u32), msaa: u32) -> (Option<wgpu::TextureView>, wgpu::TextureView, wgpu::TextureView) {
+        let size = wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 };
         let tex = |format, label, samples, usage| {
             device
                 .create_texture(&wgpu::TextureDescriptor { label: Some(label), size, mip_level_count: 1, sample_count: samples, dimension: wgpu::TextureDimension::D2, format, usage, view_formats: &[] })
@@ -765,6 +770,36 @@ impl Renderer {
         self.msaa
     }
 
+    /// tamanho em que a cena 3D é desenhada (a tela vezes a escala)
+    pub fn scene_size(&self) -> (u32, u32) {
+        let (w, h) = self.size();
+        (((w as f32 * self.scale).round() as u32).max(1), ((h as f32 * self.scale).round() as u32).max(1))
+    }
+
+    pub fn scale(&self) -> f32 {
+        self.scale
+    }
+
+    /// Escala da cena 3D (0,3 a 1; a passada final estica para a tela). É a "resolução" das configurações do jogo web
+    /// e o que a resolução dinâmica mexe.
+    pub fn set_scale(&mut self, s: f32) {
+        let s = s.clamp(0.3, 1.0);
+        if (s - self.scale).abs() < 1e-3 {
+            return;
+        }
+        self.scale = s;
+        self.rebuild_targets();
+    }
+
+    fn rebuild_targets(&mut self) {
+        let size = self.scene_size();
+        let (m, c, d) = Self::targets(&self.device, size, self.msaa);
+        self.hdr_ms = m;
+        self.hdr = c;
+        self.depth = d;
+        self.post.resize(&self.device, &self.queue, &self.hdr, size.0, size.1);
+    }
+
     pub fn resize(&mut self, w: u32, h: u32) {
         if w == 0 || h == 0 || (w, h) == self.size() {
             return;
@@ -776,11 +811,7 @@ impl Renderer {
         } else {
             self.offscreen = Some(Self::offscreen_tex(&self.device, &self.config));
         }
-        let (m, c, d) = Self::targets(&self.device, &self.config, self.msaa);
-        self.hdr_ms = m;
-        self.hdr = c;
-        self.depth = d;
-        self.post.resize(&self.device, &self.queue, &self.hdr, w, h);
+        self.rebuild_targets();
     }
 
     /// Sobe (ou troca) a malha de um chunk.
@@ -922,6 +953,7 @@ impl Renderer {
         let vp = self.view_proj(f);
         let svp = self.sun_view_proj(f);
         let (w, h) = self.size();
+        let (sw, sh) = self.scene_size();
         let lt = &self.light;
         let st = f.storm.clamp(0.0, 1.0);
         let mixc = |a: [f32; 3], b: [f32; 3]| [a[0] + (b[0] - a[0]) * st, a[1] + (b[1] - a[1]) * st, a[2] + (b[2] - a[2]) * st];
@@ -944,7 +976,7 @@ impl Renderer {
             bg_top: [bg_top[0], bg_top[1], bg_top[2], 0.03],
             bg_bot: [bg_bot[0], bg_bot[1], bg_bot[2], lt.stars as u8 as f32],
             mist: [mist[0], mist[1], mist[2], f.mist_y],
-            fog: [f.fog.0, f.fog.1, w as f32, h as f32],
+            fog: [f.fog.0, f.fog.1, sw as f32, sh as f32],
             lamp: f.lamp.to_array(),
             point: f.point.map(|p| [p.0.x, p.0.y, p.0.z, p.1]).unwrap_or([0.0; 4]),
             point_col: f.point.map(|p| [p.2[0], p.2[1], p.2[2], 0.0]).unwrap_or([0.0; 4]),
@@ -1095,39 +1127,33 @@ impl Renderer {
             }
         }
 
-        // 3. bloom e passada final
-        stats.post_passes = self.post.run(&mut enc, &self.queue, &view, (w, h), f.time, f.screen, f.shocks);
-
-        // 4. interface
-        if let Some(ui) = ui {
+        // 3. interface: texturas e buffers antes das passadas (o egui grava cópias no codificador)
+        let mut extra = Vec::new();
+        let sd = egui_wgpu::ScreenDescriptor { size_in_pixels: [w, h], pixels_per_point: ui.as_ref().map_or(1.0, |u| u.pixels_per_point) };
+        if let Some(ui) = &ui {
             for (id, deltas) in &ui.textures.set {
                 for delta in deltas.iter() {
                     self.egui.update_texture(&self.device, &self.queue, *id, delta);
                 }
             }
-            let sd = egui_wgpu::ScreenDescriptor { size_in_pixels: [w, h], pixels_per_point: ui.pixels_per_point };
-            let extra = self.egui.update_buffers(&self.device, &self.queue, &mut enc, ui.primitives, &sd);
-            {
-                let pass = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: Some("interface"),
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: &view,
-                        depth_slice: None,
-                        resolve_target: None,
-                        ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store },
-                    })],
-                    ..Default::default()
-                });
-                let mut pass = pass.forget_lifetime();
+            extra = self.egui.update_buffers(&self.device, &self.queue, &mut enc, ui.primitives, &sd);
+        }
+
+        // 4. bloom e passada final; a interface vai na mesma passada (num celular, cada passada a mais na tela inteira
+        // custa uma leitura e uma escrita da imagem toda)
+        stats.post_passes = self.post.run(&mut enc, &self.queue, (w, h), f.time, f.screen, f.shocks);
+        {
+            let mut pass = self.post.final_pass(&mut enc, &view);
+            if let Some(ui) = &ui {
                 self.egui.render(&mut pass, ui.primitives, &sd);
             }
+        }
+        if let Some(ui) = &ui {
             for id in &ui.textures.free {
                 self.egui.free_texture(id);
             }
-            self.queue.submit(extra.into_iter().chain(std::iter::once(enc.finish())));
-        } else {
-            self.queue.submit(std::iter::once(enc.finish()));
         }
+        self.queue.submit(extra.into_iter().chain(std::iter::once(enc.finish())));
         if let Some(fr) = frame {
             self.queue.present(fr);
         }
@@ -1190,7 +1216,7 @@ mod tests {
         let mut n = 0;
         while at + 4 <= b.len() {
             let v = u32::from_le_bytes([b[at], b[at + 1], b[at + 2], b[at + 3]]) as usize;
-            assert!(v > 0 && v % 3 == 0);
+            assert!(v > 0 && v.is_multiple_of(3));
             at += 4 + v * 24;
             n += 1;
         }

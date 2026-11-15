@@ -172,7 +172,7 @@ a thread principal), edições e salvamento das edições no formato do TS, raio
 **Falta do M1:** fabricação, inventário, energia, sobrevivência, estufa, missões, pedaços e itens soltos, meteoros, salvamento
 completo. Nada disso é preciso para andar; entra com o M4.
 
-### M2 Andar na Lua (feito, esperando o teste no celular)
+### M2 Andar na Lua (feito)
 
 - Blocos com um buffer por chunk e posições já no mundo (uma chamada por chunk, sem uniforme por chunk), vértice de 28 bytes,
   descarte pela câmera, MSAA 4x quando o aparelho deixa.
@@ -187,7 +187,7 @@ Resultado no celular do dono (2026-11-14): fluido, **150 a 250 FPS** sem limite 
 Lua e em Marte. Bugs achados por ele e corrigidos: trocar de planeta fechava o app (o Android não deixa criar duas superfícies
 na mesma janela; agora só a luz e o céu mudam) e o FPS ficava preso em 120 (agora sem limite por padrão, botão `V`).
 
-### M3 Visual completo (feito, esperando o teste no celular)
+### M3 Visual completo (feito)
 
 - **Sombra do sol:** mapa de 2048 ortográfico que segue o jogador em passos de um texel (lights.ts), PCF de 5 amostras, só nas
   faces voltadas para o sol, costas no mapa como o Three.js.
@@ -211,5 +211,19 @@ Ficou de fora do M3, de propósito:
 - **Corte da caverna:** desligado no jogo web a pedido do dono (escondia blocos que bloqueiam o caminho). Não foi portado.
 - **Destroços que quicam** (Debris.ts) e **dano** (lava, meteoro): são jogo, entram com o M4. Por ora os pedaços da cratera voam
   como partículas e a lava só solta brasas.
-- **Escolha de qualidade e MSAA desligável:** ficam para a tela de configurações (M5); hoje o app liga tudo, com MSAA 4x quando
+- **Escolha de qualidade e MSAA desligável:** ficam para a tela de configurações (M5); hoje o app liga tudo, com MSAA 2x quando
   o aparelho deixa.
+
+Resultado no celular do dono (2026-11-15): tudo funcionou, **40 a 60 FPS** com tudo ligado (a maior parte do tempo entre 50 e
+60), contra 150 a 250 no M2. O teste `B` deu "todos os efeitos" custando 4 a 5 ms, mas números sem sentido para cada efeito
+(sombra custando -4 ms): a placa muda de velocidade no meio do teste mais do que um efeito custa. Ajustes depois disso:
+
+- **Cena na densidade 2, não na resolução cheia:** o jogo web na qualidade Alta desenha com `devicePixelRatio` até 2; o nativo
+  desenhava os 2340×1080 inteiros. Agora a cena 3D sai em `2 / densidade da tela` (cerca de 0,73 no celular do dono) e a
+  passada final estica para a tela; a interface continua na resolução cheia.
+- **MSAA 2x** no lugar do 4x, como a Alta do jogo web (lá o MSAA já tinha sido o efeito mais caro).
+- **Resolução dinâmica** (`spacing-core/src/scaler.rs`, porte do `scaler.ts` com os mesmos testes): se mais de 10% dos quadros de
+  uma janela passam de 25 ms por causa da GPU, baixa um degrau (0,85, 0,72, 0,6 da escala); sobe de novo depois de folga.
+- **Interface na passada final:** antes era uma passada a mais que lia e regravava a tela inteira.
+- **Teste `B` intercalado:** cada efeito desligado é comparado com "tudo ligado" medido logo antes e logo depois, em duas rodadas,
+  e o resultado mostra a variação (±). Mede também quanto custaria a resolução cheia.

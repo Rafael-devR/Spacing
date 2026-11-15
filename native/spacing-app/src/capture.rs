@@ -20,7 +20,11 @@ pub fn run(dir: &str, opts: Options) {
             std::process::exit(1);
         }
     };
-    println!("desenho: {} ({}), MSAA {}x", r.adapter_name, r.backend, r.msaa());
+    // SPACING_ESCALA=0.7 desenha a cena menor, como no celular (a interface continua na resolução cheia)
+    if let Some(sc) = std::env::var("SPACING_ESCALA").ok().and_then(|v| v.parse::<f32>().ok()) {
+        r.set_scale(sc);
+    }
+    println!("desenho: {} ({}), MSAA {}x, cena {:?}", r.adapter_name, r.backend, r.msaa(), r.scene_size());
     let models = Models::load(&mut r);
     let t0 = Instant::now();
     let mut game = Game::new(opts.planet, opts.seed, 3);
@@ -84,6 +88,7 @@ pub fn run(dir: &str, opts: Options) {
             stats,
             backend: &r.backend,
             size: (w, h),
+            scene: r.scene_size(),
             msaa: r.msaa(),
             present: r.present_mode(),
             planet: planet(game.planet).name,
