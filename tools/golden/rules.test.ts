@@ -26,6 +26,7 @@ import {
   type ItemId,
 } from '../../src/data/items';
 import { MISSION_01, MISSION_MARS, type MissionStep } from '../../src/data/missions';
+import { BASE, BASE_MODULES } from '../../src/data/base';
 import { POWER, SUN_DIRECTION } from '../../src/data/power';
 import { PROPS, PROP_DEBRIS, PROP_TYPES } from '../../src/data/props';
 import { JITTER, MAX_BATCH, RECIPES } from '../../src/data/recipes';
@@ -122,6 +123,7 @@ function exportData(): void {
       farm: FARM,
     },
     missions: { lua: MISSION_01.map(stepOut), marte: MISSION_MARS.map(stepOut) },
+    base: { ...BASE, modules: BASE_MODULES },
     props: PROP_TYPES.map((t) => ({
       id: t,
       ...PROPS[t],

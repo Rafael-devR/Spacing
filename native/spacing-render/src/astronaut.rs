@@ -162,3 +162,78 @@ impl StaticModel {
         }
     }
 }
+
+/// uma parte de um modelo com o caminho de nomes até ela (do nó raiz ao nó da malha)
+pub struct NamedPiece {
+    pub mesh: MeshId,
+    pub local: Mat4,
+    pub material: Material,
+    pub path: Vec<String>,
+}
+
+impl NamedPiece {
+    /// algum nó do caminho tem este nome
+    pub fn under(&self, name: &str) -> bool {
+        self.path.iter().any(|n| n == name)
+    }
+}
+
+/// Modelo em que o jogo mexe por nome (a base: paredes que somem no corte, folhas da porta que correm, telhado).
+pub struct NamedModel {
+    pub pieces: Vec<NamedPiece>,
+    /// nós sem malha (pontos marcados no Blender): nome e posição relativa à origem
+    pub markers: Vec<(String, Vec3)>,
+    /// posição de cada nó com nome (as folhas da porta, por exemplo)
+    pub nodes: Vec<(String, Vec3)>,
+}
+
+impl NamedModel {
+    fn build(m: &ModelData, meshes: &[MeshId], roots: &[usize], base: Mat4) -> Self {
+        let mut out = NamedModel { pieces: Vec::new(), markers: Vec::new(), nodes: Vec::new() };
+        fn walk(m: &ModelData, meshes: &[MeshId], i: usize, at: Mat4, path: &mut Vec<String>, out: &mut NamedModel) {
+            let n = &m.nodes[i];
+            path.push(n.name.clone());
+            out.nodes.push((n.name.clone(), at.w_axis.truncate()));
+            match n.mesh {
+                Some(mi) => out.pieces.push(NamedPiece { mesh: meshes[mi], local: at, material: material_for(&n.name), path: path.clone() }),
+                None if n.children.is_empty() => out.markers.push((n.name.clone(), at.w_axis.truncate())),
+                None => {}
+            }
+            for &c in &n.children {
+                walk(m, meshes, c, at * m.nodes[c].local(), path, out);
+            }
+            path.pop();
+        }
+        for &r in roots {
+            walk(m, meshes, r, base * m.nodes[r].local(), &mut Vec::new(), &mut out);
+        }
+        out
+    }
+
+    pub fn new(m: &ModelData, meshes: &[MeshId]) -> Self {
+        Self::build(m, meshes, &m.roots, Mat4::IDENTITY)
+    }
+
+    /// só a parte de um nó, com a origem no próprio nó
+    pub fn subtree(m: &ModelData, meshes: &[MeshId], root: &str) -> Option<Self> {
+        let r = m.find(root)?;
+        Some(Self::build(m, meshes, &[r], m.nodes[r].local().inverse()))
+    }
+
+    pub fn marker(&self, name: &str) -> Option<Vec3> {
+        self.markers.iter().chain(self.nodes.iter()).find(|(n, _)| n == name).map(|(_, p)| *p)
+    }
+
+    /// Desenha; `f` devolve, para cada parte, um ajuste no espaço do modelo (None = não desenha).
+    pub fn draw_with(&self, at: Mat4, out: &mut Vec<PartDraw>, f: impl Fn(&NamedPiece) -> Option<Mat4>) {
+        for p in &self.pieces {
+            if let Some(adj) = f(p) {
+                out.push(PartDraw { mesh: p.mesh, world: at * adj * p.local, material: p.material });
+            }
+        }
+    }
+
+    pub fn draw(&self, at: Mat4, out: &mut Vec<PartDraw>) {
+        self.draw_with(at, out, |_| Some(Mat4::IDENTITY));
+    }
+}

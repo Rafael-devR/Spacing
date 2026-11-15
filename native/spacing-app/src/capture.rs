@@ -36,10 +36,10 @@ pub fn run(dir: &str, opts: Options) {
     let meter = hud::Meter::default();
     let dt = 1.0 / 60.0;
     // (quadro, nome da captura)
-    let shots = [(30, "1-pouso"), (150, "2-andando"), (200, "3-pulo"), (275, "6-meteoro-voo"), (312, "7-meteoro-impacto"), (330, "8-meteoro-onda"), (360, "4-girou"), (420, "5-longe"), (450, "9-minerando"), (530, "10-quebrou"), (575, "11-construiu"), (690, "12-morte"), (740, "13-renasceu")];
+    let shots = [(30, "1-pouso"), (150, "2-andando"), (200, "3-pulo"), (275, "6-meteoro-voo"), (312, "7-meteoro-impacto"), (330, "8-meteoro-onda"), (360, "4-girou"), (420, "5-longe"), (450, "9-minerando"), (530, "10-quebrou"), (575, "11-construiu"), (690, "12-morte"), (740, "13-renasceu"), (770, "14-base-fora"), (800, "15-camara"), (1000, "16-dentro"), (1280, "17-saiu")];
     let mut stats = Default::default();
     game.meteors.auto_spawn = false;
-    for f in 0..=740 {
+    for f in 0..=1280 {
         c.scripted = Some(match f {
             0..=60 => (0.0, 0.0),
             61..=180 => (0.0, 1.0),
@@ -96,6 +96,18 @@ pub fn run(dir: &str, opts: Options) {
         if f == 700 {
             c.tap(10.0, 10.0, false);
         }
+        // a base: vai até a porta, entra, olha o interior e sai
+        if f == 745 {
+            let o = game.base.layout.outside;
+            let gy = game.world.top_y(o[0].floor() as i32, o[2].floor() as i32) as f64 + 1.0;
+            game.player.pos = [o[0], gy, o[2] + 0.4];
+            game.player.prev_pos = game.player.pos;
+            c.actions.zoom = 0.75;
+        }
+        if f == 775 || f == 1010 {
+            println!("  base: {:?} usar {:?}", game.base.mode, game.base.use_label);
+            c.actions.use_ = true;
+        }
         if f == 545 {
             c.actions.toggle_build = true;
         }
@@ -149,6 +161,7 @@ pub fn run(dir: &str, opts: Options) {
         enc.set_depth(png::BitDepth::Eight);
         enc.write_header().and_then(|mut wr| wr.write_image_data(&px)).expect("png");
         println!("  sprites: {} (baforadas {}, pedrinhas {}), pedaços {}, itens voando {}, inventário {:?}", game.sprite_count(), game.puffs.active(), game.particles.active(), game.debris.count(), game.drops.drops.len(), game.inv.totals());
+        println!("  base {:?} vista de dentro {} porta {:.2}", game.base.mode, game.base.indoor_view, game.base.door);
         println!("  mira {:?} progresso {:?} alvo {:?} dureza {:?}", game.interaction.aim, game.interaction.progress, game.interaction.target.as_ref().map(|t| t.key()), game.interaction.target.as_ref().map(|t| t.hardness()));
         println!(
             "{path}: {} chamadas, {} triângulos, {}/{} chunks, {:.0} ms (software), jogador {:.1} {:.1} {:.1}",

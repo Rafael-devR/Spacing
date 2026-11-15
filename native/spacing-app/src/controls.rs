@@ -19,6 +19,10 @@ pub enum Button {
     Build,
     /// um espaço da barra de itens
     Slot(u8),
+    /// o botão de ação (entrar, sair, descansar, usar a estação)
+    Use,
+    /// fechar a tela aberta (estação)
+    Close,
 }
 
 /// a mira de um dedo (ou do mouse) fora dos botões e do joystick
@@ -62,6 +66,8 @@ pub struct Actions {
     pub meteor: bool,
     pub bench: bool,
     pub toggle_build: bool,
+    pub use_: bool,
+    pub close: bool,
     pub select: Option<u8>,
     /// toques rápidos (x, y em pixels, construir mesmo fora do modo = botão direito do mouse)
     pub taps: [Option<(f32, f32, bool)>; 2],
@@ -84,11 +90,15 @@ pub struct Controls {
     pub hover: Option<(f32, f32)>,
     /// tamanho da tela (pixels)
     pub screen: (f32, f32),
+    /// o botão de ação aparece (há algo para usar perto)
+    pub use_visible: bool,
+    /// uma tela está aberta: só o botão de fechar e a própria tela recebem toques
+    pub modal: bool,
 }
 
 impl Default for Controls {
     fn default() -> Self {
-        Self { scripted: None, fingers: HashMap::new(), keys: Default::default(), buttons: Vec::new(), stick_r: 60.0, actions: Actions::default(), touched: cfg!(target_os = "android"), aim_offset: 80.0, hover: None, screen: (1.0, 1.0) }
+        Self { scripted: None, fingers: HashMap::new(), keys: Default::default(), buttons: Vec::new(), stick_r: 60.0, actions: Actions::default(), touched: cfg!(target_os = "android"), aim_offset: 80.0, hover: None, screen: (1.0, 1.0), use_visible: false, modal: false }
     }
 }
 
@@ -117,6 +127,9 @@ impl Controls {
             ButtonRect { b: Button::Bench, x: m + small * 11.4, y: m + small, r: small },
             ButtonRect { b: Button::Build, x: jx - big * 2.1, y: jy - big * 1.4, r: small * 1.25 },
         ];
+        // botão de ação: em cima da barra, no meio; fechar: canto de cima à direita
+        self.buttons.push(ButtonRect { b: Button::Use, x: w * 0.5, y: h - 10.0 * u - 40.0 * u - 52.0 * u, r: 24.0 * u });
+        self.buttons.push(ButtonRect { b: Button::Close, x: w - m - small, y: m + small, r: small });
         // barra de itens embaixo, no meio
         let (slot, gap) = (40.0 * u, 5.0 * u);
         let n = 8.0;
@@ -130,9 +143,16 @@ impl Controls {
     fn hit(&self, x: f32, y: f32) -> Option<Button> {
         self.buttons
             .iter()
+            .filter(|b| match b.b {
+                Button::Use => self.use_visible && !self.modal,
+                Button::Close => self.modal,
+                _ => !self.modal,
+            })
             .find(|b| match b.b {
                 // espaços da barra: quadrados encostados (sem folga a mais)
                 Button::Slot(_) => (x - b.x).abs() <= b.r && (y - b.y).abs() <= b.r,
+                // pílula larga com o texto
+                Button::Use => (x - b.x).abs() <= b.r * 4.0 && (y - b.y).abs() <= b.r,
                 _ => (x - b.x).powi(2) + (y - b.y).powi(2) <= (b.r * 1.25).powi(2),
             })
             .map(|b| b.b)
@@ -153,6 +173,8 @@ impl Controls {
             Button::Bench => a.bench = true,
             Button::Build => a.toggle_build = true,
             Button::Slot(i) => a.select = Some(i),
+            Button::Use => a.use_ = true,
+            Button::Close => a.close = true,
         }
     }
 
@@ -271,6 +293,8 @@ impl Controls {
                     "t" => self.actions.meteor = true,
                     "b" => self.actions.bench = true,
                     "c" | "x" => self.actions.toggle_build = true,
+                    "f" | "enter" => self.actions.use_ = true,
+                    "escape" => self.actions.close = true,
                     "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" => self.actions.select = k.parse::<u8>().ok().map(|n| n - 1),
                     _ => {}
                 }

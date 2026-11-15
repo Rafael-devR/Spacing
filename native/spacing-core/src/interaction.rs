@@ -202,7 +202,7 @@ impl Interaction {
             return;
         };
         let prop_here = c.world.prop_at(x, z).is_some_and(|p| p.y == y);
-        if y <= 0 || y >= CH as i32 || c.world.get_block(x, y, z) != AIR || c.player.intersects_block(x, y, z) || prop_here {
+        if y <= 0 || y >= CH as i32 || c.world.get_block(x, y, z) != AIR || c.player.intersects_block(x, y, z) || c.world.structure_at(x, y, z) || prop_here {
             c.ev.push(GameEvent::ActionDenied { reason: "blocked", item: Some(item) });
             return;
         }
@@ -216,7 +216,7 @@ impl Interaction {
     /// objeto (painel solar) em cima do bloco mirado, virado para o sol
     fn place_prop(t: &VoxelHit, item: ItemId, kind: &str, (x, y, z): (i32, i32, i32), c: &mut Ctx) {
         let Some(&kind) = crate::terrain::PROP_TYPES.iter().find(|k| **k == kind) else { return };
-        if t.normal[1] != 1 || y >= CH as i32 - 2 || c.world.get_block(x, y, z) != AIR || c.world.get_block(x, y + 1, z) != AIR || c.player.intersects_block(x, y, z) || c.world.prop_at(x, z).is_some() {
+        if t.normal[1] != 1 || y >= CH as i32 - 2 || c.world.get_block(x, y, z) != AIR || c.world.get_block(x, y + 1, z) != AIR || c.player.intersects_block(x, y, z) || c.world.structure_at(x, y, z) || c.world.prop_at(x, z).is_some() {
             c.ev.push(GameEvent::ActionDenied { reason: "blocked", item: Some(item) });
             return;
         }

@@ -397,6 +397,7 @@ pub struct Rules {
     pub greenhouse: GreenhouseData,
     pub missions: Missions,
     pub props: Vec<PropData>,
+    pub base: crate::base::BaseData,
 }
 
 /// objeto solto no chão (data/props.ts)

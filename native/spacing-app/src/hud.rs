@@ -169,6 +169,31 @@ fn draw_play(painter: &egui::Painter, c: &Controls, g: &Game, ppp: f32, ink: Col
         painter.text(at, Align2::CENTER_BOTTOM, &item.data().name, FontId::proportional(13.0), ink);
     }
 
+    // botão de ação
+    if let (Some(label), Some(b)) = (&g.base.use_label, c.buttons.iter().find(|b| b.b == Button::Use)) {
+        if c.use_visible && !c.modal {
+            let r = Rect::from_center_size(pt(b.x, b.y), Vec2::new(b.r * 8.0 / ppp, b.r * 2.0 / ppp));
+            let fill = if c.pressed(Button::Use) { Color32::from_rgba_unmultiplied(255, 170, 90, 200) } else { Color32::from_rgba_unmultiplied(20, 30, 60, 200) };
+            painter.rect_filled(r, b.r / ppp, fill);
+            painter.rect_stroke(r, b.r / ppp, Stroke::new(1.5, Color32::from_rgb(127, 231, 255)), egui::StrokeKind::Inside);
+            painter.text(r.center(), Align2::CENTER_CENTER, label, FontId::proportional(15.0), ink);
+        }
+    }
+    // câmara de pressurização e descanso
+    let (sw, sh) = (c.screen.0 / ppp, c.screen.1 / ppp);
+    if let Some((title, sub, f)) = g.base.airlock {
+        let ctr = Pos2::new(sw * 0.5, sh * 0.42);
+        painter.rect_filled(Rect::from_center_size(ctr, Vec2::new(300.0, 96.0)), 10.0, Color32::from_rgba_unmultiplied(10, 12, 28, 220));
+        painter.text(ctr - Vec2::new(0.0, 26.0), Align2::CENTER_CENTER, title, FontId::proportional(18.0), ink);
+        painter.text(ctr - Vec2::new(0.0, 2.0), Align2::CENTER_CENTER, sub, FontId::proportional(13.0), Color32::from_rgb(127, 231, 255));
+        let bar = Rect::from_center_size(ctr + Vec2::new(0.0, 26.0), Vec2::new(240.0, 8.0));
+        painter.rect_filled(bar, 4.0, glass);
+        painter.rect_filled(Rect::from_min_size(bar.min, Vec2::new(240.0 * f as f32, 8.0)), 4.0, Color32::from_rgb(127, 231, 255));
+    }
+    if let Some(msg) = g.base.fade {
+        painter.rect_filled(Rect::from_min_size(Pos2::ZERO, Vec2::new(sw, sh)), 0.0, Color32::from_black_alpha(210));
+        painter.text(Pos2::new(sw * 0.5, sh * 0.5), Align2::CENTER_CENTER, msg, FontId::proportional(20.0), ink);
+    }
     // avisos
     let mut y = c.screen.1 / ppp * 0.3;
     for (msg, t) in &g.toasts {
@@ -207,7 +232,8 @@ fn label(b: Button) -> &'static str {
         Button::Meteor => "*",
         Button::Bench => "B",
         Button::Build => "CONSTR.",
-        Button::Slot(_) => "",
+        Button::Slot(_) | Button::Use => "",
+        Button::Close => "X",
     }
 }
 
@@ -222,7 +248,7 @@ pub fn draw(ctx: &egui::Context, c: &Controls, info: &HudInfo) {
     draw_play(&painter, c, info.game, ppp, ink, glass);
     if c.touched {
         for b in &c.buttons {
-            if matches!(b.b, Button::Slot(_)) {
+            if matches!(b.b, Button::Slot(_) | Button::Use) || (b.b == Button::Close) != c.modal {
                 continue;
             }
             let on = b.b == Button::Build && info.game.interaction.build_mode;

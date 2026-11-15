@@ -215,6 +215,8 @@ pub struct Frame<'a> {
     pub point: Option<(Vec3, f32, [f32; 3])>,
     /// ondas de choque na tela (centro 0..1 com y para cima, raio, força; espessura, borda, cor separada)
     pub shocks: &'a [([f32; 4], [f32; 4])],
+    /// dentro da base (ADR 0006): o mundo de fora (chunks) não é desenhado e a luz é a de dentro
+    pub indoor: bool,
 }
 
 /// números do quadro (para o medidor na tela)
@@ -248,6 +250,22 @@ struct Lighting {
 }
 
 impl Lighting {
+    /// luz de dentro da base (render/indoors.ts, INSIDE): teto claro e frio, chão quente, sol como luz de teto
+    fn indoor() -> Self {
+        let bg = lin("#0b0a16", 1.0);
+        Lighting {
+            sun: lin("#fff1dc", 1.6),
+            hemi_sky: lin("#dfe8ff", 1.15),
+            hemi_ground: lin("#6e5a4c", 1.15),
+            bg_top: bg,
+            bg_bot: lin("#1a1730", 1.0),
+            mist: bg,
+            stars: false,
+            sparkle: false,
+            storm: [bg, bg, bg],
+        }
+    }
+
     fn for_planet(planet: &PlanetDef) -> Self {
         let l = &planet.light;
         Lighting {
@@ -1009,8 +1027,9 @@ impl Renderer {
         let svp = self.sun_view_proj(f);
         let (w, h) = self.size();
         let (sw, sh) = self.scene_size();
-        let lt = &self.light;
-        let st = f.storm.clamp(0.0, 1.0);
+        let indoor_light = Lighting::indoor();
+        let lt = if f.indoor { &indoor_light } else { &self.light };
+        let st = if f.indoor { 0.0 } else { f.storm.clamp(0.0, 1.0) };
         let mixc = |a: [f32; 3], b: [f32; 3]| [a[0] + (b[0] - a[0]) * st, a[1] + (b[1] - a[1]) * st, a[2] + (b[2] - a[2]) * st];
         let (bg_top, bg_bot, mist) = (mixc(lt.bg_top, lt.storm[0]), mixc(lt.bg_bot, lt.storm[1]), mixc(lt.mist, lt.storm[2]));
         let hk = 1.0 - STORM_LOOK.hemi_drop as f32 * st;
@@ -1077,7 +1096,7 @@ impl Renderer {
             });
             pass.set_bind_group(0, &self.sun_bg, &[]);
             pass.set_pipeline(&self.shadow_terrain);
-            for c in self.chunks.values() {
+            for c in self.chunks.values().filter(|_| !f.indoor) {
                 if aabb_visible(&planes, c.min, c.max) {
                     pass.set_vertex_buffer(0, c.buf.slice(..));
                     pass.draw(0..c.count, 0..1);
@@ -1135,7 +1154,7 @@ impl Renderer {
             });
             pass.set_bind_group(0, &self.globals_bg, &[]);
             pass.set_pipeline(&self.terrain_pipe);
-            for c in self.chunks.values() {
+            for c in self.chunks.values().filter(|_| !f.indoor) {
                 if !aabb_visible(&planes, c.min, c.max) {
                     continue;
                 }

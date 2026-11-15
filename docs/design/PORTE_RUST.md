@@ -271,3 +271,16 @@ conta (0,6 virando 0,61) é pego no passo 12.
 - Os itens soltos e as pilhas são cubos com a cor do item; os modelos 3D de cada item (ItemModels) ficam para o M5, junto dos
   ícones da mochila. A estufa e os canteiros (itens de projeto) entram com a base no M4c; hoje o modo construir recusa.
 - Capturas novas (`--captura`): minerando, depois de quebrar, modo construir, morte e renascer.
+
+**M4c, parte 1 (a base no mundo):**
+- `spacing-core/src/base.rs`: os dados do módulo (exportados do `src/data/base.ts` para `rules.json`), a `Structure` (piso, paredes,
+  telhado, porta e móveis como células sólidas) e o `layoutModule` (piso, porta, pontos de dentro e de fora, frente de cada móvel).
+  O `World` pergunta à estrutura antes do chunk: colisão, pedaços e mira tratam a base como blocos, sem ela entrar na malha; com
+  o corte ligado, telhado e paredes altas deixam a mira passar.
+- `spacing-app/src/base.rs` (porte do `BaseDirector.ts` e do desenho do `baseModel.ts`): casco do Blender por fora, com as folhas da
+  porta correndo, pernas até o chão e as luzes (porta vermelha/verde, antena, faróis); câmara de pressurização ao entrar e ao sair
+  (o astronauta anda até a porta, a porta fecha, a barra enche e a vista troca atrás das portas); por dentro, o interior do Blender
+  com as paredes viradas para a câmera tiradas pelo corte, os móveis e a luz do teto, e o mundo de fora não é desenhado nem
+  aceita mineração (ADR 0006). Beliche: descansar enche o traje e passa a renascer na base. Botão de ação em cima da barra.
+- Ficou para a parte 2: a tela das estações, a energia, o console, o baú, as animações das máquinas e a impressora da bancada.
+  A textura da Terra na janela e a tela do console (texturas desenhadas em código no TS) também ficam para depois.

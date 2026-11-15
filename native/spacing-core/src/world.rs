@@ -153,6 +153,8 @@ pub struct World {
     unloaded_out: Vec<Key>,
     pub events: Vec<WorldEvent>,
     scratch: Vec<Vertex>,
+    /// a base: manda nos blocos dentro da caixa dela (colisão, mira, pedaços), sem entrar na malha dos chunks
+    pub structures: Vec<crate::base::Structure>,
 }
 
 impl World {
@@ -176,6 +178,7 @@ impl World {
             unloaded_out: Vec::new(),
             events: Vec::new(),
             scratch: Vec::new(),
+            structures: Vec::new(),
         }
     }
 
@@ -250,9 +253,25 @@ impl World {
         self.chunks.len()
     }
 
+    /// o bloco da base nesta célula, se ela cobrir a célula (`visible` = para a mira, com o corte)
+    #[inline]
+    fn structure_block(&self, x: i32, y: i32, z: i32, visible: bool) -> Option<BlockId> {
+        self.structures.iter().find(|s| s.contains(x, y, z)).map(|s| s.block(x, y, z, visible))
+    }
+
+    /// a célula é parte da base (parede, piso, móvel, porta)
+    pub fn structure_at(&self, x: i32, y: i32, z: i32) -> bool {
+        self.structures.iter().any(|s| s.cell(x, y, z) != crate::base::Cell::Air)
+    }
+
     pub fn get_block(&mut self, x: i32, y: i32, z: i32) -> BlockId {
         if y < 0 {
             return BEDROCK;
+        }
+        if let Some(b) = self.structure_block(x, y, z, false) {
+            if b != AIR {
+                return b;
+            }
         }
         if y >= CH as i32 {
             return AIR;
@@ -266,6 +285,11 @@ impl World {
     pub fn peek_block(&self, x: i32, y: i32, z: i32) -> BlockId {
         if y < 0 || y >= CH as i32 {
             return AIR;
+        }
+        if let Some(b) = self.structure_block(x, y, z, false) {
+            if b != AIR {
+                return b;
+            }
         }
         let (cx, cz) = Self::chunk_key(x, z);
         match self.chunks.get(&(cx, cz)) {
@@ -753,7 +777,11 @@ impl World {
                 break;
             }
             if (0..CH as i32).contains(&y) {
-                let id = self.peek_block(x, y, z);
+                let id = match self.structure_block(x, y, z, true) {
+                    // a base manda na célula (com o corte, telhado e paredes altas deixam o raio passar)
+                    Some(b) if b != AIR || self.structures.iter().any(|s| s.cell(x, y, z) != crate::base::Cell::Air) => b,
+                    _ => self.peek_block(x, y, z),
+                };
                 if id != AIR {
                     return Some(VoxelHit { x, y, z, id, normal: n, t });
                 }

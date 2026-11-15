@@ -21,7 +21,10 @@ use spacing_core::rules::survival::{SuitInput, Survival};
 use spacing_core::rules::{rules, Events, GameEvent, ItemId};
 use spacing_render::{camera_matrix, load_glb, prop_mesh, Frame, PartDraw, PropDraw, PropInstance, Renderer, ScreenFx, MESH_CUBE, MESH_SHARD};
 
+use crate::base::{BaseModels, BaseState};
 use crate::controls::{Controls, Pointer};
+use spacing_core::rules::crafting::Crafting;
+use spacing_core::rules::StationId;
 
 /// lava de Marte: dano por segundo em pé nela (MarsDirector, MARS.lavaDps)
 const LAVA_DPS: f64 = 22.0;
@@ -60,6 +63,7 @@ pub struct Models {
     lander: Option<StaticModel>,
     /// as três rochas do meteor.glb (rock_a, rock_b, rock_c)
     rocks: Vec<StaticModel>,
+    pub base: BaseModels,
 }
 
 /// cor das luzes do módulo de pouso avariado (models.ts: vermelho; verde quando reparado)
@@ -85,7 +89,8 @@ impl Models {
         if astronaut.is_none() {
             log::warn!("astronauta não carregou");
         }
-        Self { astronaut, lander, rocks }
+        let base = BaseModels::load(r);
+        Self { astronaut, lander, rocks, base }
     }
 }
 
@@ -102,9 +107,9 @@ pub struct Game {
     cover_t: f64,
     lander_y: f64,
     base_y: f64,
-    parts: Vec<PartDraw>,
+    pub(crate) parts: Vec<PartDraw>,
     props: Vec<PropDraw>,
-    sprites: Vec<Sprite>,
+    pub(crate) sprites: Vec<Sprite>,
     pub puffs: Puffs,
     pub particles: Particles,
     pub footprints: Footprints,
@@ -137,12 +142,18 @@ pub struct Game {
     pub pointer: Option<(Pointer, bool)>,
     pub view_proj: Mat4,
     pub screen: (f32, f32),
+    pub base: BaseState,
+    pub crafting: Crafting,
+    /// tela da estação aberta
+    pub station_open: Option<StationId>,
 }
 
 impl Game {
     pub fn new(planet_id: PlanetId, seed: u32, threads: usize) -> Self {
         let mut world = World::new(planet_id, seed);
         world.radius = 3;
+        let base = BaseState::new(world.terrain.as_ref());
+        world.structures.push(base.layout.structure.clone());
         // carregamento inicial: tudo na hora, em volta do pouso (Game.ts faz o mesmo)
         world.update(0.0, 0.0, SYNC_BUDGET);
         world.enable_threads(threads);
@@ -197,6 +208,9 @@ impl Game {
             pointer: None,
             view_proj: Mat4::IDENTITY,
             screen: (1.0, 1.0),
+            base,
+            crafting: Crafting::new(),
+            station_open: None,
         }
     }
 
@@ -228,8 +242,10 @@ impl Game {
     /// o que a mira, o toque e o modo construir fazem neste quadro (Interaction.update)
     fn interact(&mut self, dt: f64, c: &mut Controls, taps: &[(f32, f32, bool)], ev: &mut Events) {
         self.screen = c.screen;
-        self.pointer = if self.death.is_some() { None } else { c.pointer() };
-        let alive = self.death.is_none();
+        // dentro da base (e nas cenas) o mundo de fora fica travado
+        let locked = self.base.indoor_view || self.base.busy() || self.station_open.is_some();
+        self.pointer = if self.death.is_some() || locked { None } else { c.pointer() };
+        let alive = self.death.is_none() && !locked;
         let target = match self.pointer {
             // construir mira no dedo, minerar na mira acima dele
             Some((p, _)) if alive => if self.interaction.build_mode { self.pick(p.fx, p.fy) } else { self.pick(p.x, p.y) },
@@ -317,7 +333,12 @@ impl Game {
         self.survival.respawn(&mut ev);
         self.player.dead = false;
         self.player.vel = [0.0; 3];
-        self.player.spawn(&mut self.world, SPAWN.0, SPAWN.1);
+        self.player.frozen = false;
+        if self.base.respawn_base {
+            self.place_inside();
+        } else {
+            self.player.spawn(&mut self.world, SPAWN.0, SPAWN.1);
+        }
         self.rig.snap(focus(self.player.pos));
         self.draw_pos = self.player.pos;
         let c = self.player.pos;
@@ -431,6 +452,12 @@ impl Game {
             self.inv.select(i as i64, &mut ev);
         }
         let taps: Vec<(f32, f32, bool)> = a.taps.iter().flatten().copied().collect();
+        if a.use_ {
+            self.base_use();
+        }
+        if a.close {
+            self.station_open = None;
+        }
         // morto: qualquer toque (ou o pulo) depois do cartão renasce
         let respawn = self.death.is_some() && (a.jump || !taps.is_empty());
         if a.meteor {
@@ -450,7 +477,11 @@ impl Game {
         if hz != 1.0 {
             self.rig.zoom(hz);
         }
-        let (mx, my) = c.move_dir();
+        let (mut mx, mut my) = c.move_dir();
+        if self.base.busy() || self.station_open.is_some() {
+            (mx, my) = (0.0, 0.0);
+            self.input.jump = false;
+        }
         self.input.move_x = mx;
         self.input.move_y = my;
         self.interact(dt, c, &taps, &mut ev);
@@ -474,13 +505,14 @@ impl Game {
                 moving: spacing_core::js::hypot(v[0], v[2]) > 0.3,
                 mining: self.player.mining,
                 pressure_center: pressure,
-                sheltered: false,
+                sheltered: self.base.inside(),
                 drill_drain: self.equip.drill().data().drain,
                 base_charge: 1.0,
             };
             self.survival.step(FIXED_STEP, &suit, &mut ev);
         }
         self.player_fx(&mut ev);
+        self.base_update(dt);
         let alpha = self.acc / FIXED_STEP;
         self.draw_pos = self.player.animate(dt, alpha);
 
@@ -502,7 +534,7 @@ impl Game {
         }
         let impacts = self.meteors.update(dt, &mut self.world, self.player.pos, self.rig.yaw, &mut self.puffs, &mut self.particles);
         for e in impacts {
-            self.survival.on_meteor(e.distance, false, self.player.pos, &mut ev);
+            self.survival.on_meteor(e.distance, self.base.inside(), self.player.pos, &mut ev);
             self.impact(e);
         }
         self.survive(real_dt, dt, &mut ev, respawn);
@@ -649,7 +681,10 @@ impl Game {
             a.draw(Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32), self.player.facing as f32, &self.player.anim.pose, self.player.mining, true, &mut self.parts);
         }
         self.sprites.clear();
-        if let Some(l) = &models.lander {
+        // dentro da base só a base, o astronauta e as partículas (ADR 0006)
+        let indoor = self.base.indoor_view;
+        self.base_draw(&models.base);
+        if let (Some(l), false) = (&models.lander, indoor) {
             let base = Vec3::new(LANDER.0 as f32 + 0.5, self.lander_y as f32, LANDER.1 as f32 + 0.5);
             l.draw(Mat4::from_translation(base), &mut self.parts);
             for (name, at) in &l.markers {
@@ -659,23 +694,25 @@ impl Game {
                 }
             }
         }
-        self.footprints.draw(&mut self.sprites);
-        self.meteors.draw(self.time, &mut self.sprites);
-        for m in self.meteors.active.iter().filter(|m| m.flying()) {
+        if !indoor {
+            self.footprints.draw(&mut self.sprites);
+            self.meteors.draw(self.time, &mut self.sprites);
+        }
+        for m in self.meteors.active.iter().filter(|m| m.flying() && !indoor) {
             if let Some(rock) = models.rocks.get(m.rock) {
                 let h = Vec3::new(m.head[0] as f32, m.head[1] as f32, m.head[2] as f32);
                 let rot = glam::Quat::from_euler(glam::EulerRot::XYZ, m.rot[0] as f32, m.rot[1] as f32, m.rot[2] as f32);
                 rock.draw(Mat4::from_scale_rotation_translation(Vec3::splat(m.rock_scale() as f32), rot, h), &mut self.parts);
             }
         }
-        if let Some(m) = &self.mars {
+        if let (Some(m), false) = (&self.mars, indoor) {
             m.draw(&mut self.sprites);
         }
         self.particles.draw(&mut self.sprites);
         self.puffs.draw(&mut self.sprites);
         // pedras e minérios soltos dos chunks que já têm malha
         self.props.clear();
-        for c in self.world.chunks.values().filter(|c| c.meshed) {
+        for c in self.world.chunks.values().filter(|c| c.meshed && !indoor) {
             for p in &c.props {
                 if let Some(mesh) = prop_mesh(p.kind, p.variant) {
                     let inst = PropInstance::still([p.wx as f32 + 0.5, p.y as f32, p.wz as f32 + 0.5], p.rot as f32, p.scale as f32);
@@ -739,7 +776,14 @@ impl Game {
             Some([(c.x / c.w) as f64, (c.y / c.w) as f64, (c.z / c.w) as f64])
         };
         self.shocks = self.meteors.waves.fill(&project, [right.x as f64, right.y as f64, right.z as f64], aspect);
-        let point = self.meteors.light().map(|(p, i, c)| (Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32), i as f32, [c[0] as f32, c[1] as f32, c[2] as f32]));
+        let point = if indoor {
+            // a luz do teto da base acende com o corte (baseModel: PointLight de intensidade 22 × dentro)
+            let bx = self.base.layout.structure.bx;
+            let c = Vec3::new((bx.x0 + bx.x1 + 1) as f32 / 2.0, self.base.layout.floor_y as f32 + 4.6, (bx.z0 + bx.z1 + 1) as f32 / 2.0);
+            Some((c, 22.0 * self.base.inside as f32, [1.0, 0.88, 0.72]))
+        } else {
+            self.meteors.light().map(|(p, i, c)| (Vec3::new(p[0] as f32, p[1] as f32, p[2] as f32), i as f32, [c[0] as f32, c[1] as f32, c[2] as f32]))
+        };
         // neblina: acompanha a distância da câmera (Game.ts), nunca perto demais dentro de caverna
         let fog_dist = r.eye_dist.max(16.0) as f32;
         let (fog_near, fog_far) = self.mars.as_ref().map(|m| m.fog(1.15, 2.1)).unwrap_or((1.15, 2.1));
@@ -751,8 +795,8 @@ impl Game {
             time: self.time as f32,
             dark: d,
             lamp: Vec4::new(p[0] as f32, p[1] as f32 + 1.5, p[2] as f32, d * 1.15),
-            mist_y: (self.base_y.floor() - 6.0) as f32,
-            fog: (fog_dist * fog_near as f32, fog_dist * fog_far as f32),
+            mist_y: if indoor { -100.0 } else { (self.base_y.floor() - 6.0) as f32 },
+            fog: if indoor { (300.0, 400.0) } else { (fog_dist * fog_near as f32, fog_dist * fog_far as f32) },
             parts: &self.parts,
             props: &self.props,
             sprites: &self.sprites,
@@ -766,6 +810,7 @@ impl Game {
             point,
             shocks: &self.shocks,
             storm: self.mars.as_ref().map(|m| m.dust() as f32).unwrap_or(0.0),
+            indoor,
         }
     }
 }

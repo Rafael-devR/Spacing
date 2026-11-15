@@ -1,6 +1,7 @@
 //! Spacing nativo (docs/design/PORTE_RUST.md): o jogo em Rust no Android (NativeActivity, Vulkan) e no computador.
 //! Este arquivo cuida da janela e do ciclo de vida; o jogo está em `game.rs`, os controles em `controls.rs`, o HUD em `hud.rs`.
 #[cfg(not(target_os = "android"))]
+pub mod base;
 pub mod capture;
 pub mod controls;
 pub mod effects;
@@ -185,6 +186,8 @@ impl App {
             self.game = Some(Game::new(self.opts.planet, self.opts.seed, threads()));
         }
         let game = self.game.as_mut().unwrap();
+        self.controls.use_visible = game.base.use_label.is_some();
+        self.controls.modal = game.station_open.is_some();
         game.update(dt, &mut self.controls);
         game.sync(r);
         let size = r.size();
@@ -290,6 +293,7 @@ impl ApplicationHandler for App {
                     Key::Named(NamedKey::ArrowRight) => "arrowright".into(),
                     Key::Named(NamedKey::Tab) => "tab".into(),
                     Key::Named(NamedKey::F3) => "f3".into(),
+                    Key::Named(NamedKey::Enter) => "enter".into(),
                     Key::Named(NamedKey::Escape) if down => {
                         event_loop.exit();
                         return;

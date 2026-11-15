@@ -1768,6 +1768,131 @@
    }
   ]
  },
+ "base": {
+  "airlockSeconds": 2.2,
+  "useRadius": 1.25,
+  "insideZoom": 19,
+  "modules": [
+   {
+    "id": "hab-01",
+    "name": "Habitat 01",
+    "origin": {
+     "x": 6,
+     "z": -14
+    },
+    "size": {
+     "x": 11,
+     "z": 9
+    },
+    "interiorHeight": 3,
+    "door": {
+     "side": "south",
+     "at": 5
+    },
+    "furniture": [
+     {
+      "id": "locker",
+      "kind": "locker",
+      "x": 1,
+      "z": 1,
+      "w": 1,
+      "d": 1,
+      "against": "north"
+     },
+     {
+      "id": "shelf",
+      "kind": "shelf",
+      "x": 2,
+      "z": 1,
+      "w": 1,
+      "d": 1,
+      "against": "north"
+     },
+     {
+      "id": "workbench",
+      "kind": "workbench",
+      "x": 4,
+      "z": 1,
+      "w": 2,
+      "d": 1,
+      "against": "north"
+     },
+     {
+      "id": "plants",
+      "kind": "plants",
+      "x": 7,
+      "z": 1,
+      "w": 2,
+      "d": 1,
+      "against": "north"
+     },
+     {
+      "id": "bunk",
+      "kind": "bed",
+      "x": 1,
+      "z": 3,
+      "w": 1,
+      "d": 2,
+      "against": "west"
+     },
+     {
+      "id": "console",
+      "kind": "console",
+      "x": 9,
+      "z": 2,
+      "w": 1,
+      "d": 1,
+      "against": "east"
+     },
+     {
+      "id": "furnace",
+      "kind": "furnace",
+      "x": 9,
+      "z": 4,
+      "w": 1,
+      "d": 1,
+      "against": "east"
+     },
+     {
+      "id": "electrolyzer",
+      "kind": "electrolyzer",
+      "x": 9,
+      "z": 5,
+      "w": 1,
+      "d": 1,
+      "against": "east"
+     },
+     {
+      "id": "tank",
+      "kind": "tank",
+      "x": 9,
+      "z": 7,
+      "w": 1,
+      "d": 1,
+      "against": "east"
+     },
+     {
+      "id": "table",
+      "kind": "table",
+      "x": 1,
+      "z": 7,
+      "w": 2,
+      "d": 1,
+      "against": "south"
+     },
+     {
+      "id": "crates",
+      "kind": "crates",
+      "x": 8,
+      "z": 7,
+      "w": 1,
+      "d": 1,
+      "against": "south"
+     }
+    ]
+   }
+  ]
+ },
  "props": [
   {
    "id": "boulder",
