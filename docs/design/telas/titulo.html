@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telas · Título (estrutura)</title>
+<style>
+/* Fonte do jogo nativo (Pixelify Sans, SIL OFL), lida do próprio repositório */
+@font-face {
+  font-family: "Pixelify";
+  src: url("../../../native/assets/fonts/pixelify-sans/PixelifySans.ttf") format("truetype");
+  font-weight: 400 700;
+}
+
+/* Tokens de docs/design/INTERFACE_NATIVA.md */
+:root {
+  --fundo: #05070E;
+  --fio: #343C54;
+  --texto: #E2E8F6;
+  --fraco: #848EAA;
+  --destaque: #7FE7FF;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #0b0d14;
+  color: var(--texto);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+}
+
+/* ---------- página (fora do celular) ---------- */
+.topo {
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
+  padding: 16px 24px; border-bottom: 1px solid var(--fio);
+}
+.topo h1 { font-size: 16px; margin: 0; font-weight: 600; }
+.topo .aviso { font-size: 13px; color: var(--fraco); margin: 0; }
+.controles { display: flex; gap: 8px; flex-wrap: wrap; }
+.controles button {
+  background: transparent; color: var(--texto); border: 1px solid var(--fio);
+  padding: 8px 12px; font: inherit; font-size: 13px; cursor: pointer; border-radius: 6px;
+}
+.controles button[aria-pressed="true"] { border-color: var(--destaque); color: var(--destaque); }
+
+.palco {
+  display: flex; gap: 40px; justify-content: center; align-items: flex-start;
+  padding: 32px 24px 64px; flex-wrap: wrap;
+}
+
+.notas { width: 340px; font-size: 14px; line-height: 1.5; color: #C4CCE0; }
+.notas h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--fraco); margin: 0 0 12px; font-weight: 600; }
+.notas ol { padding-left: 0; list-style: none; margin: 0; counter-reset: n; }
+.notas li { margin: 0 0 12px; padding-left: 36px; position: relative; }
+.notas li::before {
+  counter-increment: n; content: counter(n);
+  position: absolute; left: 0; top: 0; width: 22px; height: 22px; line-height: 22px; text-align: center;
+  background: var(--destaque); color: var(--fundo); font-size: 12px; font-weight: 700; border-radius: 50%;
+}
+.notas .perguntas { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--fio); }
+.notas .perguntas li::before { background: transparent; color: var(--destaque); border: 1px solid var(--destaque); }
+.notas .referencia { margin-top: 24px; font-size: 13px; color: var(--fraco); }
+
+/* ---------- celular ---------- */
+.celular {
+  width: 390px; height: 844px; flex: none;
+  border: 1px solid var(--fio); border-radius: 36px; overflow: hidden; position: relative;
+  box-shadow: 0 20px 60px rgba(0,0,0,.45);
+  background: var(--fundo);
+}
+.tela {
+  position: absolute; inset: 0; overflow: hidden;
+  font-family: "Pixelify", system-ui, sans-serif;
+}
+
+/* 1 · fundo: cena do planeta (placeholder, o jogo já tem a cena 3D) */
+.ceu {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, #0b0a1f 0%, #2c1838 38%, #8a3d4c 62%, #d9885a 80%, #f0b27a 100%);
+}
+.estrelas i {
+  position: absolute; width: 2px; height: 2px; background: #E2E8F6; opacity: .7;
+}
+.planeta {
+  position: absolute; width: 360px; height: 360px; border-radius: 50%; right: -150px; top: 380px;
+  background: radial-gradient(circle at 35% 30%, #f8d19a 0%, #d9824f 45%, #7a2f3e 80%, #3a1828 100%);
+  box-shadow: 0 0 80px rgba(255, 170, 110, .35);
+}
+.chao {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 300px;
+  background: linear-gradient(180deg, #3a1d2e 0%, #140912 70%, #05070E 100%);
+  clip-path: polygon(0 18%, 14% 8%, 30% 15%, 46% 4%, 62% 12%, 80% 2%, 100% 10%, 100% 100%, 0 100%);
+}
+
+/* 2 · logotipo */
+.logo {
+  position: absolute; left: 24px; right: 24px; top: 96px;
+  font-size: 60px; font-weight: 700; line-height: .9; letter-spacing: .02em;
+  color: var(--texto); text-shadow: 3px 3px 0 #3a1828;
+}
+.logo small {
+  display: block; margin-top: 10px; font-size: 16px; font-weight: 400; letter-spacing: .12em;
+  color: #F3D3B0; text-shadow: none;
+}
+
+/* 3 · item flutuante (decoração) */
+.flutuante {
+  position: absolute; left: 226px; top: 270px; width: 56px; height: 56px;
+  animation: sobe 4.2s ease-in-out infinite;
+}
+.flutuante .peca {
+  position: absolute; inset: 10px; border: 2px dashed var(--destaque); border-radius: 4px;
+}
+.flutuante .brilho {
+  position: absolute; inset: -24px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(127,231,255,.35) 0%, rgba(127,231,255,0) 65%);
+}
+@keyframes sobe {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* 4 · menu: texto puro, sem caixas */
+.menu {
+  position: absolute; left: 44px; right: 24px; top: 448px;
+}
+.opcao {
+  position: relative; display: flex; align-items: center; justify-content: space-between;
+  height: 52px; font-size: 22px; color: var(--fraco); cursor: pointer; padding-left: 4px;
+  border-bottom: 1px solid rgba(52,60,84,.5);
+}
+.opcao .sub { display: block; font-size: 13px; color: var(--fraco); margin-top: -4px; }
+.opcao.sel { color: var(--destaque); }
+.opcao.sel::before {
+  content: ""; position: absolute; left: -14px; top: 12px; bottom: 12px; width: 3px; background: var(--destaque);
+}
+.opcao.sel .seta {
+  position: absolute; left: -22px; top: 50%; margin-top: -6px;
+  width: 0; height: 0; border-top: 6px solid transparent; border-bottom: 6px solid transparent;
+  border-left: 8px solid var(--destaque);
+  animation: pisca 1.8s steps(2, start) infinite;
+}
+@keyframes pisca { to { opacity: .25; } }
+.trocador { display: inline-flex; align-items: center; gap: 10px; font-size: 20px; color: var(--texto); }
+.trocador .t { width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+.trocador .t.e { border-right: 7px solid var(--fraco); }
+.trocador .t.d { border-left: 7px solid var(--fraco); }
+
+/* 5 · rodapé: uma linha de dica e a versão */
+.rodape {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 52px;
+  display: flex; align-items: center; justify-content: space-between; padding: 0 24px;
+  border-top: 1px solid rgba(52,60,84,.6); font-size: 13px; color: var(--fraco);
+}
+
+/* números das partes (podem ser escondidos) */
+.num {
+  position: absolute; z-index: 5; width: 22px; height: 22px; line-height: 22px; text-align: center;
+  background: var(--destaque); color: var(--fundo); font-size: 12px; font-weight: 700; border-radius: 50%;
+  font-family: system-ui, sans-serif;
+}
+.sem-numeros .num { display: none; }
+
+/* estados */
+.celular.sem-salvamento .continuar { display: none; }
+
+/* celular de verdade: a tela ocupa tudo, sem moldura nem notas */
+@media (max-width: 600px) {
+  .palco { padding: 0; gap: 0; }
+  .notas { display: none; }
+  .celular { width: 100vw; height: 100vh; height: 100dvh; border: 0; border-radius: 0; box-shadow: none; }
+  .topo { padding: 10px 14px; }
+  .topo .aviso { display: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <div>
+    <h1>Telas do Spacing nativo · 1. Título</h1>
+    <p class="aviso">Estrutura, não arte final. Nada disto é código do jogo ainda.</p>
+  </div>
+  <div class="controles">
+    <button type="button" id="btn-salvo" aria-pressed="true">Com salvamento</button>
+    <button type="button" id="btn-numeros" aria-pressed="true">Mostrar números</button>
+  </div>
+</header>
+
+<main class="palco">
+
+  <section class="notas" aria-label="O que cada parte faz">
+    <h2>Partes da tela</h2>
+    <ol>
+      <li><strong>Cena do planeta ao fundo.</strong> Parada, com luz de pôr do sol. Nada de caixa atrás dela. É o próprio mundo do
+        jogo, visto de longe (o planeta do título já existe: planet_moon e planet_mars).</li>
+      <li><strong>Nome do jogo.</strong> Grande, em pixel, alinhado à esquerda, acima do menu. Sem tarja, sem moldura. Logo abaixo,
+        uma linha pequena com o tema.</li>
+      <li><strong>Item flutuante.</strong> Decoração: um item com brilho suave, subindo e descendo devagar. Não pisca e não treme.
+        Se atrapalhar a leitura, sai.</li>
+      <li><strong>Continuar missão.</strong> Primeira linha, <em>só quando existe salvamento</em>. Mostra o planeta e há quanto tempo
+        foi o último salvamento. Sem salvamento, a linha some e o menu sobe.</li>
+      <li><strong>Opções.</strong> Texto puro, cada linha com 52 px de altura (acima dos 44 px de alvo de toque). A escolhida fica
+        ciano, com uma barra fina à esquerda e uma seta que pisca devagar.</li>
+      <li><strong>Planeta.</strong> Um seletor de texto: ‹ Lua › ou ‹ Marte ›. Tocar no nome também troca.</li>
+      <li><strong>Rodapé.</strong> Uma linha de dica (“toque numa linha para entrar”) e a versão. Só isso.</li>
+    </ol>
+
+    <div class="perguntas">
+      <h2>Para você decidir</h2>
+      <ol>
+        <li>O planeta aparece no título como seleção (como está acima), ou só ao escolher “Novo jogo”?</li>
+        <li>Quer a linha “Continuar missão” como primeira opção mesmo, ou logo abaixo do nome, em destaque maior?</li>
+        <li>O item flutuante fica (decoração) ou sai, para o título ficar mais limpo?</li>
+      </ol>
+    </div>
+
+    <p class="referencia">Referência de direção (não copiada): o logo grande com a cena atrás, sem caixas, da arte de Garbage Country.</p>
+  </section>
+
+  <div class="celular" id="celular">
+    <div class="tela">
+
+      <div class="ceu"></div>
+      <div class="estrelas">
+        <i style="left:40px; top:60px"></i><i style="left:120px; top:150px"></i><i style="left:300px; top:70px"></i>
+        <i style="left:250px; top:200px"></i><i style="left:70px; top:250px"></i><i style="left:340px; top:300px"></i>
+        <i style="left:190px; top:40px"></i><i style="left:20px; top:330px"></i>
+      </div>
+      <div class="planeta"></div>
+      <div class="chao"></div>
+
+      <div class="logo">SPACING<small>exploração em blocos</small></div>
+      <span class="num" style="left:348px; top:94px">2</span>
+      <span class="num" style="left:330px; top:400px">1</span>
+
+      <div class="flutuante">
+        <div class="brilho"></div>
+        <div class="peca"></div>
+      </div>
+      <span class="num" style="left:280px; top:262px">3</span>
+
+      <nav class="menu" aria-label="Opções do título">
+        <div class="opcao sel continuar" data-id="continuar">
+          <span class="seta"></span>
+          <span>Continuar missão<span class="sub">Lua · salvo há 2 min</span></span>
+          <span class="num" style="right:-4px; top:14px">4</span>
+        </div>
+        <div class="opcao" data-id="novo">
+          <span>Novo jogo</span>
+        </div>
+        <div class="opcao" data-id="planeta">
+          <span>Planeta</span>
+          <span class="trocador" id="planeta-nome"><span class="t e"></span><span id="planeta-texto">Lua</span><span class="t d"></span></span>
+          <span class="num" style="left:-34px; top:14px">6</span>
+        </div>
+        <div class="opcao" data-id="config">
+          <span>Configurações</span>
+        </div>
+        <span class="num" style="right:-4px; top:-26px">5</span>
+      </nav>
+
+      <div class="rodape">
+        <span>toque numa linha para entrar</span>
+        <span>v0.1 · nativo</span>
+        <span class="num" style="right:6px; top:-28px">7</span>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<script>
+(function () {
+  var celular = document.getElementById('celular');
+  var btnSalvo = document.getElementById('btn-salvo');
+  var btnNum = document.getElementById('btn-numeros');
+  var planetaNome = document.getElementById('planeta-texto');
+  var planetas = ['Lua', 'Marte'];
+
+  btnSalvo.addEventListener('click', function () {
+    var salvo = btnSalvo.getAttribute('aria-pressed') !== 'true';
+    btnSalvo.setAttribute('aria-pressed', String(salvo));
+    celular.classList.toggle('sem-salvamento', !salvo);
+    var opcoes = document.querySelectorAll('.opcao');
+    /* sem salvamento, a primeira opção vira “Novo jogo” */
+    for (var i = 0; i < opcoes.length; i++) opcoes[i].classList.remove('sel');
+    var primeira = salvo ? document.querySelector('.continuar') : document.querySelector('[data-id="novo"]');
+    primeira.classList.add('sel');
+    if (!primeira.querySelector('.seta')) {
+      var s = document.createElement('span'); s.className = 'seta'; primeira.insertBefore(s, primeira.firstChild);
+    }
+  });
+
+  btnNum.addEventListener('click', function () {
+    var ligado = btnNum.getAttribute('aria-pressed') !== 'true';
+    btnNum.setAttribute('aria-pressed', String(ligado));
+    celular.classList.toggle('sem-numeros', !ligado);
+  });
+
+  var opcoes = document.querySelectorAll('.opcao');
+  for (var i = 0; i < opcoes.length; i++) {
+    opcoes[i].addEventListener('click', function (e) {
+      var atual = this;
+      if (atual.getAttribute('data-id') === 'planeta') {
+        var k = planetas.indexOf(planetaNome.textContent);
+        planetaNome.textContent = planetas[(k + 1) % planetas.length];
+        return;
+      }
+      var todas = document.querySelectorAll('.opcao');
+      for (var j = 0; j < todas.length; j++) {
+        todas[j].classList.remove('sel');
+        var seta = todas[j].querySelector('.seta');
+        if (seta) seta.remove();
+      }
+      atual.classList.add('sel');
+      var sn = document.createElement('span'); sn.className = 'seta';
+      atual.insertBefore(sn, atual.firstChild);
+    });
+  }
+})();
+</script>
+</body>
+</html>

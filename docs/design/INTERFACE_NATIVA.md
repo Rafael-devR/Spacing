@@ -106,6 +106,9 @@ Pontinhos: uma textura de dithering pequena, usada como máscara leve nas bordas
 
 ## Telas
 
+Estrutura visual de cada tela: `docs/design/telas/`, uma página local por tela (abra o `.html` no navegador). Começa pelo título
+(`titulo.html`). São só a estrutura e a ordem das partes, para o dono aprovar antes de codar; não são código do jogo.
+
 Cada tela tem uma **proposta** e um **critério** para aprovar. Antes de codar, a gente gera a captura (ver "Como visualizar").
 
 ### 1. Pausa e menu
