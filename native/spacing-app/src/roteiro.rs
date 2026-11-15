@@ -146,13 +146,15 @@ pub fn run(dir: &str) {
         }
     };
     let models = Models::load(&mut r);
+    let egui = egui::Context::default();
+    let _ = crate::icons::Icons::ensure(&r, &egui);
     let store = Store::new(Some(saves));
     let mut c = Controls::default();
     c.layout(w as f32, h as f32, 1.0);
     c.touched = true;
     let seed = crate::DEFAULT_SEED;
     let game = Game::load(PlanetId::Lua, store.load(PlanetId::Lua, seed).as_ref(), seed, 3);
-    let mut t = Run { r, models, egui: egui::Context::default(), c, meter: hud::Meter::default(), stats: Default::default(), game, store, dir: dir.into(), results: Vec::new(), failed: 0 };
+    let mut t = Run { r, models, egui, c, meter: hud::Meter::default(), stats: Default::default(), game, store, dir: dir.into(), results: Vec::new(), failed: 0 };
     t.game.meteors.auto_spawn = false;
 
     // ---- começo ----

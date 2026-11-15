@@ -8,6 +8,7 @@ pub mod effects;
 pub mod game;
 pub mod greenhouse;
 pub mod hud;
+pub mod icons;
 pub mod map;
 #[cfg(not(target_os = "android"))]
 pub mod roteiro;
@@ -113,6 +114,7 @@ impl App {
         match pollster::block_on(Renderer::new(window.clone().into(), display, size.width, size.height, p)) {
             Ok(mut r) => {
                 self.models = Some(Models::load(&mut r));
+                let _ = icons::Icons::ensure(&r, &self.egui);
                 if let Some(g) = &mut self.game {
                     // superfície nova (o app voltou do fundo): refaz todas as malhas
                     g.world.remesh_all();

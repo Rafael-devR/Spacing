@@ -7,7 +7,7 @@ use spacing_core::planet::planet;
 use spacing_render::FrameStats;
 
 use crate::controls::{Button, Controls};
-use crate::game::{item_color, Game, Screen};
+use crate::game::{Game, Screen};
 use spacing_core::rules::data::{batchable, recipe_seconds, Output};
 use spacing_core::rules::{rules, RecipeId, StationId};
 use spacing_core::rules::crafting::Crafting;
@@ -286,16 +286,6 @@ pub struct HudInfo<'a> {
     pub game: &'a Game,
 }
 
-/// cor linear do jogo para a tela (sRGB)
-fn srgb(c: [f64; 3], a: u8) -> Color32 {
-    let f = |v: f64| {
-        let v = v.clamp(0.0, 1.0);
-        let s = if v <= 0.0031308 { v * 12.92 } else { 1.055 * v.powf(1.0 / 2.4) - 0.055 };
-        (s * 255.0).round() as u8
-    };
-    Color32::from_rgba_unmultiplied(f(c[0]), f(c[1]), f(c[2]), a)
-}
-
 /// Medidores do traje, barra de itens, mira, contorno do alvo, avisos e o cartão de morte (Hud.ts, SurvivalDirector).
 fn draw_play(painter: &egui::Painter, c: &Controls, g: &Game, ppp: f32, ink: Color32, glass: Color32) {
     let pt = |x: f32, y: f32| Pos2::new(x / ppp, y / ppp);
@@ -390,8 +380,8 @@ fn draw_play(painter: &egui::Painter, c: &Controls, g: &Game, ppp: f32, ink: Col
         painter.rect_filled(r, 6.0, glass);
         painter.rect_stroke(r, 6.0, Stroke::new(if sel { 2.5 } else { 1.0 }, if sel { Color32::from_rgb(255, 196, 90) } else { ink }), egui::StrokeKind::Inside);
         if let Some(st) = g.inv.slot(i as usize) {
-            let sw = Rect::from_center_size(r.center() - Vec2::new(0.0, 2.0), Vec2::splat(r.width() * 0.46));
-            painter.rect_filled(sw, 3.0, srgb(item_color(st.item), 255));
+            let sw = Rect::from_center_size(r.center() - Vec2::new(0.0, 1.0), Vec2::splat(r.width() * 0.86));
+            crate::icons::paint_item(painter, sw, st.item, Color32::WHITE);
             painter.text(r.right_bottom() - Vec2::new(4.0, 2.0), Align2::RIGHT_BOTTOM, st.n.to_string(), FontId::monospace(11.0), ink);
         }
     }

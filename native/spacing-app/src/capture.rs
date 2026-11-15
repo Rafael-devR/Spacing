@@ -26,13 +26,21 @@ pub fn run(dir: &str, opts: Options) {
     }
     println!("desenho: {} ({}), MSAA {}x, cena {:?}", r.adapter_name, r.backend, r.msaa(), r.scene_size());
     let models = Models::load(&mut r);
+    let egui = egui::Context::default();
+    // o atlas dos ícones também vira uma captura (para olhar os modelos dos itens)
+    if let Some((px, w, h)) = crate::icons::Icons::ensure(&r, &egui) {
+        let file = std::fs::File::create(format!("{dir}/0-icones.png")).expect("arquivo");
+        let mut enc = png::Encoder::new(std::io::BufWriter::new(file), w, h);
+        enc.set_color(png::ColorType::Rgba);
+        enc.set_depth(png::BitDepth::Eight);
+        enc.write_header().and_then(|mut wr| wr.write_image_data(&px)).expect("png");
+    }
     let t0 = Instant::now();
     let mut game = Game::new(opts.planet, opts.seed.unwrap_or(crate::DEFAULT_SEED), 3);
     println!("mundo inicial: {:.0} ms", t0.elapsed().as_secs_f64() * 1000.0);
     let mut c = Controls::default();
     c.layout(w as f32, h as f32, 1.0);
     c.touched = true;
-    let egui = egui::Context::default();
     let meter = hud::Meter::default();
     let dt = 1.0 / 60.0;
     // (quadro, nome da captura)

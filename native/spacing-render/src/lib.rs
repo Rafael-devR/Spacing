@@ -4,6 +4,7 @@
 //!
 //! O desenho não sabe de janela nem de jogo: recebe um `Frame` (câmera, luz, partes de modelo, pedras) e as malhas do mundo.
 pub mod astronaut;
+pub mod items;
 pub mod model;
 pub mod post;
 
@@ -100,6 +101,38 @@ impl PropInstance {
 /// malhas extras depois das pedras: cubo e lasca (os pedaços de Debris.ts) e cubo de item solto
 pub const MESH_CUBE: usize = PROP_TYPES.len() * 3;
 pub const MESH_SHARD: usize = MESH_CUBE + 1;
+/// depois do cubo e da lasca, um modelo por item (itens soltos no mundo e pilhas da morte), na ordem dos itens
+pub const MESH_ITEM: usize = MESH_SHARD + 1;
+
+/// a malha do item solto no mundo
+pub fn item_mesh(item: spacing_core::rules::ItemId) -> usize {
+    MESH_ITEM + item.0 as usize
+}
+
+/// A forma de uma pedra (variação 0) na CPU, a mesma que o mundo desenha (ícones dos minérios).
+pub fn prop_shape(kind: &str) -> Option<Vec<model::ModelVertex>> {
+    let want = PROP_TYPES.iter().position(|t| *t == kind)? * 3;
+    let b = PROPS_BIN;
+    let (mut at, mut k) = (0usize, 0usize);
+    while at + 4 <= b.len() {
+        let n = u32::from_le_bytes([b[at], b[at + 1], b[at + 2], b[at + 3]]) as usize;
+        at += 4;
+        if k == want {
+            return Some(
+                (0..n)
+                    .map(|i| {
+                        let o = at + i * 24;
+                        let f = |q: usize| f32::from_le_bytes([b[o + q], b[o + q + 1], b[o + q + 2], b[o + q + 3]]);
+                        model::ModelVertex { pos: [f(0), f(4), f(8)], color: [f(12), f(16), f(20), 1.0] }
+                    })
+                    .collect(),
+            );
+        }
+        at += n * 24;
+        k += 1;
+    }
+    None
+}
 
 /// um sprite na GPU (sprite.wgsl): centro e diâmetro, cor e opacidade, giro, semente e tipo
 #[repr(C)]
@@ -371,7 +404,17 @@ fn load_props(device: &wgpu::Device) -> Vec<(wgpu::Buffer, u32)> {
         let buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("pedra"), contents: bytemuck::cast_slice(&verts), usage: wgpu::BufferUsages::VERTEX });
         out.push((buf, n as u32));
     }
-    for verts in [cube_verts(), shard_verts()] {
+    let items = spacing_core::rules::ItemId::all().map(|i| {
+        // do tamanho de um bloco no maior lado (o jogo escala pelo DROP_SIZE)
+        let mut v = items::item_shape(i, &prop_shape);
+        let ext = v.iter().flat_map(|p| p.pos).fold(0f32, |m, x| m.max(x.abs()));
+        let k = if ext > 0.0 { 0.5 / ext } else { 1.0 };
+        for p in &mut v {
+            p.pos = [p.pos[0] * k, p.pos[1] * k, p.pos[2] * k];
+        }
+        v
+    });
+    for verts in [cube_verts(), shard_verts()].into_iter().chain(items) {
         let buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("pedaço"), contents: bytemuck::cast_slice(&verts), usage: wgpu::BufferUsages::VERTEX });
         out.push((buf, verts.len() as u32));
     }
@@ -775,6 +818,141 @@ impl Renderer {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
             view_formats: &[],
         })
+    }
+
+    /// Desenha os ícones (render/icons.ts): cada forma numa célula de `cell` pixels de um atlas de `cols` colunas, de lado e de
+    /// cima como no jogo web (câmera ortográfica em (3; 2,6; 3), luz do céu e do sol), fundo transparente. Devolve o atlas em
+    /// RGBA sRGB (largura `cols × cell`). Feito uma vez, ao abrir; não depende da tela.
+    pub fn render_icons(&self, shapes: &[Vec<model::ModelVertex>], cell: u32, cols: u32) -> Vec<u8> {
+        let rows = (shapes.len() as u32).div_ceil(cols).max(1);
+        let (w, h) = (cols * cell, rows * cell);
+        // a luz do ícone (icons.ts): hemisfério #c9c3ff/#6b5a50 × 2,2 e sol #fff3e2 × 3,4 vindo de (-2, 4, 3); Lambert com 1/π
+        let l3 = |hex: &str| {
+            let c = hex_to_linear(hex, 1.0);
+            Vec3::new(c[0] as f32, c[1] as f32, c[2] as f32)
+        };
+        let (sky, ground, sun) = (l3("#c9c3ff") * 2.2, l3("#6b5a50") * 2.2, l3("#fff3e2") * 3.4);
+        let sun_dir = Vec3::new(-2.0, 4.0, 3.0).normalize();
+        let view = Mat4::look_at_rh(Vec3::new(3.0, 2.6, 3.0), Vec3::ZERO, Vec3::Y);
+        let proj = Mat4::orthographic_rh(-0.95, 0.95, -0.95, 0.95, 0.1, 20.0);
+        let vp = proj * view;
+        let mut verts: Vec<model::ModelVertex> = Vec::new();
+        let mut ranges = Vec::new();
+        for s in shapes {
+            let start = verts.len() as u32;
+            let (mut lo, mut hi) = (Vec3::splat(f32::MAX), Vec3::splat(f32::MIN));
+            for v in s {
+                lo = lo.min(Vec3::from_array(v.pos));
+                hi = hi.max(Vec3::from_array(v.pos));
+            }
+            let size = (hi - lo).max_element().max(1e-4);
+            let (c, k) = ((lo + hi) / 2.0, 1.25 / size);
+            for t in s.chunks_exact(3) {
+                let p: Vec<Vec3> = t.iter().map(|v| (Vec3::from_array(v.pos) - c) * k).collect();
+                let n = (p[1] - p[0]).cross(p[2] - p[0]).normalize_or_zero();
+                for (v, q) in t.iter().zip(&p) {
+                    let base = Vec3::new(v.color[0], v.color[1], v.color[2]);
+                    let lit = if v.color[3] == 0.0 {
+                        base
+                    } else {
+                        let hemi = ground.lerp(sky, 0.5 * n.y + 0.5);
+                        base / std::f32::consts::PI * (hemi + sun * n.dot(sun_dir).max(0.0))
+                    };
+                    let cp = vp * q.extend(1.0);
+                    verts.push(model::ModelVertex { pos: [cp.x / cp.w, cp.y / cp.w, cp.z / cp.w], color: [lit.x.min(1.0), lit.y.min(1.0), lit.z.min(1.0), 1.0] });
+                }
+            }
+            // enquadra pelo que aparece na tela (um cubo de lado é mais largo que a caixa dele; a chaminé do forno, mais alta)
+            let part = &mut verts[start as usize..];
+            let (mut a, mut b) = (glam::Vec2::splat(f32::MAX), glam::Vec2::splat(f32::MIN));
+            for v in part.iter() {
+                a = a.min(glam::Vec2::new(v.pos[0], v.pos[1]));
+                b = b.max(glam::Vec2::new(v.pos[0], v.pos[1]));
+            }
+            let (mid, fit) = ((a + b) / 2.0, 1.8 / (b - a).max_element().max(1e-4));
+            for v in part.iter_mut() {
+                v.pos[0] = (v.pos[0] - mid.x) * fit;
+                v.pos[1] = (v.pos[1] - mid.y) * fit;
+            }
+            ranges.push(start..verts.len() as u32);
+        }
+        let d = &self.device;
+        let format = wgpu::TextureFormat::Rgba8UnormSrgb;
+        let size = wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 };
+        let tex = |f, samples, usage| d.create_texture(&wgpu::TextureDescriptor { label: Some("ícones"), size, mip_level_count: 1, sample_count: samples, dimension: wgpu::TextureDimension::D2, format: f, usage, view_formats: &[] });
+        let ra = wgpu::TextureUsages::RENDER_ATTACHMENT;
+        let ms = tex(format, 4, ra).create_view(&Default::default());
+        let out = tex(format, 1, ra | wgpu::TextureUsages::COPY_SRC);
+        let depth = tex(DEPTH, 4, ra).create_view(&Default::default());
+        let shader = d.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("ícone"), source: wgpu::ShaderSource::Wgsl(include_str!("shaders/icon.wgsl").into()) });
+        let layout = d.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: None, bind_group_layouts: &[], immediate_size: 0 });
+        let pipe = d.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("ícones"),
+            layout: Some(&layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs"),
+                compilation_options: Default::default(),
+                buffers: &[Some(wgpu::VertexBufferLayout {
+                    array_stride: std::mem::size_of::<model::ModelVertex>() as u64,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x4],
+                })],
+            },
+            fragment: Some(wgpu::FragmentState { module: &shader, entry_point: Some("fs"), compilation_options: Default::default(), targets: &[Some(format.into())] }),
+            primitive: wgpu::PrimitiveState::default(),
+            depth_stencil: Some(wgpu::DepthStencilState { format: DEPTH, depth_write_enabled: Some(true), depth_compare: Some(wgpu::CompareFunction::Less), stencil: Default::default(), bias: Default::default() }),
+            multisample: wgpu::MultisampleState { count: 4, ..Default::default() },
+            multiview_mask: None,
+            cache: None,
+        });
+        let vb = d.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("ícones"), contents: bytemuck::cast_slice(&verts), usage: wgpu::BufferUsages::VERTEX });
+        let row = (w * 4).next_multiple_of(256);
+        let buf = d.create_buffer(&wgpu::BufferDescriptor { label: Some("ícones"), size: (row * h) as u64, usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ, mapped_at_creation: false });
+        let mut enc = d.create_command_encoder(&Default::default());
+        {
+            let out_view = out.create_view(&Default::default());
+            let mut pass = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("ícones"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &ms,
+                    depth_slice: None,
+                    resolve_target: Some(&out_view),
+                    ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT), store: wgpu::StoreOp::Discard },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &depth,
+                    depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Clear(1.0), store: wgpu::StoreOp::Discard }),
+                    stencil_ops: None,
+                }),
+                ..Default::default()
+            });
+            pass.set_pipeline(&pipe);
+            pass.set_vertex_buffer(0, vb.slice(..));
+            for (i, r) in ranges.iter().enumerate() {
+                let (cx, cy) = (i as u32 % cols, i as u32 / cols);
+                pass.set_viewport((cx * cell) as f32, (cy * cell) as f32, cell as f32, cell as f32, 0.0, 1.0);
+                pass.draw(r.clone(), 0..1);
+            }
+        }
+        enc.copy_texture_to_buffer(
+            out.as_image_copy(),
+            wgpu::TexelCopyBufferInfo { buffer: &buf, layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(row), rows_per_image: Some(h) } },
+            size,
+        );
+        self.queue.submit(std::iter::once(enc.finish()));
+        let slice = buf.slice(..);
+        slice.map_async(wgpu::MapMode::Read, |_| {});
+        if self.device.poll(wgpu::PollType::wait_indefinitely()).is_err() {
+            return vec![0; (w * h * 4) as usize];
+        }
+        let Ok(data) = slice.get_mapped_range() else { return vec![0; (w * h * 4) as usize] };
+        let mut px = Vec::with_capacity((w * h * 4) as usize);
+        for y in 0..h {
+            let a = (y * row) as usize;
+            px.extend_from_slice(&data[a..a + (w * 4) as usize]);
+        }
+        px
     }
 
     /// Pixels RGBA do último quadro (só sem janela).

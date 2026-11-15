@@ -19,7 +19,7 @@ use spacing_core::rules::events::DeathCause;
 use spacing_core::rules::inventory::Inventory;
 use spacing_core::rules::survival::{SuitInput, Survival};
 use spacing_core::rules::{rules, Events, GameEvent, ItemId};
-use spacing_render::{camera_matrix, load_glb, prop_mesh, Frame, PartDraw, PropDraw, PropInstance, Renderer, ScreenFx, MESH_CUBE, MESH_SHARD};
+use spacing_render::{camera_matrix, item_mesh, load_glb, prop_mesh, Frame, PartDraw, PropDraw, PropInstance, Renderer, ScreenFx, MESH_CUBE, MESH_SHARD};
 
 use crate::base::{BaseModels, BaseState};
 use crate::controls::{Controls, Pointer};
@@ -1045,31 +1045,31 @@ impl Game {
             };
             self.props.push(PropDraw { mesh: if it.kind == 0 { MESH_CUBE } else { MESH_SHARD }, inst });
         }
+        // itens voando e pilhas da morte: o modelo do item (itemModels.ts); minérios e peças um pouco maiores que os blocos
+        let item_scale = |i: ItemId| if i.data().block.or(i.data().icon_block).is_some() { 1.0 } else { 1.4 };
         for d in &self.drops.drops {
             if d.age < 0.0 {
                 continue;
             }
-            let c = item_color(d.item);
-            let s = (DROP_SIZE * d.scale) as f32;
+            let s = (DROP_SIZE * d.scale) as f32 * item_scale(d.item);
             let inst = PropInstance {
                 pos: [d.pos[0] as f32, d.pos[1] as f32 - s * 0.5, d.pos[2] as f32],
                 rot: d.spin[1] as f32,
                 scale: [s, d.spin[0] as f32, 0.0, 0.0],
-                tint: [c[0] as f32, c[1] as f32, c[2] as f32, 1.0],
+                tint: [1.0; 4],
             };
-            self.props.push(PropDraw { mesh: MESH_CUBE, inst });
+            self.props.push(PropDraw { mesh: item_mesh(d.item), inst });
         }
         for p in &self.loot.pieces {
-            let c = item_color(p.item);
             let t = self.time + p.phase;
-            let s = DROP_SIZE as f32 * 1.15;
+            let s = DROP_SIZE as f32 * 1.15 * item_scale(p.item);
             let inst = PropInstance {
                 pos: [p.pos[0] as f32, p.pos[1] as f32 - s * 0.5, p.pos[2] as f32],
                 rot: (t * 1.4) as f32,
                 scale: [s, (t.sin() * 0.3) as f32, 0.0, 0.0],
-                tint: [c[0] as f32, c[1] as f32, c[2] as f32, 1.0],
+                tint: [1.0; 4],
             };
-            self.props.push(PropDraw { mesh: MESH_CUBE, inst });
+            self.props.push(PropDraw { mesh: item_mesh(p.item), inst });
             let pulse = 1.0 + ((self.time * 3.0 + p.phase).sin() * 0.12) as f32;
             signal_lamp([p.pos[0] as f32, p.pos[1] as f32, p.pos[2] as f32], [0.5, 1.5, 1.9], 0.0, 1.1 * pulse, 0.6, &mut self.sprites);
         }
