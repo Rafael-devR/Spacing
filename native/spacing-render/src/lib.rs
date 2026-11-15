@@ -932,6 +932,11 @@ impl Renderer {
         self.chunks.clear();
     }
 
+    /// tira todas as malhas do mundo (jogo novo no mesmo planeta)
+    pub fn clear_chunks(&mut self) {
+        self.chunks.clear();
+    }
+
     pub fn remove_chunk(&mut self, k: Key) {
         self.chunks.remove(&k);
     }

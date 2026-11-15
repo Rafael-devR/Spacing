@@ -23,6 +23,10 @@ pub enum Button {
     Use,
     /// fechar a tela aberta (estação)
     Close,
+    /// menu: salvar, novo jogo
+    Menu,
+    /// mapa do tablet
+    Map,
 }
 
 /// a mira de um dedo (ou do mouse) fora dos botões e do joystick
@@ -68,6 +72,8 @@ pub struct Actions {
     pub toggle_build: bool,
     pub use_: bool,
     pub close: bool,
+    pub menu: bool,
+    pub map: bool,
     pub select: Option<u8>,
     /// toques rápidos (x, y em pixels, construir mesmo fora do modo = botão direito do mouse)
     pub taps: [Option<(f32, f32, bool)>; 2],
@@ -125,6 +131,8 @@ impl Controls {
             ButtonRect { b: Button::Vsync, x: m + small * 6.2, y: m + small, r: small },
             ButtonRect { b: Button::Meteor, x: m + small * 8.8, y: m + small, r: small },
             ButtonRect { b: Button::Bench, x: m + small * 11.4, y: m + small, r: small },
+            ButtonRect { b: Button::Menu, x: m + small * 14.0, y: m + small, r: small },
+            ButtonRect { b: Button::Map, x: m + small * 16.6, y: m + small, r: small },
             ButtonRect { b: Button::Build, x: jx - big * 2.1, y: jy - big * 1.4, r: small * 1.25 },
         ];
         // botão de ação: em cima da barra, no meio; fechar: canto de cima à direita
@@ -175,6 +183,8 @@ impl Controls {
             Button::Slot(i) => a.select = Some(i),
             Button::Use => a.use_ = true,
             Button::Close => a.close = true,
+            Button::Menu => a.menu = true,
+            Button::Map => a.map = true,
         }
     }
 
@@ -294,7 +304,10 @@ impl Controls {
                     "b" => self.actions.bench = true,
                     "c" | "x" => self.actions.toggle_build = true,
                     "f" | "enter" => self.actions.use_ = true,
-                    "escape" => self.actions.close = true,
+                    // Esc fecha a tela aberta; sem tela, abre o menu
+                    "escape" if self.modal => self.actions.close = true,
+                    "escape" | "p" => self.actions.menu = true,
+                    "n" => self.actions.map = true,
                     "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" => self.actions.select = k.parse::<u8>().ok().map(|n| n - 1),
                     _ => {}
                 }

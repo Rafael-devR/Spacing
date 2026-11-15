@@ -38,6 +38,24 @@ export VK_ICD_FILENAMES=$(ls /opt/pw-browsers/chromium-*/chrome-linux64/vk_swift
 Joga um roteiro curto (parado, andando, pulando, um meteoro, girando, afastando; em Marte, um redemoinho e a tempestade) e salva os PNGs; no fim troca de planeta e roda o teste de efeitos. Usa o Vulkan por software que vem
 com o Chromium do Playwright; o tempo do quadro dali não vale para o celular.
 
+### Roteiro jogado (o `play.mjs` do nativo)
+
+```bash
+./target/release/spacing --roteiro /tmp/roteiro
+```
+
+Começa um jogo novo e confere, etapa por etapa (OK ou FALHOU), o que um jogador faria: minerar com a mira, cumprir as missões da Lua
+(o meteorito da missão cai de verdade e é minerado), salvar no arquivo, abrir o menu e o mapa, morrer sem oxigênio, renascer,
+recolher os itens, carregar de novo e abrir um salvamento antigo (v5) do jogo web. Sai com erro se alguma etapa falhou; as capturas
+ficam na pasta. Rode depois de mudar jogabilidade ou salvamento.
+
+### Salvamento
+
+Um arquivo JSON por planeta (`save-lua.json`, `save-marte.json`), no mesmo formato do jogo web (versão 12, `spacing-core/src/save.rs`).
+No Android fica na pasta interna do app (some ao desinstalar); no computador, em `$SPACING_SAVES` ou `~/.local/share/spacing-nativo`.
+O jogo grava sozinho a cada 5 s, ao ir para o fundo e ao fechar; o menu (`||`) tem "Salvar agora" e "Novo jogo". Um jogo novo tem
+semente sorteada; no computador, `spacing lua 12345` começa um jogo novo com essa semente (se não houver salvamento).
+
 Na raiz do projeto, `npm run golden` refaz os vetores dourados a partir do TS. Mudou o gerador, a malha ou a animação no TS?
 Rode de novo e faça o Rust passar.
 
@@ -46,13 +64,13 @@ O APK de teste sai do GitHub Actions (`.github/workflows/native-apk.yml`), artef
 ## Controles
 
 - **Celular:** joystick na metade esquerda (aparece onde o dedo toca), PULAR embaixo à direita, `<` `>` giram a câmera,
-  `+` `-` (segurar) aproximam e afastam, `i` liga e desliga o medidor, `M` troca Lua e Marte, `V` liga e desliga o vsync (por padrão o FPS é **sem limite**, para ver quanto o aparelho aguenta; o medidor mostra o modo), `*` solta um meteoro, `B` mede o custo de cada efeito (fique parado; aperte de novo para fechar o resultado).
+  `+` `-` (segurar) aproximam e afastam, `i` liga e desliga o medidor, `M` troca Lua e Marte, `V` liga e desliga o vsync (por padrão o FPS é **sem limite**, para ver quanto o aparelho aguenta; o medidor mostra o modo), `*` solta um meteoro, `B` mede o custo de cada efeito (fique parado; aperte de novo para fechar o resultado), `||` abre o menu (salvar, novo jogo), `MAPA` abre o mapa do tablet (precisa do Mapa, fabricado na bancada).
 - **Minerar e construir (celular):** segure o dedo na metade direita da tela: a mira fica acima do dedo e o anel mostra o
   progresso. Longe demais, o astronauta anda até o alvo. `CONSTR.` liga o modo construir: um toque rápido coloca o item
   selecionado na face mirada. A barra de itens fica embaixo; toque num espaço para escolher.
-- **Computador:** WASD ou setas, espaço pula, Q e E giram, roda do mouse dá zoom, Tab ou F3 liga o medidor, M troca o planeta, V liga/desliga o vsync, T solta um meteoro, B mede os efeitos. Mouse: segurar o botão esquerdo minera, o direito constrói, 1 a 8 escolhem o espaço da barra, C liga o modo construir.
+- **Computador:** WASD ou setas, espaço pula, Q e E giram, roda do mouse dá zoom, Tab ou F3 liga o medidor, M troca o planeta, V liga/desliga o vsync, T solta um meteoro, B mede os efeitos, Esc ou P abre o menu (Esc também fecha a tela aberta), N abre o mapa. Mouse: segurar o botão esquerdo minera, o direito constrói, 1 a 8 escolhem o espaço da barra, C liga o modo construir.
 
 ## Comparar com o jogo web
 
-O nativo começa na semente **12345**. Abra o jogo web com `?semente=12345` (e `&planeta=marte` para Marte) e compare o FPS
+As capturas usam a semente **12345** (no computador, `spacing lua 12345` começa um jogo novo nela). Abra o jogo web com `?semente=12345` (e `&planeta=marte` para Marte) e compare o FPS
 no mesmo lugar, com a mesma câmera. O medidor mostra FPS, tempo do quadro, chamadas de desenho, triângulos e chunks.

@@ -27,7 +27,7 @@ pub fn run(dir: &str, opts: Options) {
     println!("desenho: {} ({}), MSAA {}x, cena {:?}", r.adapter_name, r.backend, r.msaa(), r.scene_size());
     let models = Models::load(&mut r);
     let t0 = Instant::now();
-    let mut game = Game::new(opts.planet, opts.seed, 3);
+    let mut game = Game::new(opts.planet, opts.seed.unwrap_or(crate::DEFAULT_SEED), 3);
     println!("mundo inicial: {:.0} ms", t0.elapsed().as_secs_f64() * 1000.0);
     let mut c = Controls::default();
     c.layout(w as f32, h as f32, 1.0);
@@ -168,48 +168,9 @@ pub fn run(dir: &str, opts: Options) {
             game.sync(&mut r);
         }
         game.sync(&mut r);
-        let info = hud::HudInfo {
-            meter: &meter,
-            stats,
-            backend: &r.backend,
-            size: (w, h),
-            scene: r.scene_size(),
-            msaa: r.msaa(),
-            present: r.present_mode(),
-            planet: planet(game.planet).name,
-            seed: game.seed,
-            pos: game.player.pos,
-            chunks: game.world.chunk_count(),
-            show_stats: true,
-            bench: Vec::new(),
-            game: &game,
-        };
-        let raw = egui::RawInput {
-            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(w as f32, h as f32))),
-            ..Default::default()
-        };
-        // uma janela nova do egui só aparece no segundo quadro (o primeiro mede)
-        let first = egui.run_ui(raw.clone(), |ui| {
-            hud::draw(ui.ctx(), &c, &info);
-        });
-        let mut out = egui.run_ui(raw, |ui| {
-            hud::draw(ui.ctx(), &c, &info);
-        });
-        // as texturas do primeiro quadro (a fonte) precisam chegar ao desenho
-        let mut tex = first.textures_delta;
-        tex.append(std::mem::take(&mut out.textures_delta));
-        out.textures_delta = tex;
-        let prims = egui.tessellate(out.shapes, out.pixels_per_point);
-        let frame = game.frame(&models, w as f64 / h as f64);
-        let t = Instant::now();
-        stats = r.render(&frame, Some(Ui { primitives: &prims, textures: &out.textures_delta, pixels_per_point: 1.0 })).unwrap_or_default();
-        let px = r.read_pixels().expect("pixels");
         let path = format!("{dir}/{name}.png");
-        let file = std::fs::File::create(&path).expect("arquivo");
-        let mut enc = png::Encoder::new(std::io::BufWriter::new(file), w, h);
-        enc.set_color(png::ColorType::Rgba);
-        enc.set_depth(png::BitDepth::Eight);
-        enc.write_header().and_then(|mut wr| wr.write_image_data(&px)).expect("png");
+        let t = Instant::now();
+        stats = shoot(&mut r, &models, &egui, &c, &mut game, &meter, stats, &path);
         println!("  sprites: {} (baforadas {}, pedrinhas {}), pedaços {}, itens voando {}, inventário {:?}", game.sprite_count(), game.puffs.active(), game.particles.active(), game.debris.count(), game.drops.drops.len(), game.inv.totals());
         println!("  base {:?} vista de dentro {} porta {:.2}", game.base.mode, game.base.indoor_view, game.base.door);
         println!("  mira {:?} progresso {:?} alvo {:?} dureza {:?}", game.interaction.aim, game.interaction.progress, game.interaction.target.as_ref().map(|t| t.key()), game.interaction.target.as_ref().map(|t| t.hardness()));
@@ -231,7 +192,7 @@ pub fn run(dir: &str, opts: Options) {
         spacing_core::planet::PlanetId::Marte => spacing_core::planet::PlanetId::Lua,
     };
     r.set_planet(planet(other));
-    let mut game = Game::new(other, opts.seed, 3);
+    let mut game = Game::new(other, opts.seed.unwrap_or(crate::DEFAULT_SEED), 3);
     for _ in 0..30 {
         game.update(dt, &mut c);
         game.sync(&mut r);
@@ -258,4 +219,59 @@ pub fn run(dir: &str, opts: Options) {
     for l in bench.report() {
         println!("{l}");
     }
+}
+
+/// Desenha um quadro com o HUD e grava em PNG; devolve os números do quadro.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn shoot(r: &mut Renderer, models: &Models, egui: &egui::Context, c: &Controls, game: &mut Game, meter: &hud::Meter, stats: spacing_render::FrameStats, path: &str) -> spacing_render::FrameStats {
+    let (w, h) = r.size();
+    let (prims, textures, ppp) = {
+    let info = hud::HudInfo {
+        meter,
+        stats,
+        backend: &r.backend,
+        size: (w, h),
+        scene: r.scene_size(),
+        msaa: r.msaa(),
+        present: r.present_mode(),
+        planet: planet(game.planet).name,
+        seed: game.seed,
+        pos: game.player.pos,
+        chunks: game.world.chunk_count(),
+        show_stats: true,
+        bench: Vec::new(),
+        saved_ago: None,
+        save_path: None,
+        game,
+    };
+    let raw = egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(w as f32, h as f32))),
+        ..Default::default()
+    };
+    // uma janela nova do egui só aparece no segundo quadro (o primeiro mede) e só fica no lugar certo no terceiro
+    let mut first = egui.run_ui(raw.clone(), |ui| {
+        hud::draw(ui.ctx(), c, &info);
+    });
+    let second = egui.run_ui(raw.clone(), |ui| {
+        hud::draw(ui.ctx(), c, &info);
+    });
+    first.textures_delta.append(second.textures_delta);
+    let mut out = egui.run_ui(raw, |ui| {
+        hud::draw(ui.ctx(), c, &info);
+    });
+    // as texturas do primeiro quadro (a fonte) precisam chegar ao desenho
+    let mut tex = first.textures_delta;
+    tex.append(std::mem::take(&mut out.textures_delta));
+    out.textures_delta = tex;
+    (egui.tessellate(out.shapes, out.pixels_per_point), out.textures_delta, out.pixels_per_point)
+    };
+    let frame = game.frame(models, w as f64 / h as f64);
+    let stats = r.render(&frame, Some(Ui { primitives: &prims, textures: &textures, pixels_per_point: ppp })).unwrap_or_default();
+    let px = r.read_pixels().expect("pixels");
+    let file = std::fs::File::create(path).expect("arquivo");
+    let mut enc = png::Encoder::new(std::io::BufWriter::new(file), w, h);
+    enc.set_color(png::ColorType::Rgba);
+    enc.set_depth(png::BitDepth::Eight);
+    enc.write_header().and_then(|mut wr| wr.write_image_data(&px)).expect("png");
+    stats
 }

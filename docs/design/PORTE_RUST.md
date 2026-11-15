@@ -228,7 +228,7 @@ Resultado no celular do dono (2026-11-15): tudo funcionou, **40 a 60 FPS** com t
 - **Teste `B` intercalado:** cada efeito desligado é comparado com "tudo ligado" medido logo antes e logo depois, em duas rodadas,
   e o resultado mostra a variação (±). Mede também quanto custaria a resolução cheia.
 
-### M4 Jogo completo (em andamento, autorizado pelo dono em 2026-11-15)
+### M4 Jogo completo (feito, autorizado pelo dono em 2026-11-15)
 
 O M4 é grande; vai em quatro partes, cada uma com o próprio commit e conferida antes da seguinte:
 
@@ -311,3 +311,32 @@ conta (0,6 virando 0,61) é pego no passo 12.
 - Diferenças: o holograma é o preenchimento sem o contorno das arestas; a etiqueta é desenhada pelo HUD em vez de uma textura no
   mundo; o fantasma do canteiro (cubo verde/vermelho) ainda não existe.
 - Para testar sem jogar até lá: `Game::test_place_site` e `test_build_and_farm` (as capturas usam).
+
+**M4d (fechamento):**
+- Núcleo: `rules/missions.rs` (porte do `Missions.ts`: coletar, chegar, minerar, entregar no módulo; a regra recebe do jogo onde
+  está o meteorito e se há meteoro no ar, e devolve o pedido do meteoro da missão), `rules/exploration.rs` (porte do
+  `Exploration.ts`: ladrilhos de 4 blocos, máscara de 16 bits por chunk) e `save.rs` (porte do `save.ts`: o mesmo JSON, versão 12,
+  `migrate` de qualquer versão de 1 a 12 e `renewWorld`). As pilhas da morte entram no salvamento (`drops.rs`).
+- Prova: três roteiros novos no `npm run golden`. Missões: dez sessões de 300 operações (coletar, minerar, soltar, andar perto e
+  longe do módulo, com e sem meteorito), com os eventos na ordem do barramento do TS. Mapa: 300 revelações. Salvamento: 188
+  salvamentos (os de cada versão, inteiros, e 160 estragados de propósito em todos os níveis), e o Rust tem de dar o mesmo `migrate`
+  e o mesmo `renewWorld` do TS. Erro de propósito na distância de entrega (4,2 → 4,4) é pego. Diferença de propósito: uma edição de
+  bloco com número quebrado ou negativo (que o TS deixa passar e estraga o chunk) some.
+- App: salvamento num arquivo por planeta (`storage.rs`: pasta interna do app no Android, `~/.local/share/spacing-nativo` no
+  computador), gravado a cada 5 s, ao ir para o fundo, ao fechar e ao trocar de planeta, nunca no meio de uma cena nem morto; ao
+  abrir, carrega (gerador mudou: mundo refeito, progresso fica, como no web). Arquivo ilegível vira `.ruim` e começa um jogo novo.
+  Jogo novo com semente sorteada e a placa de circuito do Mapa.
+- Missões no jogo: cartão embaixo dos medidores (passo, texto, barra ou lista da entrega), banner de objetivo concluído, dica ao
+  começar, aviso do que falta na entrega, o meteoro da missão cai perto do jogador, marcador do objetivo na tela (losango com a
+  distância, ou seta na borda quando fora da tela).
+- Menu (`||`, Esc ou P): pausa o jogo, mostra a missão e quando salvou, Salvar agora e Novo jogo (com confirmação).
+- Mapa do tablet (`MAPA` ou N, só com o Mapa equipado): o topo das colunas descobertas, lido aos poucos (um chunk por quadro,
+  seis com o mapa aberto, refeito quando um bloco muda), numa imagem de um pixel por bloco, com a paleta e o claro/escuro por altura
+  do `blockMap.ts`, girado com a câmera; marcadores do astronauta (seta), módulo, base, objetivo, itens caídos e minérios vistos;
+  aproximar e afastar. **Diferença:** no web o mapa é um relevo 3D em blocos num tablet que sobe do pulso; aqui é visto de cima.
+  O tablet 3D fica para o M5, com as outras telas.
+- Roteiro jogado (`spacing --roteiro <pasta>`, `roteiro.rs`), o `play.mjs` do nativo: 42 etapas, de minerar com a mira até abrir um
+  salvamento v5 do jogo web, todas OK; e um teste de ida e volta no `cargo test -p spacing-app` (salvar um jogo com estufa, canteiros,
+  itens e mapa e carregar dá o mesmo salvamento).
+- Ficou de fora: o feixe azul do objetivo no mundo (o marcador é do HUD), o módulo de pouso consertado no fim da cadeia, o atraso de
+  1,2 s do meteoro da missão, e tirar painéis solares de baixo da base ao carregar (a base do nativo não muda de tamanho).

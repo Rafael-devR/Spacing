@@ -605,6 +605,16 @@ impl World {
         Some(if self.raycast([x as f64 + 0.5, top as f64 + 1.6, z as f64 + 0.5], d, 120.0).is_some() { 0.0 } else { 1.0 })
     }
 
+    /// Um objeto solto desse tipo nos chunks carregados (o meteorito da missão): o centro da base dele. Entre vários, o do
+    /// chunk de menor chave, para não depender da ordem do mapa.
+    pub fn find_prop(&self, kind: &str) -> Option<[f64; 3]> {
+        let mut keys: Vec<&Key> = self.chunks.keys().collect();
+        keys.sort();
+        keys.into_iter()
+            .find_map(|k| self.chunks[k].props.iter().find(|p| p.kind == kind))
+            .map(|p| [p.wx as f64 + 0.5, p.y as f64, p.wz as f64 + 0.5])
+    }
+
     /// o objeto solto da coluna (x, z), se houver
     pub fn prop_at(&self, wx: i32, wz: i32) -> Option<&PropSpawn> {
         self.chunks.get(&Self::chunk_key(wx, wz))?.props.iter().find(|p| p.wx == wx && p.wz == wz)

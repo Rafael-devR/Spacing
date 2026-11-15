@@ -1,7 +1,8 @@
 //! Planetas como dados (porte de `src/data/planets.ts`).
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 pub enum PlanetId {
+    #[default]
     Lua,
     Marte,
 }

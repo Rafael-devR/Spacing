@@ -2078,6 +2078,7 @@ dependencies = [
  "log",
  "png 0.17.16",
  "pollster",
+ "serde_json",
  "spacing-core",
  "spacing-render",
  "wgpu",

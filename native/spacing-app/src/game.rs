@@ -27,6 +27,10 @@ use spacing_core::rules::crafting::Crafting;
 use spacing_core::rules::greenhouse::Greenhouse;
 use spacing_core::rules::power::{Load, PanelSpot, Power, PowerWorld};
 use spacing_core::rules::StationId;
+use spacing_core::rules::exploration::{Exploration, REVEAL_RADIUS};
+use spacing_core::rules::missions::{MissionInput, Missions};
+use spacing_core::save::{BaseSave, Pos, PowerSave, SaveData, SAVE_VERSION};
+use spacing_core::terrain::{CH, WORLD_GEN_LUA, WORLD_GEN_MARTE};
 
 /// a tela aberta por cima do jogo
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -34,6 +38,10 @@ pub enum Screen {
     Station(StationId),
     /// o console: energia da base
     Power,
+    /// menu: salvar, novo jogo
+    Menu,
+    /// mapa do tablet (só com o Mapa equipado)
+    Map,
 }
 
 /// o que a energia vê do jogo (Game.ts: painéis colocados, sombra, consumidores, poeira)
@@ -189,26 +197,82 @@ pub struct Game {
     pub greenhouse: Greenhouse,
     /// tempo do laço de cada máquina e quanto ela está trabalhando (0..1, suave)
     pub machine: [(f64, f64); 3],
+    pub missions: Missions,
+    pub exploration: Exploration,
+    reveal_t: f64,
+    /// banner de objetivo concluído (título, segundos restantes)
+    pub banner: Option<(String, f64)>,
+    /// topo das colunas descobertas, para o mapa do tablet
+    pub map: crate::map::MapSurface,
+}
+
+/// versão do gerador de mundo de cada planeta (WORLD_GEN do TS)
+pub fn world_gen(p: PlanetId) -> i64 {
+    match p {
+        PlanetId::Lua => WORLD_GEN_LUA as i64,
+        PlanetId::Marte => WORLD_GEN_MARTE as i64,
+    }
 }
 
 impl Game {
+    /// Jogo novo com esta semente.
     pub fn new(planet_id: PlanetId, seed: u32, threads: usize) -> Self {
+        Self::load(planet_id, None, seed, threads)
+    }
+
+    /// Do salvamento (já migrado; ver `spacing_core::save`), ou jogo novo com `seed` se None (Game.ts monta igual).
+    pub fn load(planet_id: PlanetId, save: Option<&SaveData>, seed: u32, threads: usize) -> Self {
+        let seed = save.map_or(seed, |s| s.seed.max(0.0) as u32);
         let mut world = World::new(planet_id, seed);
         world.radius = 3;
-        let base = BaseState::new(world.terrain.as_ref());
+        // edições e objetos do salvamento entram antes de qualquer chunk ser gerado
+        if let Some(s) = save {
+            world.load(&s.world);
+        }
+        let mut base = BaseState::new(world.terrain.as_ref());
         world.structures.push(base.layout.structure.clone());
+        let greenhouse = save.map_or_else(Greenhouse::new, |s| Greenhouse::from_save(&s.greenhouse));
+        if let Some(site) = &greenhouse.site {
+            world.structures.push(spacing_core::rules::greenhouse::greenhouse_structure(site));
+        }
+        let crafting = save.map_or_else(Crafting::new, |s| Crafting::from_save(&s.crafting));
         let power = Power::new(
             (base.layout.center[0], base.layout.center[2]),
             planet(planet_id).solar,
             if planet_id == PlanetId::Marte { rules().power.shade_marte } else { rules().power.shade_lua },
-            None,
-            &PowerView { world: &world, crafting: &Crafting::new(), charging: false, dust: 0.0 },
+            save.and_then(|s| s.power.map(|p| p.battery)),
+            &PowerView { world: &world, crafting: &crafting, charging: false, dust: 0.0 },
         );
         // carregamento inicial: tudo na hora, em volta do pouso (Game.ts faz o mesmo)
         world.update(0.0, 0.0, SYNC_BUDGET);
         world.enable_threads(threads);
         let mut player = Player::new(planet(planet_id).physics);
-        player.spawn(&mut world, SPAWN.0, SPAWN.1);
+        match save.and_then(|s| s.player) {
+            Some(p) => {
+                player.pos = [p.x, p.y + 0.05, p.z];
+                // garante que não nasce dentro de um bloco
+                while Player::collides(&mut world, player.pos[0], player.pos[1], player.pos[2]) && player.pos[1] < CH as f64 {
+                    player.pos[1] += 1.0;
+                }
+                player.prev_pos = player.pos;
+            }
+            None => player.spawn(&mut world, SPAWN.0, SPAWN.1),
+        }
+        if let Some(s) = save {
+            base.respawn_base = s.base.respawn == "base";
+            base.visited = s.base.visited;
+        }
+        let mut inv = save.map_or_else(Inventory::new, |s| Inventory::from_save(&s.inventory));
+        if save.is_none() {
+            // jogo novo: a placa de circuito do Mapa vem aproveitada do módulo de pouso
+            inv.add(ItemId::of("circuit"), 1, false, &mut Events::new());
+        }
+        let mut exploration = Exploration::new(save.map(|s| &s.explored));
+        exploration.reveal_around(player.pos[0], player.pos[2], REVEAL_RADIUS, &mut Events::new());
+        let mut loot = LootPiles::new(planet(planet_id).physics.loot_gravity, seed as u64 ^ 0x100);
+        if let Some(s) = save {
+            loot.load(&s.loot);
+        }
         let lander_y = world.top_y(LANDER.0 as i32, LANDER.1 as i32) as f64 + 1.0;
         let base_y = world.terrain.spawn_h();
         let pd = planet(planet_id);
@@ -244,13 +308,13 @@ impl Game {
             hit_stop: 0.0,
             slow_mo: (0.0, 1.0),
             draw_pos,
-            inv: Inventory::new(),
-            equip: Equipment::new(),
-            survival: Survival::new(pd.physics.fall_safe_speed, None),
+            inv,
+            equip: save.map_or_else(Equipment::new, |s| Equipment::from_save(&s.equipment)),
+            survival: Survival::new(pd.physics.fall_safe_speed, save.and_then(|s| s.suit.as_ref())),
             interaction: Interaction::default(),
             debris: Debris::new(pd.physics.debris_gravity, pd.physics.debris_drag, seed as u64 ^ 0x5eed),
             drops: ItemDrops::new(pd.physics.debris_gravity, seed as u64 ^ 0xd0),
-            loot: LootPiles::new(pd.physics.loot_gravity, seed as u64 ^ 0x100),
+            loot,
             toasts: Vec::new(),
             death: None,
             hurt: 0.0,
@@ -259,12 +323,60 @@ impl Game {
             view_proj: Mat4::IDENTITY,
             screen: (1.0, 1.0),
             base,
-            crafting: Crafting::new(),
+            crafting,
             screen_open: None,
             power,
-            greenhouse: Greenhouse::new(),
+            greenhouse,
             machine: [(0.0, 0.0); 3],
+            missions: Missions::new(planet_id == PlanetId::Marte, save.map(|s| s.missions)),
+            exploration,
+            reveal_t: 0.0,
+            banner: None,
+            map: Default::default(),
         }
+        .placed(save.is_some_and(|s| s.base.inside))
+    }
+
+    /// salvo dentro da base: volta dentro, sem transição
+    fn placed(mut self, inside: bool) -> Self {
+        if inside {
+            self.place_inside();
+            self.rig.snap(focus(self.player.pos));
+            self.draw_pos = self.player.pos;
+        }
+        self
+    }
+
+    /// o jogo inteiro no formato do salvamento (Game.persist)
+    pub fn to_save(&self) -> SaveData {
+        let p = self.player.pos;
+        SaveData {
+            version: SAVE_VERSION,
+            seed: self.seed as f64,
+            world_gen: world_gen(self.planet),
+            saved_at: 0.0,
+            world: self.world.serialize(),
+            inventory: self.inv.serialize(),
+            player: Some(Pos { x: p[0], y: p[1], z: p[2] }),
+            missions: self.missions.serialize(),
+            suit: Some(self.survival.serialize()),
+            loot: self.loot.serialize(),
+            equipment: self.equip.serialize(),
+            base: BaseSave {
+                inside: self.base.inside(),
+                respawn: if self.base.respawn_base { "base" } else { "lander" }.into(),
+                visited: self.base.visited,
+            },
+            explored: self.exploration.serialize(),
+            crafting: self.crafting.serialize(),
+            power: Some(PowerSave { battery: self.power.serialize() }),
+            greenhouse: self.greenhouse.serialize(),
+        }
+    }
+
+    /// dá para salvar agora (não no meio de uma cena nem morto)
+    pub fn can_save(&self) -> bool {
+        self.death.is_none() && !self.base.busy()
     }
 
     /// energia que a estação recebe agora: o forno usa o sol dos espelhos, as outras a rede
@@ -335,6 +447,8 @@ impl Game {
                 }
             }
             A::Close => self.screen_open = None,
+            // quem cuida é o app (arquivo e jogo novo)
+            A::Save | A::NewGame => {}
         }
         self.react(ev);
     }
@@ -398,10 +512,22 @@ impl Game {
         self.interaction.update(dt, target, holding, touch, rate, tier, &mut cx);
     }
 
-    /// as respostas aos fatos do passo (Game.wireEvents, SurvivalDirector)
+    /// as respostas aos fatos do passo: primeiro as missões (elas também reagem a eventos), depois o resto
     pub(crate) fn react(&mut self, ev: Events) {
+        let ev = self.missions.react(ev);
+        self.respond(ev);
+    }
+
+    /// as respostas aos fatos (Game.wireEvents, SurvivalDirector)
+    fn respond(&mut self, ev: Events) {
         for e in ev {
             match e {
+                GameEvent::MissionStarted { hint: Some(h), .. } => self.toast(h),
+                GameEvent::MissionCompleted { title, .. } => self.banner = Some((title.to_string(), 3.2)),
+                GameEvent::MissionMissing { items } => {
+                    let list: Vec<String> = items.iter().map(|(i, n)| format!("{n} {}", i.data().name.to_lowercase())).collect();
+                    self.toast(format!("Faltam: {}", list.join(", ")));
+                }
                 GameEvent::PlayerDamaged { amount, .. } => {
                     self.rig.shake((0.2 + amount / 60.0).min(0.7));
                     self.hurt = (self.hurt + 0.4 + amount / 60.0).min(1.0);
@@ -585,6 +711,12 @@ impl Game {
         if a.use_ {
             self.base_use();
         }
+        if a.menu {
+            self.screen_open = if self.screen_open == Some(Screen::Menu) { None } else { Some(Screen::Menu) };
+        }
+        if a.map {
+            self.toggle_map();
+        }
         if a.close {
             self.screen_open = None;
         }
@@ -670,6 +802,12 @@ impl Game {
             self.impact(e);
         }
         self.survive(real_dt, dt, &mut ev, respawn);
+        if let Some(b) = &mut self.banner {
+            b.1 -= real_dt;
+            if b.1 <= 0.0 {
+                self.banner = None;
+            }
+        }
         self.flash = (self.flash - real_dt * meteors::camera::FLASH_DECAY).max(0.0);
         self.puffs.update(dt);
         self.particles.update(dt);
@@ -682,8 +820,49 @@ impl Game {
             let spacing_core::world::WorldEvent::BlockChanged { x, y, z, .. } = e;
             self.footprints.clear_at(x, y, z);
             self.debris.disturb(x, y, z);
+            self.map.invalidate(x, z);
         }
-        self.react(ev);
+        // o mapa lê aos poucos o topo do que foi descoberto (de uma vez quando está aberto)
+        self.prepare_map(if self.screen_open == Some(Screen::Map) { 6 } else { 1 });
+        // missões: reagem ao que aconteceu e depois andam (Missions.update); o mapa é descoberto ao andar
+        let mut ev = self.missions.react(ev);
+        if self.death.is_none() {
+            let prop = self.missions.wanted_prop().and_then(|k| self.world.find_prop(k));
+            let inp = MissionInput { player: self.player.pos, prop, meteors_active: !self.meteors.active.is_empty(), lander_y: self.lander_y };
+            if let Some(r) = self.missions.update(dt, &inp, &mut self.inv, &mut ev) {
+                if let Some(t) = self.meteors.pick_target(&mut self.world, self.player.pos, self.rig.yaw, r.min, r.max) {
+                    self.meteors.launch(t, r.radius, true, self.rig.yaw);
+                }
+            }
+            self.reveal_t -= dt;
+            if self.reveal_t <= 0.0 {
+                self.reveal_t = 0.3;
+                self.exploration.reveal_around(self.player.pos[0], self.player.pos[2], REVEAL_RADIUS, &mut ev);
+            }
+        }
+        self.respond(ev);
+    }
+
+    /// altura do planalto do pouso (o mapa clareia acima dela e escurece abaixo)
+    pub fn base_height(&self) -> f64 {
+        self.base_y
+    }
+
+    /// abre ou fecha o mapa do tablet (precisa do Mapa, fabricado na bancada)
+    pub fn toggle_map(&mut self) {
+        if self.screen_open == Some(Screen::Map) {
+            self.screen_open = None;
+        } else if !self.equip.has(spacing_core::rules::EquipId::of("map")) {
+            self.toast("Fabrique o Mapa na bancada da base para usar o tablet.");
+        } else if self.screen_open.is_none() && !self.base.busy() && self.death.is_none() {
+            self.screen_open = Some(Screen::Map);
+        }
+    }
+
+    /// onde o marcador de objetivo aponta (o meteorito, o módulo), se houver
+    pub fn mission_target(&self) -> Option<[f64; 3]> {
+        let prop = self.missions.wanted_prop().and_then(|k| self.world.find_prop(k));
+        self.missions.target(prop, self.lander_y)
     }
 
     pub fn sprite_count(&self) -> usize {
@@ -952,4 +1131,44 @@ impl Game {
 
 fn focus(p: [f64; 3]) -> [f64; 3] {
     [p[0], p[1] + 0.8, p[2]]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use spacing_core::save;
+
+    /// salvar, ler o texto de volta e montar o jogo de novo dá o mesmo salvamento
+    #[test]
+    fn salvar_e_carregar_volta_igual() {
+        let mut g = Game::new(PlanetId::Lua, 4242, 1);
+        let mut ev = Events::new();
+        g.inv.add(ItemId::of("iron"), 7, true, &mut ev);
+        g.inv.add(ItemId::of("ice"), 3, true, &mut ev);
+        g.react(ev);
+        g.world.set_block(2, 30, 3, spacing_core::blocks::ROCK);
+        g.test_place_site();
+        g.test_build_and_farm(0.4);
+        g.base.respawn_base = true;
+        g.survival.o2 = 61.5;
+        for _ in 0..30 {
+            g.update(1.0 / 30.0, &mut Controls::default());
+        }
+        let a = g.to_save();
+        assert!(!a.explored.is_empty(), "o mapa em volta foi descoberto");
+        assert!(a.greenhouse.site.is_some());
+        let text = save::to_text(&a, 1.0);
+        let back = save::parse(&text, 1.0).expect("lê o próprio salvamento");
+        let h = Game::load(PlanetId::Lua, Some(&back), 1, 1);
+        let mut b = h.to_save();
+        assert_eq!(b.seed, 4242.0);
+        // o astronauta volta um pouco acima (não nasce dentro do chão)
+        let (pa, pb) = (a.player.unwrap(), b.player.unwrap());
+        assert!((pa.x - pb.x).abs() < 1e-9 && (pa.z - pb.z).abs() < 1e-9 && (pb.y - pa.y - 0.05).abs() < 1.1);
+        b.player = a.player;
+        // as pilhas da morte assentam de novo ao carregar
+        assert_eq!(a.loot.len(), b.loot.len());
+        b.loot = a.loot.clone();
+        assert_eq!(serde_json::to_value(&a).unwrap(), serde_json::to_value(&b).unwrap());
+    }
 }

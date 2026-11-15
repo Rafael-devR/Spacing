@@ -8,6 +8,10 @@ pub mod effects;
 pub mod game;
 pub mod greenhouse;
 pub mod hud;
+pub mod map;
+#[cfg(not(target_os = "android"))]
+pub mod roteiro;
+pub mod storage;
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -24,18 +28,18 @@ use winit::window::{Window, WindowId};
 use controls::Controls;
 use game::{Game, Models};
 
-/// semente fixa do M2: a mesma do jogo web aberto com `?semente=12345`, para comparar a mesma cena
+/// semente das capturas de teste: a mesma do jogo web aberto com `?semente=12345`, para comparar a mesma cena
 pub const DEFAULT_SEED: u32 = 12345;
+/// de quanto em quanto tempo o jogo grava sozinho (AUTOSAVE_MS do jogo web)
+const AUTOSAVE_SECONDS: f64 = 5.0;
 
+#[derive(Default)]
 pub struct Options {
     pub planet: PlanetId,
-    pub seed: u32,
-}
-
-impl Default for Options {
-    fn default() -> Self {
-        Self { planet: PlanetId::Lua, seed: DEFAULT_SEED }
-    }
+    /// semente de um jogo novo; None = sorteada (o salvamento guarda a dele)
+    pub seed: Option<u32>,
+    /// pasta do salvamento; None = não grava
+    pub save_dir: Option<std::path::PathBuf>,
 }
 
 struct App {
@@ -63,6 +67,10 @@ struct App {
     egui_events: Vec<egui::Event>,
     /// por que o desenho não subiu (fica no log; a tela só mostra preto)
     failed: Option<String>,
+    store: storage::Store,
+    save_t: f64,
+    /// a hora (ms) do último salvamento que deu certo
+    saved_at: Option<f64>,
 }
 
 fn threads() -> usize {
@@ -72,6 +80,9 @@ fn threads() -> usize {
 impl App {
     fn new(opts: Options) -> Self {
         Self {
+            store: storage::Store::new(opts.save_dir.clone()),
+            save_t: 0.0,
+            saved_at: None,
             opts,
             window: None,
             renderer: None,
@@ -145,7 +156,41 @@ impl App {
         }
     }
 
+    /// O jogo do planeta: o salvamento (o gerador mudou? o mundo é refeito, o progresso fica) ou um jogo novo.
+    fn start_game(&mut self) -> Game {
+        let p = self.opts.planet;
+        let fresh = self.opts.seed.unwrap_or_else(storage::fresh_seed);
+        let mut save = self.store.load(p, fresh);
+        let mut renewed = false;
+        if let Some(s) = &save {
+            if s.world_gen != game::world_gen(p) {
+                save = Some(spacing_core::save::renew_world(s, fresh as f64, game::world_gen(p)));
+                renewed = true;
+            }
+        }
+        log::info!("{}: {}", planet(p).name, if save.is_some() { "salvamento carregado" } else { "jogo novo" });
+        let mut g = Game::load(p, save.as_ref(), fresh, threads());
+        if renewed {
+            g.toast("O mundo foi gerado de novo. Seus itens e equipamentos continuam com você.");
+        }
+        g
+    }
+
+    /// grava o jogo (Game.persist); não grava no meio de uma cena nem morto
+    fn persist(&mut self) -> bool {
+        let Some(g) = &self.game else { return false };
+        if !g.can_save() {
+            return false;
+        }
+        let ok = self.store.write(g.planet, &g.to_save());
+        if ok {
+            self.saved_at = Some(storage::now_ms());
+        }
+        ok
+    }
+
     fn switch_planet(&mut self) {
+        self.persist();
         self.opts.planet = match self.opts.planet {
             PlanetId::Lua => PlanetId::Marte,
             PlanetId::Marte => PlanetId::Lua,
@@ -198,14 +243,24 @@ impl App {
                 r.set_scale(self.base_scale * s as f32);
             }
         }
-        let (Some(r), Some(window)) = (self.renderer.as_mut(), self.window.clone()) else { return };
-        if self.game.is_none() {
-            self.game = Some(Game::new(self.opts.planet, self.opts.seed, threads()));
+        if self.renderer.is_none() || self.window.is_none() {
+            return;
         }
+        if self.game.is_none() {
+            self.game = Some(self.start_game());
+        }
+        self.save_t += dt;
+        if self.save_t >= AUTOSAVE_SECONDS {
+            self.save_t = 0.0;
+            self.persist();
+        }
+        let (Some(r), Some(window)) = (self.renderer.as_mut(), self.window.clone()) else { return };
         let game = self.game.as_mut().unwrap();
         self.controls.use_visible = game.base.use_label.is_some();
         self.controls.modal = game.screen_open.is_some();
-        game.update(dt, &mut self.controls);
+        // menu aberto: o jogo para (como a pausa do jogo web)
+        let paused = game.screen_open == Some(game::Screen::Menu);
+        game.update(if paused { 0.0 } else { dt }, &mut self.controls);
         game.sync(r);
         let size = r.size();
         let aspect = size.0 as f64 / size.1.max(1) as f64;
@@ -241,14 +296,20 @@ impl App {
                 Some(b) => vec![b.running_label(), "fique parado: o tempo do quadro é medido sem cada efeito".into()],
                 None => Vec::new(),
             },
+            saved_ago: self.saved_at.map(|t| ((storage::now_ms() - t) / 1000.0).max(0.0)),
+            save_path: self.store.path(game.planet).map(|p| p.display().to_string()),
             game,
         };
         let controls = &self.controls;
         let mut actions = Vec::new();
         let out = self.egui.run_ui(raw, |ui| actions = hud::draw(ui.ctx(), controls, &info));
         let prims = self.egui.tessellate(out.shapes, out.pixels_per_point);
+        let mut app_actions = Vec::new();
         for a in actions {
-            game.ui_action(a);
+            match a {
+                hud::UiAction::Save | hud::UiAction::NewGame => app_actions.push(a),
+                a => game.ui_action(a),
+            }
         }
         let models = self.models.as_ref().unwrap();
         let frame = game.frame(models, aspect);
@@ -256,6 +317,26 @@ impl App {
             self.stats = s;
         }
         self.cpu_ms = now.elapsed().as_secs_f64() * 1000.0;
+        for a in app_actions {
+            match a {
+                hud::UiAction::Save => {
+                    let ok = self.persist();
+                    if let Some(g) = &mut self.game {
+                        g.toast(if ok { "Jogo salvo" } else { "Não deu para salvar agora" });
+                    }
+                }
+                hud::UiAction::NewGame => {
+                    // o salvamento deste planeta sai; o jogo novo tem semente sorteada
+                    self.store.clear(self.opts.planet);
+                    self.saved_at = None;
+                    self.game = Some(self.start_game());
+                    if let Some(r) = &mut self.renderer {
+                        r.clear_chunks();
+                    }
+                }
+                _ => {}
+            }
+        }
         window.request_redraw();
     }
 }
@@ -279,7 +360,9 @@ impl ApplicationHandler for App {
     }
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
-        // o Android derruba a superfície quando o app vai para o fundo; o jogo continua na memória
+        // o Android derruba a superfície quando o app vai para o fundo (e pode matar o app lá): grava antes
+        self.persist();
+        // o jogo continua na memória
         self.renderer = None;
         self.models = None;
     }
@@ -287,7 +370,10 @@ impl ApplicationHandler for App {
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         let w = self.renderer.as_ref().map(|r| r.size().0 as f32).unwrap_or(1.0);
         match event {
-            WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::CloseRequested => {
+                self.persist();
+                event_loop.exit();
+            }
             WindowEvent::Resized(s) => {
                 if let Some(r) = &mut self.renderer {
                     r.resize(s.width, s.height);
@@ -321,10 +407,7 @@ impl ApplicationHandler for App {
                     Key::Named(NamedKey::Tab) => "tab".into(),
                     Key::Named(NamedKey::F3) => "f3".into(),
                     Key::Named(NamedKey::Enter) => "enter".into(),
-                    Key::Named(NamedKey::Escape) if down => {
-                        event_loop.exit();
-                        return;
-                    }
+                    Key::Named(NamedKey::Escape) => "escape".into(),
                     _ => return,
                 };
                 self.controls.key(&name, down);
@@ -378,28 +461,36 @@ fn android_main(app: winit::platform::android::activity::AndroidApp) {
     // um panic vira linha no logcat (`adb logcat -s spacing`) em vez de o app fechar sem dizer nada
     std::panic::set_hook(Box::new(|info| log::error!("PANIC: {info}")));
     log::info!("Spacing nativo iniciando");
+    // o salvamento fica na pasta interna do app
+    let save_dir = app.internal_data_path();
+    log::info!("salvamento em {save_dir:?}");
     let event_loop = EventLoop::builder().with_android_app(app).build().expect("laço");
-    run(event_loop, Options::default());
+    run(event_loop, Options { save_dir, ..Options::default() });
 }
 
-/// Computador: `spacing [lua|marte] [semente]`.
+/// Computador: `spacing [lua|marte] [semente]`. Com semente, um jogo novo começa com ela (o salvamento guarda a dele).
 #[cfg(not(target_os = "android"))]
 pub fn run_desktop() {
     let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).try_init();
     let mut opts = Options::default();
     let args: Vec<String> = std::env::args().skip(1).collect();
     let capture = args.iter().position(|a| a == "--captura").and_then(|i| args.get(i + 1).cloned());
+    if let Some(dir) = args.iter().position(|a| a == "--roteiro").and_then(|i| args.get(i + 1)) {
+        roteiro::run(dir);
+        return;
+    }
     for a in &args {
         if let Some(p) = PlanetId::parse(a) {
             opts.planet = p;
         } else if let Ok(s) = a.parse() {
-            opts.seed = s;
+            opts.seed = Some(s);
         }
     }
     if let Some(dir) = capture {
         capture::run(&dir, opts);
         return;
     }
+    opts.save_dir = Some(storage::Store::desktop_dir());
     let event_loop = EventLoop::new().expect("laço");
     run(event_loop, opts);
 }
