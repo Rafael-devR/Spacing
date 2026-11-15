@@ -38,6 +38,8 @@ pub enum Screen {
     Station(StationId),
     /// o console: energia da base
     Power,
+    /// a mochila (tela de itens com o traje à esquerda)
+    Bag,
     /// menu: salvar, novo jogo
     Menu,
     /// mapa do tablet (só com o Mapa equipado)
@@ -447,6 +449,13 @@ impl Game {
                 }
             }
             A::Close => self.screen_open = None,
+            A::Move { from, to, n } => {
+                self.inv.move_n(from as i64, to as i64, n as i64, &mut ev);
+            }
+            A::QuickMove(from) => {
+                self.inv.quick_move(from as i64, &mut ev);
+            }
+            A::Sort => self.inv.sort_bag(&mut ev),
             // quem cuida é o app (arquivo e jogo novo)
             A::Save | A::NewGame => {}
         }
@@ -716,6 +725,13 @@ impl Game {
         }
         if a.map {
             self.toggle_map();
+        }
+        if a.bag {
+            self.screen_open = match self.screen_open {
+                Some(Screen::Bag) => None,
+                None if !self.base.busy() && self.death.is_none() => Some(Screen::Bag),
+                other => other,
+            };
         }
         if a.close {
             self.screen_open = None;

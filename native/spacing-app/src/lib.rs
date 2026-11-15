@@ -7,8 +7,10 @@ pub mod controls;
 pub mod effects;
 pub mod game;
 pub mod greenhouse;
+pub mod hand;
 pub mod hud;
 pub mod icons;
+pub mod items_screen;
 pub mod map;
 #[cfg(not(target_os = "android"))]
 pub mod roteiro;

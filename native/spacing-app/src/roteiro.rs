@@ -27,6 +27,10 @@ struct Run {
     dir: String,
     results: Vec<String>,
     failed: usize,
+    /// relógio do egui nos quadros com toque (toque longo e toque duplo dependem dele)
+    ui_t: f64,
+    /// letras e texturas novas dos quadros sem desenho (vão junto na próxima captura)
+    pending: egui::TexturesDelta,
 }
 
 impl Run {
@@ -77,8 +81,69 @@ impl Run {
         }
         self.game.sync(&mut self.r);
         let path = format!("{}/{name}.png", self.dir);
-        self.stats = capture::shoot(&mut self.r, &self.models, &self.egui, &self.c, &mut self.game, &self.meter, self.stats, &path);
+        self.stats = capture::shoot(&mut self.r, &self.models, &self.egui, &self.c, &mut self.game, &self.meter, self.stats, &path, Some(&mut self.pending));
         println!("       captura {path}");
+    }
+
+    /// um quadro da interface com estes toques (pontos de tela); o que a tela pedir vai para o jogo
+    fn ui(&mut self, events: Vec<egui::Event>, dt: f64) {
+        self.ui_t += dt;
+        let (w, h) = self.r.size();
+        let actions = {
+            let info = hud::HudInfo {
+                meter: &self.meter,
+                stats: self.stats,
+                backend: &self.r.backend,
+                size: (w, h),
+                scene: self.r.scene_size(),
+                msaa: self.r.msaa(),
+                present: self.r.present_mode(),
+                planet: planet(self.game.planet).name,
+                seed: self.game.seed,
+                pos: self.game.player.pos,
+                chunks: self.game.world.chunk_count(),
+                show_stats: false,
+                bench: Vec::new(),
+                saved_ago: None,
+                save_path: None,
+                game: &self.game,
+            };
+            let raw = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(w as f32, h as f32))),
+                time: Some(self.ui_t),
+                events,
+                ..Default::default()
+            };
+            let mut actions = Vec::new();
+            let out = self.egui.run_ui(raw, |ui| actions = hud::draw(ui.ctx(), &self.c, &info));
+            self.pending.append(out.textures_delta);
+            actions
+        };
+        for a in actions {
+            self.game.ui_action(a);
+        }
+        self.c.modal = self.game.screen_open.is_some();
+        self.step();
+    }
+
+    /// apertar ou soltar o dedo num ponto
+    fn touch(&mut self, at: egui::Pos2, pressed: bool) {
+        self.ui(vec![egui::Event::PointerMoved(at), egui::Event::PointerButton { pos: at, button: egui::PointerButton::Primary, pressed, modifiers: Default::default() }], 0.03);
+    }
+
+    /// arrastar de um ponto a outro (com uns quadros no caminho)
+    fn drag(&mut self, a: egui::Pos2, b: egui::Pos2) {
+        self.ui(vec![egui::Event::PointerMoved(a)], 0.03);
+        self.touch(a, true);
+        for k in 1..=4 {
+            self.ui(vec![egui::Event::PointerMoved(a + (b - a) * (k as f32 / 4.0))], 0.03);
+        }
+        self.touch(b, false);
+    }
+
+    fn slot_center(&self, i: usize) -> egui::Pos2 {
+        let (w, h) = self.r.size();
+        crate::items_screen::slot_rect(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(w as f32, h as f32)), i).center()
     }
 
     fn teleport(&mut self, x: f64, z: f64) {
@@ -154,7 +219,7 @@ pub fn run(dir: &str) {
     c.touched = true;
     let seed = crate::DEFAULT_SEED;
     let game = Game::load(PlanetId::Lua, store.load(PlanetId::Lua, seed).as_ref(), seed, 3);
-    let mut t = Run { r, models, egui, c, meter: hud::Meter::default(), stats: Default::default(), game, store, dir: dir.into(), results: Vec::new(), failed: 0 };
+    let mut t = Run { r, models, egui, c, meter: hud::Meter::default(), stats: Default::default(), game, store, dir: dir.into(), results: Vec::new(), failed: 0, ui_t: 0.0, pending: Default::default() };
     t.game.meteors.auto_spawn = false;
 
     // ---- começo ----
@@ -286,6 +351,74 @@ pub fn run(dir: &str) {
     t.check("passar por cima recolhe os itens", t.game.loot.pieces.is_empty(), format!("{} restam", t.game.loot.pieces.len()));
     let back_in = t.wait(10.0, |g| same(&g.inv.totals(), &before));
     t.check("inventário voltou ao que era", back_in, fmt(&t.game.inv.totals()));
+
+    // ---- tela de itens (mochila): arrastar, toque duplo, metade, organizar ----
+    t.c.actions.bag = true;
+    t.ui(Vec::new(), 0.03);
+    t.ui(Vec::new(), 0.03);
+    t.check("o botão da mochila abre a tela de itens", t.game.screen_open == Some(Screen::Bag), format!("{:?}", t.game.screen_open));
+    t.shot("r8-mochila");
+    let first = (0..8).find(|&i| t.game.inv.slot(i).is_some()).unwrap_or(0);
+    let what = t.game.inv.slot(first);
+    let (a, b) = (t.slot_center(first), t.slot_center(20));
+    t.drag(a, b);
+    t.check("arrastar leva a pilha para a mochila", t.game.inv.slot(first).is_none() && t.game.inv.slot(20) == what, format!("{:?} → {:?}", what, t.game.inv.slot(20)));
+    let c20 = t.slot_center(20);
+    t.touch(c20, true);
+    t.touch(c20, false);
+    t.ui(Vec::new(), 0.05);
+    t.touch(c20, true);
+    t.touch(c20, false);
+    let back = (0..8).any(|i| t.game.inv.slot(i) == what);
+    t.check("toque duplo manda de volta para a barra", t.game.inv.slot(20).is_none() && back, "");
+    // metade: segura parado e arrasta para um espaço vazio
+    let big = (0..32).find(|&i| t.game.inv.slot(i).is_some_and(|s| s.n >= 4));
+    if let Some(i) = big {
+        let n = t.game.inv.slot(i).unwrap().n;
+        let empty = (8..32).find(|&k| t.game.inv.slot(k).is_none()).unwrap();
+        let (a, b) = (t.slot_center(i), t.slot_center(empty));
+        t.ui(vec![egui::Event::PointerMoved(a)], 0.03);
+        t.touch(a, true);
+        for _ in 0..20 {
+            t.ui(Vec::new(), 0.03);
+        }
+        for k in 1..=4 {
+            t.ui(vec![egui::Event::PointerMoved(a + (b - a) * (k as f32 / 4.0))], 0.03);
+        }
+        t.touch(b, false);
+        let (x, y) = (t.game.inv.slot(i).map_or(0, |s| s.n), t.game.inv.slot(empty).map_or(0, |s| s.n));
+        t.check("segurar pega metade", y == n.div_ceil(2) && x + y == n, format!("{n} → {x} + {y}"));
+    }
+    t.game.ui_action(hud::UiAction::Sort);
+    let bag: Vec<bool> = (8..32).map(|k| t.game.inv.slot(k).is_some()).collect();
+    t.check("organizar junta a mochila no começo", bag.windows(2).all(|w| w[0] || !w[1]), "");
+    t.shot("r9-mochila-mexida");
+    t.ui(vec![], 0.03);
+    t.game.screen_open = None;
+    // ---- estação: soltar um item na entrada escolhe a receita; fabricar ----
+    {
+        use spacing_core::rules::{RecipeId, StationId};
+        let mut ev = Events::new();
+        t.game.inv.add(ItemId::of("iron"), 12, false, &mut ev);
+        t.game.inv.add(ItemId::of("regolith"), 20, false, &mut ev);
+        t.game.crafting.unlock(StationId::of("furnace"));
+        t.game.screen_open = Some(Screen::Station(StationId::of("furnace")));
+        t.ui(Vec::new(), 0.03);
+        t.ui(Vec::new(), 0.03);
+        let iron = (0..32).find(|&k| t.game.inv.slot(k).is_some_and(|s| s.item == ItemId::of("iron"))).unwrap();
+        let (w, h) = t.r.size();
+        let input = crate::items_screen::input_rect(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(w as f32, h as f32))).center();
+        let before = t.game.inv.count(ItemId::of("iron"));
+        t.drag(t.slot_center(iron), input);
+        t.check("soltar na entrada não tira nada da mochila", t.game.inv.count(ItemId::of("iron")) == before, "");
+        t.game.ui_action(hud::UiAction::Start(RecipeId::of("iron_bar"), 3));
+        t.steps(90);
+        t.ui(Vec::new(), 0.5);
+        t.check("a estação trabalha", t.game.crafting.working(StationId::of("furnace")), "");
+        t.shot("r10-forno");
+        t.game.screen_open = None;
+        t.c.modal = false;
+    }
 
     // ---- carregar de novo ----
     t.steps(30);

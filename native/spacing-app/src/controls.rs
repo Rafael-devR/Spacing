@@ -27,6 +27,8 @@ pub enum Button {
     Menu,
     /// mapa do tablet
     Map,
+    /// a mochila (ao lado da barra de itens)
+    Bag,
 }
 
 /// a mira de um dedo (ou do mouse) fora dos botões e do joystick
@@ -74,6 +76,7 @@ pub struct Actions {
     pub close: bool,
     pub menu: bool,
     pub map: bool,
+    pub bag: bool,
     pub select: Option<u8>,
     /// toques rápidos (x, y em pixels, construir mesmo fora do modo = botão direito do mouse)
     pub taps: [Option<(f32, f32, bool)>; 2],
@@ -145,6 +148,8 @@ impl Controls {
         for i in 0..8 {
             self.buttons.push(ButtonRect { b: Button::Slot(i), x: x0 + i as f32 * (slot + gap), y: h - 10.0 * u - slot * 0.5, r: slot * 0.5 });
         }
+        // mochila: à direita da barra
+        self.buttons.push(ButtonRect { b: Button::Bag, x: x0 + 8.0 * (slot + gap) + slot * 0.2, y: h - 10.0 * u - slot * 0.5, r: slot * 0.5 });
         let _ = h;
     }
 
@@ -185,6 +190,7 @@ impl Controls {
             Button::Close => a.close = true,
             Button::Menu => a.menu = true,
             Button::Map => a.map = true,
+            Button::Bag => a.bag = true,
         }
     }
 
@@ -297,7 +303,8 @@ impl Controls {
                     " " | "space" => self.actions.jump = true,
                     "q" => self.actions.rotate -= 1.0,
                     "e" => self.actions.rotate += 1.0,
-                    "f3" | "tab" => self.actions.toggle_stats = true,
+                    "f3" => self.actions.toggle_stats = true,
+                    "i" | "tab" => self.actions.bag = true,
                     "m" => self.actions.switch_planet = true,
                     "v" => self.actions.toggle_vsync = true,
                     "t" => self.actions.meteor = true,

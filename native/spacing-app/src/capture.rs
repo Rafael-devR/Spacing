@@ -178,7 +178,7 @@ pub fn run(dir: &str, opts: Options) {
         game.sync(&mut r);
         let path = format!("{dir}/{name}.png");
         let t = Instant::now();
-        stats = shoot(&mut r, &models, &egui, &c, &mut game, &meter, stats, &path);
+        stats = shoot(&mut r, &models, &egui, &c, &mut game, &meter, stats, &path, None);
         println!("  sprites: {} (baforadas {}, pedrinhas {}), pedaços {}, itens voando {}, inventário {:?}", game.sprite_count(), game.puffs.active(), game.particles.active(), game.debris.count(), game.drops.drops.len(), game.inv.totals());
         println!("  base {:?} vista de dentro {} porta {:.2}", game.base.mode, game.base.indoor_view, game.base.door);
         println!("  mira {:?} progresso {:?} alvo {:?} dureza {:?}", game.interaction.aim, game.interaction.progress, game.interaction.target.as_ref().map(|t| t.key()), game.interaction.target.as_ref().map(|t| t.hardness()));
@@ -231,7 +231,7 @@ pub fn run(dir: &str, opts: Options) {
 
 /// Desenha um quadro com o HUD e grava em PNG; devolve os números do quadro.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn shoot(r: &mut Renderer, models: &Models, egui: &egui::Context, c: &Controls, game: &mut Game, meter: &hud::Meter, stats: spacing_render::FrameStats, path: &str) -> spacing_render::FrameStats {
+pub(crate) fn shoot(r: &mut Renderer, models: &Models, egui: &egui::Context, c: &Controls, game: &mut Game, meter: &hud::Meter, stats: spacing_render::FrameStats, path: &str, pending: Option<&mut egui::TexturesDelta>) -> spacing_render::FrameStats {
     let (w, h) = r.size();
     let (prims, textures, ppp) = {
     let info = hud::HudInfo {
@@ -268,7 +268,8 @@ pub(crate) fn shoot(r: &mut Renderer, models: &Models, egui: &egui::Context, c: 
         hud::draw(ui.ctx(), c, &info);
     });
     // as texturas do primeiro quadro (a fonte) precisam chegar ao desenho
-    let mut tex = first.textures_delta;
+    let mut tex = pending.map(std::mem::take).unwrap_or_default();
+    tex.append(first.textures_delta);
     tex.append(std::mem::take(&mut out.textures_delta));
     out.textures_delta = tex;
     (egui.tessellate(out.shapes, out.pixels_per_point), out.textures_delta, out.pixels_per_point)
