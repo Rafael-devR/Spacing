@@ -150,6 +150,10 @@ Cada tela tem uma **proposta** e um **critério** para aprovar. Antes de codar, 
 
 ## Telas feitas (2026-11-15)
 
+> **Decisão do dono (2026-11-15): trocar de planeta é só para teste.** No jogo, o astronauta viaja de planeta em planeta como parte
+> da história; o jogador não escolhe o planeta no menu nem no meio do jogo. O "Planeta ‹ Lua ›" do título e a tecla M (trocar
+> planeta) ficam só para testar (ligar com `--teste`, no computador, quando houver). O planeta atual vem do salvamento.
+
 O dono desenhou com o Claude, tela por tela, num canvas de design (tela deitada de 844×390 pontos), e mandou implementar. O que
 ficou decidido nesse caminho, e vale para as próximas telas:
 
