@@ -237,3 +237,55 @@ impl NamedModel {
         self.draw_with(at, out, |_| Some(Mat4::IDENTITY));
     }
 }
+
+/// Modelo com os laços do Blender tocando (as máquinas da base): a hierarquia é refeita a cada quadro com a pose do tempo `t`.
+pub struct AnimatedModel {
+    nodes: Vec<crate::model::Node>,
+    roots: Vec<usize>,
+    meshes: Vec<MeshId>,
+    clips: Vec<crate::model::Clip>,
+    materials: Vec<Material>,
+}
+
+impl AnimatedModel {
+    pub fn new(m: &ModelData, meshes: &[MeshId]) -> Self {
+        Self { nodes: m.nodes.clone(), roots: m.roots.clone(), meshes: meshes.to_vec(), clips: m.clips.clone(), materials: m.nodes.iter().map(|n| material_for(&n.name)).collect() }
+    }
+
+    /// duração do laço mais longo
+    pub fn duration(&self) -> f32 {
+        self.clips.iter().map(|c| c.duration).fold(0.0, f32::max)
+    }
+
+    /// Desenha na pose do tempo `t` (todos os laços juntos, cada um no próprio ciclo). `tint` troca o material de uma parte
+    /// pelo nome (a luz de estado da máquina).
+    pub fn draw(&self, at: Mat4, t: f32, out: &mut Vec<PartDraw>, tint: impl Fn(&str) -> Option<Material>) {
+        let mut local: Vec<(Vec3, Quat, Vec3)> = self.nodes.iter().map(|n| (n.translation, n.rotation, n.scale)).collect();
+        for c in &self.clips {
+            let tc = if c.duration > 0.0 { t.rem_euclid(c.duration) } else { 0.0 };
+            for tr in &c.tracks {
+                let v = tr.sample(tc);
+                let l = &mut local[tr.node];
+                match tr.channel {
+                    crate::model::Channel::Translation => l.0 = Vec3::new(v[0], v[1], v[2]),
+                    crate::model::Channel::Rotation => l.1 = Quat::from_array(v),
+                    crate::model::Channel::Scale => l.2 = Vec3::new(v[0], v[1], v[2]),
+                }
+            }
+        }
+        fn walk(m: &AnimatedModel, local: &[(Vec3, Quat, Vec3)], i: usize, parent: Mat4, out: &mut Vec<PartDraw>, tint: &dyn Fn(&str) -> Option<Material>) {
+            let (tr, r, s) = local[i];
+            let w = parent * Mat4::from_scale_rotation_translation(s, r, tr);
+            let n = &m.nodes[i];
+            if let Some(mi) = n.mesh {
+                out.push(PartDraw { mesh: m.meshes[mi], world: w, material: tint(&n.name).unwrap_or(m.materials[i]) });
+            }
+            for &c in &n.children {
+                walk(m, local, c, w, out, tint);
+            }
+        }
+        for &r in &self.roots {
+            walk(self, &local, r, at, out, &tint);
+        }
+    }
+}

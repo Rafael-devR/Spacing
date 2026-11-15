@@ -58,6 +58,8 @@ struct App {
     cpu_ms: f64,
     last: Option<Instant>,
     cursor: (f32, f32),
+    /// toques e cliques para o egui (as telas com botões)
+    egui_events: Vec<egui::Event>,
     /// por que o desenho não subiu (fica no log; a tela só mostra preto)
     failed: Option<String>,
 }
@@ -86,6 +88,7 @@ impl App {
             cpu_ms: 0.0,
             last: None,
             cursor: (0.0, 0.0),
+            egui_events: Vec::new(),
             failed: None,
         }
     }
@@ -124,6 +127,19 @@ impl App {
             self.scaler.reset();
             if let Some(r) = &mut self.renderer {
                 r.set_scale(self.base_scale);
+            }
+        }
+    }
+
+    /// um dedo ou o mouse para o egui: mover, e apertar (Some(true)) ou soltar (Some(false))
+    fn pointer_event(&mut self, x: f32, y: f32, press: Option<bool>) {
+        let ppp = self.window.as_ref().map_or(1.0, |w| w.scale_factor() as f32);
+        let pos = egui::pos2(x / ppp, y / ppp);
+        self.egui_events.push(egui::Event::PointerMoved(pos));
+        if let Some(pressed) = press {
+            self.egui_events.push(egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed, modifiers: Default::default() });
+            if !pressed && cfg!(target_os = "android") {
+                self.egui_events.push(egui::Event::PointerGone);
             }
         }
     }
@@ -187,7 +203,7 @@ impl App {
         }
         let game = self.game.as_mut().unwrap();
         self.controls.use_visible = game.base.use_label.is_some();
-        self.controls.modal = game.station_open.is_some();
+        self.controls.modal = game.screen_open.is_some();
         game.update(dt, &mut self.controls);
         game.sync(r);
         let size = r.size();
@@ -197,6 +213,7 @@ impl App {
         let ppp = window.scale_factor() as f32;
         let raw = egui::RawInput {
             screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(size.0 as f32 / ppp, size.1 as f32 / ppp))),
+            events: std::mem::take(&mut self.egui_events),
             ..Default::default()
         };
         let info = hud::HudInfo {
@@ -226,8 +243,12 @@ impl App {
             game,
         };
         let controls = &self.controls;
-        let out = self.egui.run_ui(raw, |ui| hud::draw(ui.ctx(), controls, &info));
+        let mut actions = Vec::new();
+        let out = self.egui.run_ui(raw, |ui| actions = hud::draw(ui.ctx(), controls, &info));
         let prims = self.egui.tessellate(out.shapes, out.pixels_per_point);
+        for a in actions {
+            game.ui_action(a);
+        }
         let models = self.models.as_ref().unwrap();
         let frame = game.frame(models, aspect);
         if let Some(s) = r.render(&frame, Some(Ui { primitives: &prims, textures: &out.textures_delta, pixels_per_point: out.pixels_per_point })) {
@@ -276,6 +297,11 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => self.frame(event_loop),
             WindowEvent::Touch(t) => {
                 let (x, y) = (t.location.x as f32, t.location.y as f32);
+                self.pointer_event(x, y, match t.phase {
+                    TouchPhase::Started => Some(true),
+                    TouchPhase::Ended | TouchPhase::Cancelled => Some(false),
+                    TouchPhase::Moved => None,
+                });
                 match t.phase {
                     TouchPhase::Started => self.controls.touch_start(t.id, x, y, w),
                     TouchPhase::Moved => self.controls.touch_move(t.id, x, y),
@@ -313,6 +339,7 @@ impl ApplicationHandler for App {
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor = (position.x as f32, position.y as f32);
                 self.controls.touch_move(u64::MAX, self.cursor.0, self.cursor.1);
+                self.pointer_event(self.cursor.0, self.cursor.1, None);
                 if !cfg!(target_os = "android") {
                     self.controls.hover = Some(self.cursor);
                 }
@@ -320,8 +347,14 @@ impl ApplicationHandler for App {
             // botão esquerdo: aperta os botões da tela ou mira e minera segurando; direito: constrói no ponto
             WindowEvent::MouseInput { state, button, .. } => match (button, state) {
                 (winit::event::MouseButton::Right, ElementState::Pressed) => self.controls.tap(self.cursor.0, self.cursor.1, true),
-                (winit::event::MouseButton::Left, ElementState::Pressed) => self.controls.finger_down(u64::MAX, self.cursor.0, self.cursor.1, w, false),
-                (winit::event::MouseButton::Left, ElementState::Released) => self.controls.touch_end(u64::MAX),
+                (winit::event::MouseButton::Left, ElementState::Pressed) => {
+                    self.pointer_event(self.cursor.0, self.cursor.1, Some(true));
+                    self.controls.finger_down(u64::MAX, self.cursor.0, self.cursor.1, w, false)
+                }
+                (winit::event::MouseButton::Left, ElementState::Released) => {
+                    self.pointer_event(self.cursor.0, self.cursor.1, Some(false));
+                    self.controls.touch_end(u64::MAX)
+                }
                 _ => {}
             },
             _ => {}

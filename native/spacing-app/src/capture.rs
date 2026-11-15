@@ -36,10 +36,10 @@ pub fn run(dir: &str, opts: Options) {
     let meter = hud::Meter::default();
     let dt = 1.0 / 60.0;
     // (quadro, nome da captura)
-    let shots = [(30, "1-pouso"), (150, "2-andando"), (200, "3-pulo"), (275, "6-meteoro-voo"), (312, "7-meteoro-impacto"), (330, "8-meteoro-onda"), (360, "4-girou"), (420, "5-longe"), (450, "9-minerando"), (530, "10-quebrou"), (575, "11-construiu"), (690, "12-morte"), (740, "13-renasceu"), (770, "14-base-fora"), (800, "15-camara"), (1000, "16-dentro"), (1280, "17-saiu")];
+    let shots = [(30, "1-pouso"), (150, "2-andando"), (200, "3-pulo"), (275, "6-meteoro-voo"), (312, "7-meteoro-impacto"), (330, "8-meteoro-onda"), (360, "4-girou"), (420, "5-longe"), (450, "9-minerando"), (530, "10-quebrou"), (575, "11-construiu"), (690, "12-morte"), (740, "13-renasceu"), (770, "14-base-fora"), (800, "15-camara"), (1000, "16-dentro"), (1040, "16b-estacao"), (1100, "16c-maquinas"), (1360, "17-saiu")];
     let mut stats = Default::default();
     game.meteors.auto_spawn = false;
-    for f in 0..=1280 {
+    for f in 0..=1360 {
         c.scripted = Some(match f {
             0..=60 => (0.0, 0.0),
             61..=180 => (0.0, 1.0),
@@ -104,7 +104,27 @@ pub fn run(dir: &str, opts: Options) {
             game.player.prev_pos = game.player.pos;
             c.actions.zoom = 0.75;
         }
-        if f == 775 || f == 1010 {
+        // as estações: material, o forno e o eletrolisador instalados, receitas começadas, a tela da bancada aberta
+        if f == 1001 {
+            use spacing_core::rules::{ItemId, RecipeId, StationId};
+            let mut ev = Vec::new();
+            for (k, n) in [("iron_bar", 12), ("glass", 6), ("brick", 6), ("silicon", 6), ("gold", 3), ("regolith", 40), ("rock", 10), ("iron", 10), ("ice", 6)] {
+                game.inv.add(ItemId::of(k), n, false, &mut ev);
+            }
+            game.crafting.unlock(StationId::of("furnace"));
+            game.crafting.unlock(StationId::of("electrolyzer"));
+            game.ui_action(crate::hud::UiAction::Start(RecipeId::of("brick"), 4));
+            game.ui_action(crate::hud::UiAction::Start(RecipeId::of("glass"), 1));
+            game.ui_action(crate::hud::UiAction::Start(RecipeId::of("water"), 2));
+            game.ui_action(crate::hud::UiAction::Start(RecipeId::of("solar_panel"), 1));
+            game.screen_open = Some(crate::game::Screen::Station(StationId::of("furnace")));
+            c.modal = true;
+        }
+        if f == 1060 {
+            game.screen_open = None;
+            c.modal = false;
+        }
+        if f == 775 || f == 1110 {
             println!("  base: {:?} usar {:?}", game.base.mode, game.base.use_label);
             c.actions.use_ = true;
         }
@@ -148,7 +168,17 @@ pub fn run(dir: &str, opts: Options) {
             screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(w as f32, h as f32))),
             ..Default::default()
         };
-        let out = egui.run_ui(raw, |ui| hud::draw(ui.ctx(), &c, &info));
+        // uma janela nova do egui só aparece no segundo quadro (o primeiro mede)
+        let first = egui.run_ui(raw.clone(), |ui| {
+            hud::draw(ui.ctx(), &c, &info);
+        });
+        let mut out = egui.run_ui(raw, |ui| {
+            hud::draw(ui.ctx(), &c, &info);
+        });
+        // as texturas do primeiro quadro (a fonte) precisam chegar ao desenho
+        let mut tex = first.textures_delta;
+        tex.append(std::mem::take(&mut out.textures_delta));
+        out.textures_delta = tex;
         let prims = egui.tessellate(out.shapes, out.pixels_per_point);
         let frame = game.frame(&models, w as f64 / h as f64);
         let t = Instant::now();

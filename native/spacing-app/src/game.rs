@@ -24,7 +24,44 @@ use spacing_render::{camera_matrix, load_glb, prop_mesh, Frame, PartDraw, PropDr
 use crate::base::{BaseModels, BaseState};
 use crate::controls::{Controls, Pointer};
 use spacing_core::rules::crafting::Crafting;
+use spacing_core::rules::greenhouse::Greenhouse;
+use spacing_core::rules::power::{Load, PanelSpot, Power, PowerWorld};
 use spacing_core::rules::StationId;
+
+/// a tela aberta por cima do jogo
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Screen {
+    Station(StationId),
+    /// o console: energia da base
+    Power,
+}
+
+/// o que a energia vê do jogo (Game.ts: painéis colocados, sombra, consumidores, poeira)
+struct PowerView<'a> {
+    world: &'a World,
+    crafting: &'a Crafting,
+    charging: bool,
+    dust: f64,
+}
+
+impl PowerWorld for PowerView<'_> {
+    fn panels(&self) -> Vec<PanelSpot> {
+        self.world.placed_props("solarPanel").into_iter().map(|(key, x, z)| PanelSpot { key, x, z }).collect()
+    }
+    fn exposure(&self, x: i32, z: i32) -> Option<f64> {
+        self.world.sun_exposure(x, z, rules().sun_direction)
+    }
+    fn loads(&self) -> Vec<Load> {
+        let mut out: Vec<Load> = StationId::all().filter(|s| self.crafting.working(*s)).map(|s| Load { id: s.key().into(), kw: s.data().kw }).collect();
+        if self.charging {
+            out.push(Load { id: "suit".into(), kw: rules().power.suit_charge_kw });
+        }
+        out
+    }
+    fn dust(&self) -> f64 {
+        self.dust
+    }
+}
 
 /// lava de Marte: dano por segundo em pé nela (MarsDirector, MARS.lavaDps)
 const LAVA_DPS: f64 = 22.0;
@@ -144,8 +181,12 @@ pub struct Game {
     pub screen: (f32, f32),
     pub base: BaseState,
     pub crafting: Crafting,
-    /// tela da estação aberta
-    pub station_open: Option<StationId>,
+    /// tela aberta por cima do jogo (estação, energia)
+    pub screen_open: Option<Screen>,
+    pub power: Power,
+    pub greenhouse: Greenhouse,
+    /// tempo do laço de cada máquina e quanto ela está trabalhando (0..1, suave)
+    pub machine: [(f64, f64); 3],
 }
 
 impl Game {
@@ -154,6 +195,13 @@ impl Game {
         world.radius = 3;
         let base = BaseState::new(world.terrain.as_ref());
         world.structures.push(base.layout.structure.clone());
+        let power = Power::new(
+            (base.layout.center[0], base.layout.center[2]),
+            planet(planet_id).solar,
+            if planet_id == PlanetId::Marte { rules().power.shade_marte } else { rules().power.shade_lua },
+            None,
+            &PowerView { world: &world, crafting: &Crafting::new(), charging: false, dust: 0.0 },
+        );
         // carregamento inicial: tudo na hora, em volta do pouso (Game.ts faz o mesmo)
         world.update(0.0, 0.0, SYNC_BUDGET);
         world.enable_threads(threads);
@@ -210,8 +258,83 @@ impl Game {
             screen: (1.0, 1.0),
             base,
             crafting: Crafting::new(),
-            station_open: None,
+            screen_open: None,
+            power,
+            greenhouse: Greenhouse::new(),
+            machine: [(0.0, 0.0); 3],
         }
+    }
+
+    /// energia que a estação recebe agora: o forno usa o sol dos espelhos, as outras a rede
+    pub fn station_speed(&self, s: StationId) -> f64 {
+        if s.data().energy == "sun" {
+            self.power.sun
+        } else {
+            self.power.satisfaction
+        }
+    }
+
+    /// energia e fabricação, a cada quadro
+    fn run_base_systems(&mut self, dt: f64, ev: &mut Events) {
+        let view = PowerView {
+            world: &self.world,
+            crafting: &self.crafting,
+            charging: self.base.inside() && self.survival.battery < 100.0 && !self.survival.dead,
+            dust: self.mars.as_ref().map_or(0.0, |m| m.dust()),
+        };
+        self.power.update(dt, &view);
+        let (sun, grid) = (self.power.sun, self.power.satisfaction);
+        let speed = move |s: StationId| if s.data().energy == "sun" { sun } else { grid };
+        self.crafting.update(dt, &speed, ev);
+        for (i, s) in StationId::all().enumerate() {
+            let want = if self.crafting.is_built(s) && self.crafting.working(s) && !self.crafting.has_ready(s) { 1.0 } else { 0.0 };
+            let m = &mut self.machine[i];
+            m.1 += (want - m.1) * (1.0 - (-dt * 3.0).exp());
+            m.0 += dt * m.1;
+        }
+    }
+
+    /// o jogador apertou algo na tela da estação (hud::UiAction)
+    pub fn ui_action(&mut self, a: crate::hud::UiAction) {
+        use crate::hud::UiAction as A;
+        let mut ev = Events::new();
+        match a {
+            A::Start(r, batch) => {
+                let rng = &mut self.rng;
+                if self.crafting.start(r, batch, &mut self.inv, &self.equip, &mut || rng.f(), &mut ev) {
+                    let name = crate::hud::output_name(r.data().outputs[0]);
+                    let n = if batch > 1 { format!("{batch}× {name}") } else { name };
+                    self.toast(format!("{}: {n}", r.data().station.data().name));
+                }
+            }
+            A::Take(s, slot) => {
+                if let Some(res) = self.crafting.take(s, slot, &mut self.inv, &mut self.equip, &mut ev) {
+                    for o in &res.delivered {
+                        match o {
+                            spacing_core::rules::data::Output::Equip { equip } => self.toast(format!("Equipado: {}", equip.data().name)),
+                            spacing_core::rules::data::Output::Station { station } => self.toast(format!("Instalado: {}", station.data().name)),
+                            _ => {}
+                        }
+                    }
+                    if res.recipes.iter().any(|r| r.key() == "solar_panel") {
+                        self.toast("Painel solar: escolha na barra, ligue o modo construir e toque no chão, ao sol e perto da base");
+                    }
+                    if res.partial {
+                        self.toast("Mochila cheia: o resto ficou na estação");
+                    }
+                }
+            }
+            A::Pause(s, slot) => {
+                self.crafting.toggle_pause(s, slot, &mut ev);
+            }
+            A::Cancel(s, slot) => {
+                if self.crafting.cancel(s, slot, &mut self.inv, &mut ev).is_some() {
+                    self.toast("Trabalho cancelado: o material voltou");
+                }
+            }
+            A::Close => self.screen_open = None,
+        }
+        self.react(ev);
     }
 
     /// o raio da câmera por um ponto da tela (pixels)
@@ -243,7 +366,7 @@ impl Game {
     fn interact(&mut self, dt: f64, c: &mut Controls, taps: &[(f32, f32, bool)], ev: &mut Events) {
         self.screen = c.screen;
         // dentro da base (e nas cenas) o mundo de fora fica travado
-        let locked = self.base.indoor_view || self.base.busy() || self.station_open.is_some();
+        let locked = self.base.indoor_view || self.base.busy() || self.screen_open.is_some();
         self.pointer = if self.death.is_some() || locked { None } else { c.pointer() };
         let alive = self.death.is_none() && !locked;
         let target = match self.pointer {
@@ -306,6 +429,10 @@ impl Game {
                     if s.o2.min(s.battery).min(s.integrity) < 95.0 {
                         self.toast("Recarregando o traje");
                     }
+                }
+                GameEvent::CraftReady { station, recipe, .. } => {
+                    let name = crate::hud::output_name(recipe.data().outputs[0]);
+                    self.toast(if self.base.inside() { format!("{} pronto: {name}", station.data().name) } else { format!("{} terminou: {name} espera na base", station.data().name) });
                 }
                 GameEvent::BuildMode { on } => self.toast(if on { "Modo construir: toque para colocar o item da barra" } else { "Modo minerar: segure para minerar" }),
                 _ => {}
@@ -456,7 +583,7 @@ impl Game {
             self.base_use();
         }
         if a.close {
-            self.station_open = None;
+            self.screen_open = None;
         }
         // morto: qualquer toque (ou o pulo) depois do cartão renasce
         let respawn = self.death.is_some() && (a.jump || !taps.is_empty());
@@ -478,7 +605,7 @@ impl Game {
             self.rig.zoom(hz);
         }
         let (mut mx, mut my) = c.move_dir();
-        if self.base.busy() || self.station_open.is_some() {
+        if self.base.busy() || self.screen_open.is_some() {
             (mx, my) = (0.0, 0.0);
             self.input.jump = false;
         }
@@ -513,6 +640,7 @@ impl Game {
         }
         self.player_fx(&mut ev);
         self.base_update(dt);
+        self.run_base_systems(dt, &mut ev);
         let alpha = self.acc / FIXED_STEP;
         self.draw_pos = self.player.animate(dt, alpha);
 

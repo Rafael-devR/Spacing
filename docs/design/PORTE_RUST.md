@@ -284,3 +284,17 @@ conta (0,6 virando 0,61) é pego no passo 12.
   aceita mineração (ADR 0006). Beliche: descansar enche o traje e passa a renascer na base. Botão de ação em cima da barra.
 - Ficou para a parte 2: a tela das estações, a energia, o console, o baú, as animações das máquinas e a impressora da bancada.
   A textura da Terra na janela e a tela do console (texturas desenhadas em código no TS) também ficam para depois.
+
+**M4c, parte 2 (estações e energia):**
+- Energia da base ligada (`Power` do M4a): painéis do telhado, painéis colocados no chão (`World::placed_props`), sombra no painel
+  (`World::sun_exposure`, um raio na direção do sol), consumo das estações trabalhando e da recarga do traje, poeira de Marte.
+  O forno anda com o sol dos espelhos, a bancada e o eletrolisador com a rede.
+- Fabricação ligada: a tela da estação (egui) lista as receitas com o que pedem, o que se tem e o tempo na energia de agora, faz uma
+  ou o lote máximo, e mostra as vagas com progresso, etapa, Pegar, Pausar e Cancelar. O console abre o painel de energia. O baú dá o
+  kit da estufa. É uma versão simples das telas do jogo web: a tela completa, com a mochila ao lado, arrastar e a câmara animada da
+  máquina, é do M5.
+- As máquinas tocam o laço do Blender (o leitor de `.glb` agora lê animações) na velocidade do trabalho, e a luz de estado muda:
+  âmbar trabalhando, verde piscando quando pronto, azul livre. Diferença: o jogo web toca só o primeiro laço do arquivo; aqui tocam
+  todos (o eletrolisador tem um por bolha). A impressora da bancada (peça crescendo, lasers) e o holograma do lugar de uma máquina
+  ainda não fabricada ficam para depois.
+- O egui recebe os toques (antes só o desenho usava o egui).

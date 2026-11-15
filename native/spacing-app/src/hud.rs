@@ -6,7 +6,180 @@ use spacing_core::interaction::{AimState, Target};
 use spacing_render::FrameStats;
 
 use crate::controls::{Button, Controls};
-use crate::game::{item_color, Game};
+use crate::game::{item_color, Game, Screen};
+use spacing_core::rules::data::{batchable, recipe_seconds, Output};
+use spacing_core::rules::{rules, RecipeId, StationId};
+use spacing_core::rules::crafting::Crafting;
+
+/// o que o jogador apertou numa tela (o jogo aplica depois do quadro da interface)
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum UiAction {
+    Start(RecipeId, u32),
+    Take(StationId, Option<usize>),
+    Pause(StationId, usize),
+    Cancel(StationId, usize),
+    Close,
+}
+
+/// nome curto do que a receita entrega
+pub fn output_name(o: Output) -> String {
+    match o {
+        Output::Item { item, .. } => item.data().name.clone(),
+        Output::Equip { equip } => equip.data().name.clone(),
+        Output::Station { station } => station.data().name.clone(),
+    }
+}
+
+/// "1 min 20 s", "12 s"
+fn human_time(s: f64) -> String {
+    if !s.is_finite() {
+        return "parado (sem energia)".into();
+    }
+    let s = s.ceil() as u64;
+    if s >= 60 {
+        format!("{} min {} s", s / 60, s % 60)
+    } else {
+        format!("{s} s")
+    }
+}
+
+/// A tela de uma estação (porte simplificado do StationScreen.ts; a tela completa, com a mochila e a câmara animada, é do M5).
+fn station_screen(ui: &mut egui::Ui, g: &Game, st: StationId, out: &mut Vec<UiAction>) {
+    let c: &Crafting = &g.crafting;
+    let d = st.data();
+    let speed = g.station_speed(st);
+    let accent = Color32::from_rgb(127, 231, 255);
+    ui.horizontal(|ui| {
+        ui.heading(egui::RichText::new(&d.name).color(accent).strong());
+        ui.label(format!("{}: {:.0}%", d.energy_name, speed * 100.0));
+    });
+    ui.label(egui::RichText::new(&d.tagline).weak());
+    ui.separator();
+    if !c.is_built(st) {
+        ui.label(format!("A máquina ainda não existe: fabrique o {} na bancada.", d.name));
+        return;
+    }
+    ui.columns(2, |cols| {
+        // receitas
+        egui::ScrollArea::vertical().id_salt("receitas").show(&mut cols[0], |ui| {
+            for r in Crafting::recipes(st) {
+                let rd = r.data();
+                let ch = c.check(r, 1, &g.inv, &g.equip);
+                ui.group(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new(output_name(rd.outputs[0])).strong());
+                        ui.label(egui::RichText::new(format!("· {}", human_time(recipe_seconds(rd, 1) / speed.max(1e-6)))).weak());
+                    });
+                    let need: Vec<String> = rd.inputs.iter().map(|&(i, n)| format!("{}/{} {}", g.inv.count(i), n, i.data().name)).collect();
+                    ui.label(egui::RichText::new(need.join(", ")).color(if ch.missing.is_empty() { Color32::from_rgb(200, 230, 210) } else { Color32::from_rgb(255, 150, 130) }));
+                    ui.horizontal(|ui| {
+                        let why = if ch.owned {
+                            Some("já tem")
+                        } else if ch.locked {
+                            Some("estação não instalada")
+                        } else if ch.pending {
+                            Some("já está sendo feito")
+                        } else if ch.full {
+                            Some("vagas ocupadas")
+                        } else {
+                            None
+                        };
+                        if ui.add_enabled(ch.ok, egui::Button::new("Fabricar")).clicked() {
+                            out.push(UiAction::Start(r, 1));
+                        }
+                        if batchable(rd) && ch.max > 1 && why.is_none() && ui.button(format!("× {}", ch.max)).clicked() {
+                            out.push(UiAction::Start(r, ch.max));
+                        }
+                        if let Some(w) = why {
+                            ui.label(egui::RichText::new(w).weak());
+                        }
+                    });
+                });
+            }
+        });
+        // vagas
+        let ui = &mut cols[1];
+        let any_ready = c.has_ready(st);
+        for (slot, v) in c.slots(st, &|s| g.station_speed(s)).into_iter().enumerate() {
+            ui.group(|ui| {
+                let Some(v) = v else {
+                    ui.label(egui::RichText::new(format!("Vaga {}: livre", slot + 1)).weak());
+                    return;
+                };
+                let name = output_name(v.recipe.data().outputs[0]);
+                let title = if v.batch > 1 { format!("{}× {name}", v.batch) } else { name };
+                ui.label(egui::RichText::new(title).strong());
+                let state = if v.leftover {
+                    "cancelado: sobras para pegar".to_string()
+                } else if v.ready {
+                    "pronto".to_string()
+                } else if v.paused {
+                    "pausado".to_string()
+                } else {
+                    format!("{} · {}", v.recipe.data().process.steps[v.step], human_time(v.remaining))
+                };
+                ui.add(egui::ProgressBar::new(v.progress as f32).text(state));
+                if v.batch > 1 {
+                    ui.label(format!("{}/{} prontas", v.units, v.batch));
+                }
+                ui.horizontal(|ui| {
+                    if v.waiting_count > 0 && ui.button(format!("Pegar ({})", v.waiting_count)).clicked() {
+                        out.push(UiAction::Take(st, Some(slot)));
+                    }
+                    if !v.ready && !v.leftover {
+                        if ui.button(if v.paused { "Retomar" } else { "Pausar" }).clicked() {
+                            out.push(UiAction::Pause(st, slot));
+                        }
+                        if ui.button("Cancelar").clicked() {
+                            out.push(UiAction::Cancel(st, slot));
+                        }
+                    }
+                });
+            });
+        }
+        if any_ready && ui.button("Pegar tudo").clicked() {
+            out.push(UiAction::Take(st, None));
+        }
+    });
+}
+
+/// O console: energia da base (porte simplificado do PowerPanel.ts).
+fn power_screen(ui: &mut egui::Ui, g: &Game) {
+    let p = &g.power;
+    let accent = Color32::from_rgb(127, 231, 255);
+    ui.heading(egui::RichText::new("Energia da base").color(accent).strong());
+    ui.label(egui::RichText::new("Nada vem do nada: a eletricidade vem do sol e fica na bateria.").weak());
+    ui.separator();
+    ui.label(format!("Sol chegando: {:.0}%", p.sun * 100.0));
+    ui.label(format!("Gerando: {:.2} kW (telhado {:.2} kW)", p.generation, p.roof_kw()));
+    ui.label(format!("Pedido: {:.2} kW", p.demand));
+    ui.add(egui::ProgressBar::new((p.battery / p.capacity()) as f32).text(format!("Bateria {:.0} de {:.0} kJ", p.battery, p.capacity())));
+    if p.satisfaction < 1.0 {
+        ui.label(egui::RichText::new(format!("Energia faltando: as máquinas andam a {:.0}%", p.satisfaction * 100.0)).color(Color32::from_rgb(255, 180, 90)));
+    }
+    ui.separator();
+    for l in &p.last_loads {
+        let name = match l.id.as_str() {
+            "life" => "Suporte de vida".to_string(),
+            "suit" => "Recarga do traje".to_string(),
+            id => StationId::parse(id).map_or(id.to_string(), |s| s.data().name.clone()),
+        };
+        ui.label(format!("{name}: {:.2} kW", l.kw));
+    }
+    ui.separator();
+    if p.panels.is_empty() {
+        ui.label(egui::RichText::new("Sem painéis no chão. Painéis solares são fabricados na bancada.").weak());
+    }
+    for q in &p.panels {
+        let st = if !q.linked {
+            "longe demais do cabo".to_string()
+        } else {
+            format!("{:.2} kW ({:.0}% de luz)", q.kw, q.light * 100.0)
+        };
+        ui.label(format!("Painel em {}, {}: {st}", q.x, q.z));
+    }
+    let _ = rules();
+}
 
 /// média de FPS e pior quadro a cada meio segundo
 #[derive(Default)]
@@ -237,7 +410,32 @@ fn label(b: Button) -> &'static str {
     }
 }
 
-pub fn draw(ctx: &egui::Context, c: &Controls, info: &HudInfo) {
+pub fn draw(ctx: &egui::Context, c: &Controls, info: &HudInfo) -> Vec<UiAction> {
+    let mut actions = Vec::new();
+    // telas abrem na hora (sem o esmaecer do egui) e opacas
+    ctx.all_styles_mut(|s| {
+        s.animation_time = 0.0;
+        s.visuals.window_fill = Color32::from_rgb(16, 18, 34);
+    });
+    if let Some(screen) = info.game.screen_open {
+        let r = ctx.content_rect();
+        let size = egui::vec2(r.width() * 0.86, r.height() * 0.8);
+        egui::Window::new("tela")
+            .title_bar(false)
+            .resizable(false)
+            .collapsible(false)
+            .fixed_size(size)
+            .anchor(Align2::CENTER_CENTER, egui::vec2(0.0, -10.0))
+            .show(ctx, |ui| {
+                ui.style_mut().text_styles.insert(egui::TextStyle::Body, FontId::proportional(15.0));
+                ui.style_mut().text_styles.insert(egui::TextStyle::Button, FontId::proportional(16.0));
+                ui.style_mut().spacing.button_padding = egui::vec2(12.0, 7.0);
+                match screen {
+                    Screen::Station(st) => station_screen(ui, info.game, st, &mut actions),
+                    Screen::Power => power_screen(ui, info.game),
+                }
+            });
+    }
     let ppp = ctx.pixels_per_point();
     let painter = ctx.layer_painter(egui::LayerId::background());
     let pt = |x: f32, y: f32| Pos2::new(x / ppp, y / ppp);
@@ -289,4 +487,5 @@ pub fn draw(ctx: &egui::Context, c: &Controls, info: &HudInfo) {
         painter.text(Pos2::new(x0, y), Align2::LEFT_TOP, l, font, ink);
         y += r.height() + 3.0;
     }
+    actions
 }

@@ -6,7 +6,7 @@ use spacing_core::base::{hab_layout, ModuleLayout, Side};
 use spacing_core::fx::signal_lamp;
 use spacing_core::rules::rules;
 use spacing_core::rules::StationId;
-use spacing_render::astronaut::NamedModel;
+use spacing_render::astronaut::{AnimatedModel, NamedModel};
 use spacing_render::{load_glb, Material, MeshId, PartDraw, Renderer};
 use spacing_render::model::{MeshData, ModelData, ModelVertex, Node};
 
@@ -26,8 +26,10 @@ const DOOR_GREEN: [f32; 3] = [0.4, 2.4, 0.8];
 pub struct BaseModels {
     shell: Option<NamedModel>,
     interior: Option<NamedModel>,
-    /// um por tipo de móvel e de estação
+    /// um por tipo de móvel
     furniture: Vec<(String, NamedModel)>,
+    /// as máquinas, com o laço do Blender (bancada, forno, eletrolisador)
+    machines: Vec<(StationId, AnimatedModel)>,
     /// cubo de lado 1 (pernas do casco)
     cube: MeshId,
 }
@@ -46,6 +48,7 @@ fn cube_model() -> ModelData {
         meshes: vec![MeshData { verts, indices: (0..n).collect() }],
         nodes: vec![Node { name: "cubo".into(), translation: Vec3::ZERO, rotation: glam::Quat::IDENTITY, scale: Vec3::ONE, mesh: Some(0), children: Vec::new(), parent: None }],
         roots: vec![0],
+        clips: Vec::new(),
     }
 }
 
@@ -66,17 +69,18 @@ impl BaseModels {
                 }
             }
         }
+        let mut machines = Vec::new();
         for (kind, bytes) in [("workbench", WORKBENCH_GLB), ("furnace", FURNACE_GLB), ("electrolyzer", ELECTROLYZER_GLB)] {
-            if let Ok(m) = load_glb(bytes) {
+            if let (Ok(m), Some(s)) = (load_glb(bytes), StationId::parse(kind)) {
                 let ids = r.upload_model(&m);
-                furniture.push((kind.to_string(), NamedModel::new(&m, &ids)));
+                machines.push((s, AnimatedModel::new(&m, &ids)));
             }
         }
         let cube = r.upload_model(&cube_model())[0];
         if shell.is_none() || interior.is_none() {
             log::warn!("modelos da base não carregaram");
         }
-        Self { shell, interior, furniture, cube }
+        Self { shell, interior, furniture, machines, cube }
     }
 }
 
@@ -266,10 +270,17 @@ impl Game {
                 self.player.frozen = true;
                 self.base.fade = Some("Descansando…");
             }
-            UseKind::Console => self.toast("Painel de energia: chega com as estações"),
-            UseKind::Chest => self.toast("O baú chega com a estufa"),
+            UseKind::Console => self.screen_open = Some(crate::game::Screen::Power),
+            UseKind::Chest => {
+                let mut ev = Vec::new();
+                match self.greenhouse.open_chest(&mut self.inv, &mut ev) {
+                    Ok(_) => self.toast("Baú aberto: o kit da estufa e do cultivo foi para a mochila"),
+                    Err("full") => self.toast("Mochila cheia: abra espaço para pegar o kit do baú"),
+                    Err(_) => self.toast("O baú está vazio"),
+                }
+            }
             UseKind::Station(s) => {
-                self.station_open = Some(s);
+                self.screen_open = Some(crate::game::Screen::Station(s));
             }
         }
     }
@@ -391,7 +402,7 @@ impl Game {
         let ur = rules().base.use_radius;
         let mut options: Vec<(UseKind, f64)> = Vec::new();
         let l = &self.base.layout;
-        if self.death.is_none() && !self.base.busy() && self.station_open.is_none() {
+        if self.death.is_none() && !self.base.busy() && self.screen_open.is_none() {
             match self.base.mode {
                 Mode::Outside => options.push((UseKind::Enter, near(l.outside, 1.6))),
                 Mode::Inside => {
@@ -401,7 +412,7 @@ impl Game {
                             "workbench" | "furnace" | "electrolyzer" => StationId::parse(&f.def.kind).map(UseKind::Station),
                             "bed" => Some(UseKind::Bed),
                             "console" => Some(UseKind::Console),
-                            "crates" => Some(UseKind::Chest),
+                            "crates" if self.greenhouse.chest_full() => Some(UseKind::Chest),
                             _ => None,
                         };
                         if let Some(k) = k {
@@ -525,13 +536,27 @@ impl Game {
         if b.indoor_view || b.door > 0.02 {
             for f in &l.furniture {
                 let kind = f.def.kind.as_str();
-                let Some((_, model)) = m.furniture.iter().find(|(k, _)| k == kind) else { continue };
+                let fw = Mat4::from_translation(Vec3::new(f.center[0] as f32, f.center[1] as f32, f.center[2] as f32)) * Mat4::from_rotation_y(f.facing as f32);
                 if let Some(s) = StationId::parse(kind) {
+                    // a máquina só aparece depois de fabricada (a bancada já vem pronta)
+                    let Some((_, model)) = m.machines.iter().find(|(id, _)| *id == s) else { continue };
                     if !self.crafting.is_built(s) {
                         continue;
                     }
+                    // luz de estado: verde piscando = pronto, âmbar = trabalhando, azul fraco = livre (stationModels.ts)
+                    let blink = if (t * 6.0).sin() > 0.0 { 1.0 } else { 0.35 };
+                    let lamp = if self.crafting.has_ready(s) {
+                        [0.3 * blink, 2.4 * blink, 0.8 * blink]
+                    } else if self.crafting.working(s) {
+                        [2.4, 1.1, 0.25]
+                    } else {
+                        [0.25, 0.6, 0.9]
+                    };
+                    let work = self.machine[s.0 as usize];
+                    model.draw(fw, work.0 as f32, parts, |name| (name == "lamp").then_some(Material::Glow(lamp)));
+                    continue;
                 }
-                let fw = Mat4::from_translation(Vec3::new(f.center[0] as f32, f.center[1] as f32, f.center[2] as f32)) * Mat4::from_rotation_y(f.facing as f32);
+                let Some((_, model)) = m.furniture.iter().find(|(k, _)| k == kind) else { continue };
                 model.draw(fw, parts);
             }
         }

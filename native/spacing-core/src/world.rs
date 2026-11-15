@@ -579,6 +579,32 @@ impl World {
         best
     }
 
+    /// objetos colocados pelo jogador de um tipo (painéis solares): chave e coluna
+    pub fn placed_props(&self, kind: &str) -> Vec<(String, i32, i32)> {
+        self.extra_props
+            .iter()
+            .filter(|e| e.get("type").and_then(|t| t.as_str()) == Some(kind))
+            .filter_map(|e| {
+                let key = e.get("key")?.as_str()?.to_string();
+                if self.removed_props.contains(&key) {
+                    return None;
+                }
+                Some((key, e.get("wx")?.as_f64()? as i32, e.get("wz")?.as_f64()? as i32))
+            })
+            .collect()
+    }
+
+    /// 0 ou 1: um objeto no chão em (x, z) vê o sol na direção `sun`? None se o chunk não está carregado
+    pub fn sun_exposure(&self, x: i32, z: i32, sun: [f64; 3]) -> Option<f64> {
+        if !self.chunks.get(&Self::chunk_key(x, z)).is_some_and(|c| c.meshed) {
+            return None;
+        }
+        let top = (0..CH as i32).rev().find(|&y| self.peek_block(x, y, z) != AIR).unwrap_or(0);
+        let l = crate::js::hypot3(sun[0], sun[1], sun[2]);
+        let d = [sun[0] / l, sun[1] / l, sun[2] / l];
+        Some(if self.raycast([x as f64 + 0.5, top as f64 + 1.6, z as f64 + 0.5], d, 120.0).is_some() { 0.0 } else { 1.0 })
+    }
+
     /// o objeto solto da coluna (x, z), se houver
     pub fn prop_at(&self, wx: i32, wz: i32) -> Option<&PropSpawn> {
         self.chunks.get(&Self::chunk_key(wx, wz))?.props.iter().find(|p| p.wx == wx && p.wz == wz)
