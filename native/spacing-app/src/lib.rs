@@ -5,6 +5,7 @@ pub mod base;
 pub mod capture;
 pub mod controls;
 pub mod effects;
+#[cfg(not(target_os = "android"))]
 pub mod fonte;
 pub mod game;
 pub mod greenhouse;
