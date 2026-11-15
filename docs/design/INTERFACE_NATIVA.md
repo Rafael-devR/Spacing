@@ -134,6 +134,19 @@ Cada tela tem uma **proposta** e um **critério** para aprovar. Antes de codar, 
   pino flutuante com a distância, e uma seta de bússola em arco na parte de baixo quando estiver fora da tela.
 - **Critério:** o jogador lê o oxigênio sem olhar para um painel; o objetivo some quando está na tela (o pino basta).
 
+### 5. Carregamento
+- **Proposta (dono, 2026-11-15):** fundo preto estrelado e nada mais além de **um ícone no canto inferior direito**: a Terra com a
+  Lua orbitando, para dizer "carregando". Sem texto e sem barra de carregamento.
+- **O ícone será desenhado pelo dono.** Imagem parada não anima sozinha, então o ícone é feito em **duas peças**, PNG com fundo
+  transparente, em pixel art de escala inteira: `terra.png` (48×48) e `lua.png` (16×16). O jogo gira a Lua em órbita ao redor da
+  Terra, uma volta a cada ~3 s, até acabar de carregar. Alternativa: uma folha de quadros (8 a 16 quadros da Lua em volta da
+  Terra, numa imagem só), se o dono quiser desenhar a luz mudando em cada quadro.
+- **Lugar:** canto inferior direito, a 28 px das bordas (a mesma margem das outras telas), numa caixa de 96×96. A Terra no centro,
+  a Lua a ~36 px do centro.
+- **Comportamento:** aparece enquanto carrega e some com um fade quando o jogo abre; fica visível por pelo menos 1 s para não
+  piscar. Até o dono entregar os desenhos, usa-se um ícone provisório (círculos), só para marcar tamanho e lugar.
+- **Critério:** o jogador entende que está carregando sem ler nada.
+
 ## Como visualizar antes de aplicar
 
 - Um comando no computador, `spacing --telas <pasta>`, desenha cada tela acima com dados de exemplo (inventário cheio, uma estação
