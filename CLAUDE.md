@@ -20,7 +20,7 @@ Jogo web de exploração espacial em mundo de blocos (Three.js). **Sessão nova?
   `https://<nome-do-codespace>-5173.app.github.dev` (o nome vem de `$CODESPACE_NAME`).
 - Antes de commitar: `npm run lint && npm run typecheck && npm test && npm run build`.
 - Siga o fluxo de [CONTRIBUTING.md](CONTRIBUTING.md): branches, Conventional Commits, PR.
-- Trabalhe numa **branch só**, `desenvolvimento` (a `main` guarda só versões já testadas pelo dono e só recebe PR de `desenvolvimento`); o dono não quer commits espalhados por várias branches.
+- Trabalhe numa **branch só**, `beta-0.4` (a `main` guarda só versões já testadas pelo dono e só recebe PR de `beta-0.4`); o dono não quer commits espalhados por várias branches.
 - **Push na branch de trabalho: o dono já autorizou, em definitivo (2026-11-13).** Depois de commitar, envie sem perguntar (`git push -u origin <branch>`); ele testa pelo celular e quer o código no GitHub logo. Continua valendo pedir antes de ações maiores fora da máquina: criar repositório, abrir PR, release, apagar branch ou reescrever histórico.
 - Mudou decisão técnica, design, história ou arte? Atualize o documento ou escreva um ADR na mesma mudança.
 - Não reorganize a estrutura do código sem o dono pedir. Ela está descrita em
