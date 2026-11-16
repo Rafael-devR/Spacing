@@ -32,14 +32,14 @@ O GitHub Actions roda os mesmos comandos em cada push e pull request.
 
 | Branch          | Uso                                                          |
 | --------------- | ------------------------------------------------------------ |
-| `main`          | Só versões **já testadas** pelo dono (cada uma vira release). Só recebe merge de `beta-0.4` |
-| `beta-0.4` | Branch de trabalho do dia a dia (como as versões beta do Minecraft). Todo commit novo vai aqui. Ao sair a 0.4, vira release na `main` e nasce a `beta-0.5` |
+| `main`          | Só versões **já testadas** pelo dono (cada uma vira release). Só recebe merge de `snapshot` |
+| `snapshot`      | Branch de trabalho permanente, como os snapshots do Minecraft. Todo commit novo vai aqui. Não é apagada: a versão nova é só um release na `main` |
 | `feat/<nome>`   | Funcionalidade nova                                          |
 | `fix/<nome>`    | Correção de bug                                              |
 | `refactor/<nome>` | Mudança interna sem mudar comportamento                    |
 | `docs/<nome>`   | Só documentação                                              |
 
-O trabalho acontece em `beta-0.4`. Quando o dono testar e aprovar, ela entra na `main` por **pull request**, mesmo trabalhando sozinho: o histórico fica organizado e o
+O trabalho acontece em `snapshot`. Quando o dono testar e aprovar, ela entra na `main` por **pull request**, mesmo trabalhando sozinho: o histórico fica organizado e o
 CI valida antes.
 
 ## Commits
