@@ -47,9 +47,22 @@ quando a sessão termina.
 
 ## 5. Permissões e confirmações
 
-- Algumas ferramentas pedem confirmação ("Permitir uma vez" / "Negar").
-- Para o Supabase no painel, `execute_sql` já está liberado em `.claude/settings.json` do Art-dev.
-- Para liberar outros comandos no futuro, pedir ao Claude para adicionar em `.claude/settings.json` e fazer commit.
+- Quando uma ferramenta pede confirmação, toque em **"Permitir uma vez"** (só aquele comando) ou **"Negar"**.
+- **Para não ser perguntado de novo:** o app não tem botão "sempre permitir". Use o **menu de modo** ao lado da caixa de
+  mensagem: **Accept edits**, **Plan** ou **Auto**. Em Auto, a maioria dos comandos roda sem perguntar (aparece só se a
+  organização permitir). Edição de arquivo já roda sem perguntar nos três modos.
+- **Regras fixas no projeto:** `permissions.allow` no `.claude/settings.json` do repositório. Só vale para sessões com **um
+  único repositório** ligado. A sessão "Desenvolvimento do jogo" tem dois (Spacing e Art-dev), então essa regra pode não
+  valer lá. Para isso, use o modo Auto.
+- O Supabase `execute_sql` já está nessa regra no Art-dev.
+
+## 4b. O cartão "Próximo passo" (tela Início)
+
+- Um passo fica como **atual** (o que você faz agora). Os demais ficam como **caminhos** para escolher.
+- Escolha um caminho e toque em "Marcar como próximo": ele vira o atual.
+- **Concluir:** o atual vai para "Concluídos" e aparecem outros caminhos para escolher.
+- **Trocar:** devolve o atual para a lista de caminhos.
+- Cada ação mostra um aviso com **Desfazer**. Em "Concluídos", a seta reabre o passo.
 
 ## 6. Notificações
 
