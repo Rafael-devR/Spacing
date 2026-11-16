@@ -1,6 +1,6 @@
 # Spacing: instruções para o Claude (branch `snapshot`, o jogo nativo em Rust)
 
-**Sessão nova? Comece por [docs/ESTADO_ATUAL.md](docs/ESTADO_ATUAL.md)** (onde o porte está, o que falta, decisões do dono).
+**Sessão nova? Comece por [docs/ESTADO_ATUAL.md](docs/ESTADO_ATUAL.md)** (e, para usar o app, [docs/COMO-USAR-O-APP.md](docs/COMO-USAR-O-APP.md)) (onde o porte está, o que falta, decisões do dono).
 Depois leia o [plano do porte](docs/design/PORTE_RUST.md), o [README do nativo](native/README.md) e, para a interface,
 [design/INTERFACE_NATIVA.md](docs/design/INTERFACE_NATIVA.md).
 
