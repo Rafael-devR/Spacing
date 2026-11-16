@@ -32,13 +32,14 @@ O GitHub Actions roda os mesmos comandos em cada push e pull request.
 
 | Branch          | Uso                                                          |
 | --------------- | ------------------------------------------------------------ |
-| `main`          | Sempre funcionando. Só recebe mudanças que passaram no CI     |
+| `main`          | Só versões **já testadas** pelo dono (cada uma vira release). Só recebe merge de `desenvolvimento` |
+| `desenvolvimento` | Branch de trabalho do dia a dia. Todo commit novo vai aqui |
 | `feat/<nome>`   | Funcionalidade nova                                          |
 | `fix/<nome>`    | Correção de bug                                              |
 | `refactor/<nome>` | Mudança interna sem mudar comportamento                    |
 | `docs/<nome>`   | Só documentação                                              |
 
-Mudanças entram na `main` por **pull request**, mesmo trabalhando sozinho: o histórico fica organizado e o
+O trabalho acontece em `desenvolvimento`. Quando o dono testar e aprovar, ela entra na `main` por **pull request**, mesmo trabalhando sozinho: o histórico fica organizado e o
 CI valida antes.
 
 ## Commits
