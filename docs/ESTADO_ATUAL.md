@@ -2,32 +2,7 @@
 
 > **Para quem abre uma sessão nova:** leia este arquivo, depois o [CLAUDE.md](../CLAUDE.md) (regras e mapa do código), o
 > [README](../README.md) e o que o assunto da vez pedir em [`docs/design/`](design). Este arquivo é um retrato de
-> **2026-11-12** (menos a seção de retomada do porte nativo, de 2026-11-16); atualize-o quando uma etapa grande terminar.
-
-## Retomada rápida: o porte nativo (2026-11-16, leia primeiro)
-
-O trabalho vivo hoje é o **porte para Rust nativo** (`native/`), não o jogo web. Resumo para quem chega agora:
-
-- **Onde está:** M0 a M4 feitos (mundo, física, render, sombra e bloom, base, estações, energia, estufa, missões, mapa, salvar e
-  carregar em formato v12). Do **M5** (interface) estão feitos título, configurações, pausa, controles e carregamento
-  (`native/spacing-app/src/telas.rs`, fonte Pixelify Sans, `prefs.json`). **Falta:** mochila e estações redesenhadas
-  (`items_screen.rs`, ainda WIP), medidores, objetivo no mundo, ícones flutuantes e a arte de pixel própria dos ícones (grade,
-  paleta e formato ainda por decidir). **M6 não começou:** som (hoje "Som" e "Vibração" são só guardados), teste de desempenho
-  nativo, Windows, ícone do app, versão e docs finais.
-- **Direção de interface (importante):** telas **minimalistas, em paisagem**, pixel art só em detalhes. O dono (2026-11-15) disse que
-  não gosta de menus: quer **interface diegética** (HUD dentro do mundo, o **tablet** como único lugar de opções, medidores no
-  traje, pino de objetivo, o primeiro jogo como pouso). **Ainda é só ideia: planejar em `docs/design/INTERFACE_NATIVA.md` antes
-  de codar, e só quando ele mandar.** Referência de estilo: Garbage Country.
-- **Trocar de planeta é só para teste** (a viagem entre planetas é da história). O "Planeta ‹ Lua ›" do título e a tecla M devem
-  virar um modo de teste (`--teste`); isso ainda não foi feito.
-- **Como validar sem celular:** `spacing --telas <pasta>` (capturas das telas), `spacing --captura <pasta> [lua|marte]`,
-  `spacing --roteiro <pasta>` (jogo jogado por script, 49/49 etapas). Precisa de `VK_ICD_FILENAMES` apontando para o SwiftShader do
-  Chromium do Playwright. Testes: `cargo test -p spacing-core --release`; `cargo clippy` limpo; `npm run golden` se mexer no TS.
-- **O dono ainda não validou o APK nativo** (fluxo `native-apk.yml`, artefato `spacing-nativo`) com as telas novas. Pedir retorno.
-- **Regras que valem:** a branch de trabalho é **`snapshot`** (a `main` é só de versões testadas; PR de uma para a outra quando o dono aprovar) (push na branch de trabalho já autorizado
-  em definitivo; PR, release e apagar branch pedem confirmação). Explicar decisões em português simples; ele corrige o rumo no
-  meio, então **confirme o entendimento antes de tarefas grandes de interface**.
-- **Próximo passo sugerido (o dono ainda não escolheu):** som no nativo, ou mochila e estações, ou o caminho diegético. Perguntar.
+> **2026-11-12** da branch `web` (só o site; o porte para Rust nativo está na branch `snapshot`, com o próprio `docs/ESTADO_ATUAL.md`); atualize-o quando uma etapa grande terminar.
 
 ## O jogo em uma frase
 
@@ -41,7 +16,7 @@ testa **no celular** (Android, tela adaptativa 60/120 Hz, GPU Adreno 710, densid
 - Fala **português do Brasil**. Responda, escreva documentação e textos de interface em português, em linguagem simples.
 - Quer um projeto **profissional, planejado e documentado**, não uma pilha de recursos soltos. Coisa grande: escreva o
   design em `docs/design/` (e um ADR em `docs/adr/` se mudar uma decisão técnica) **antes** de implementar.
-- **Faça tudo numa branch só** (ele pediu explicitamente: várias branches "bagunçam"). Hoje é `snapshot`.
+- **Faça tudo numa branch só** (ele pediu explicitamente: várias branches "bagunçam"). Hoje é `web`.
 - **Push na branch de trabalho: já autorizado.** PR, release e apagar branch só se ele pedir. Nada de publicar o jogo como artifact ou site.
 - Antes de cada commit: `npm run lint && npm run typecheck && npm test && npm run build`. Commits convencionais, uma coisa
   por commit, com os trailers de atribuição que o ambiente pedir.
@@ -158,17 +133,13 @@ certinho depois de "Jogar" ([design/TITULO.md](design/TITULO.md), ADR 0020). Dep
 O dono pediu o jogo num APK (Capacitor) e escolheu gerar pelo GitHub Actions: [design/APK.md](design/APK.md), ADR 0022. O APK compila e
 assina aqui, mas **nunca rodou num aparelho**.
 
-## Protótipo nativo (2026-11-14)
+## Porte para Rust nativo
 
-O dono acha o jogo pesado no celular e quer saber se vale reescrever nativo (Rust). Antes de reescrever, a régua: [design/NATIVO.md](design/NATIVO.md).
-Resultado (versão 2, mesmo celular, tela cheia, 118 Hz): o nativo ganha de ~1,2x a ~2x em chamadas de desenho; em triângulos os três empatam (a GPU limita).
+Mora na branch **`snapshot`** (pasta `native/`), com estado e plano próprios: veja o `docs/ESTADO_ATUAL.md` de lá. Esta branch (`web`) é a
+**referência** do porte: o código TS daqui gera os vetores dourados (`npm run golden`; o passo a passo está no `CLAUDE.md` da `snapshot`) e os modelos `.glb`.
 
-**Decisão do dono (2026-11-14): portar para Rust nativo no Android (Windows depois).** Pelo produto e pela pilha, não só por desempenho. Só há plano: [design/PORTE_RUST.md](design/PORTE_RUST.md) e [ADR 0023](adr/0023-porte-para-rust-nativo.md). Esperando o dono responder 3 escolhas (motor, destino da versão web, Windows); sem resposta, valem as recomendadas.
-
-**Porte, 2026-11-14 (o dono mandou fazer até o M2):** `native/` tem o núcleo em Rust com paridade **provada** contra o TS (gerador da Lua e de Marte, cavernas, malha, luz do céu, animação: `npm run golden` + `cargo test -p spacing-core --release`), o renderizador wgpu e o app (andar na Lua/Marte com toque ou teclado, HUD com medidor). APK pelo fluxo `native-apk.yml` (artefato `spacing-nativo`). M2 testado pelo dono: 150 a 250 FPS sem limite. M4a (regras), M4b (minerar, construir, pedaços, itens, dano, morte), M4c (base, estações, energia, estufa) e M4d (missões, mapa do tablet visto de cima, salvar e carregar no formato v12 do jogo web, roteiro jogado `--roteiro`) feitos em 2026-11-15: o M4 está completo; o próximo é o M5 (telas completas), só quando o dono mandar. **M3 feito** (sombra, bloom e pós, pedras, poeira e pegadas, Marte vivo, meteoros, teste de efeitos no botão B) e testado pelo dono em 2026-11-15: 40 a 60 FPS com tudo ligado; depois disso a cena passou a sair na densidade 2 com resolução dinâmica, como a qualidade Alta do web (o MSAA 2x foi tentado e desfeito: o app fechava; ficou o 4x). Falta o M5 (telas completas: mochila com arrastar, pausa e configurações, tablet 3D) e o M6. Capturas sem janela: `./target/release/spacing --captura <pasta> [lua|marte] [semente]` com `VK_ICD_FILENAMES` apontando para o SwiftShader do Chromium (`/opt/pw-browsers/chromium-*/chrome-linux64/vk_swiftshader_icd.json`). 
 ## O que o dono ainda **não viu** no celular
 
-- **O protótipo nativo** (as três telas de RESULTADO: Three.js, Rust no navegador, APK nativo).
 - **O app Android** (instalar o APK do GitHub; barras escondidas, Voltar, pausa ao sair, som, desempenho).
 - **A pausa nova** (Salvar, Sair para o título, configurações únicas) e **a tela de título e o carregamento** (o planeta low poly com blocos no fundo, os botões, as configurações, o tempo de carregar no celular).
 - **A tela de itens nova** (mochila e estações): arrastar com o dedo, segurar para metade, toque duplo, soltar na entrada da máquina,
@@ -251,7 +222,7 @@ de desempenho), `gfx.mjs` (gráficos avançados), `mars.mjs` (Marte), `stations.
 4. A **viagem Lua → Marte** de verdade (hoje a escolha é provisória). Ideias já anotadas em [design/MARTE.md](design/MARTE.md):
    percloratos tóxicos, gelo de CO₂, gêiseres, dia e noite de Marte.
 5. Ajustar os números da sobrevivência (oxigênio, danos) depois de jogar.
-6. Quando ele pedir: push, PR de `snapshot` para `main`, versão nova e tag (a v0.3.0 está sem tag).
+6. Quando ele pedir: push, PR de `web` para `main`, versão nova e tag (a v0.3.0 está sem tag).
 
 ## Onde ler mais
 

@@ -33,14 +33,14 @@ O GitHub Actions roda os mesmos comandos em cada push e pull request.
 | Branch          | Uso                                                          |
 | --------------- | ------------------------------------------------------------ |
 | `main`          | Só versões **já testadas** pelo dono (cada uma vira release). Só recebe merge de `snapshot` |
-| `snapshot`      | Branch de trabalho permanente, como os snapshots do Minecraft. Todo commit novo vai aqui. Não é apagada: a versão nova é só um release na `main` |
-| `web`           | Só o jogo do navegador e o APK Capacitor (`android-apk.yml`). Sem `native/` nem o protótipo |
+| `web`           | **Só o site** (jogo do navegador e APK Capacitor). Branch de trabalho do site. Sem `native/` nem o protótipo |
+| `snapshot`      | **Só o Rust** (porte nativo, protótipo, docs): branch de trabalho permanente do Rust, como os snapshots do Minecraft |
 | `feat/<nome>`   | Funcionalidade nova                                          |
 | `fix/<nome>`    | Correção de bug                                              |
 | `refactor/<nome>` | Mudança interna sem mudar comportamento                    |
 | `docs/<nome>`   | Só documentação                                              |
 
-O trabalho do **Rust** (`native/`, APK `native-apk.yml`) acontece em `snapshot`. O **site** (jogo do navegador e APK Capacitor) fica na `web`, que é a mesma linha de código sem a pasta `native/`. Quando o dono testar e aprovar, ela entra na `main` por **pull request**, mesmo trabalhando sozinho: o histórico fica organizado e o
+Um arquivo de cada projeto fica na sua branch. Quando o dono testar e aprovar, ela entra na `main` por **pull request**, mesmo trabalhando sozinho: o histórico fica organizado e o
 CI valida antes.
 
 ## Commits
