@@ -98,7 +98,7 @@ pub struct Prefs {
     pub qualidade: Qualidade,
     /// liga e desliga todo o som (docs/design/AUDIO_NATIVO.md)
     pub som: bool,
-    /// ainda não há vibração no nativo (precisa de ponte com o Android): a escolha fica guardada
+    /// liga e desliga a vibração do aparelho (`vibracao.rs`)
     pub vibracao: bool,
     pub tremor: Tremor,
     /// mira ao segurar o dedo: acima dele (true, o padrão do jogo web) ou embaixo dele

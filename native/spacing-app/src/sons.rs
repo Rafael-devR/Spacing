@@ -4,12 +4,16 @@
 use std::collections::HashMap;
 
 use spacing_audio::{Sfx, Sound, Vec3, Voice};
+
+use crate::vibracao::{Padrao, Vibra};
 use spacing_core::mars_life::WeatherPhase;
 use spacing_core::meteors::{Impact, Meteor};
 use spacing_core::rules::events::{GameEvent, Meter};
 
 /// as coletas em sequência (até 0,7 s entre uma e outra) sobem de tom
 const COMBO_S: f64 = 0.7;
+/// um meteoro que cai mais perto que isto (em blocos) faz o aparelho vibrar (`C.hapticRange` do jogo web)
+const VIBRA_METEORO_M: f64 = 30.0;
 /// a mochila cheia só avisa de 2,5 em 2,5 s
 const CHEIA_S: f64 = 2.5;
 
@@ -34,6 +38,8 @@ pub struct Traje {
 
 pub struct Sons {
     pub sfx: Sfx,
+    /// a vibração anda junto com o som (docs/design/AUDIO_NATIVO.md, "Vibração")
+    pub vib: Vibra,
     pop_n: u32,
     pop_t: f64,
     cheia_t: f64,
@@ -61,6 +67,7 @@ impl Sons {
     pub fn novo(sfx: Sfx) -> Self {
         Self {
             sfx,
+            vib: Vibra::silenciosa(),
             pop_n: 0,
             pop_t: -10.0,
             cheia_t: -10.0,
@@ -79,9 +86,10 @@ impl Sons {
     }
 
     /// Liga o jogo ao som: limpa o que sobrou do jogo anterior, diz se o planeta tem ar e começa o zumbido do módulo.
-    pub fn liga(&mut self, sfx: Sfx, ar: bool, modulo: [f64; 3]) {
+    pub fn liga(&mut self, sfx: Sfx, vib: Vibra, ar: bool, modulo: [f64; 3]) {
         self.sfx.stop_all();
         self.sfx = sfx;
+        self.vib = vib;
         self.sfx.stop_all();
         self.sfx.set_world(true);
         self.sfx.set_air(ar);
@@ -104,6 +112,11 @@ impl Sons {
 
     pub fn do_capacete(&self, som: Sound) {
         self.sfx.play(som, 1.0, None);
+    }
+
+    /// vibra o aparelho (os mesmos seis padrões do jogo web)
+    pub fn sentir(&self, p: Padrao) {
+        self.vib.vibrar(p);
     }
 
     // ---------- passos, pulo, pouso ----------
@@ -133,16 +146,27 @@ impl Sons {
     pub fn eventos(&mut self, ev: &[GameEvent], tempo: f64, jogando: bool) {
         for e in ev {
             match e {
-                GameEvent::MineHit { pos, .. } => self.tocar(Sound::Hit, Some(*pos)),
+                GameEvent::MineHit { pos, .. } => {
+                    self.tocar(Sound::Hit, Some(*pos));
+                    self.sentir(Padrao::Tick);
+                }
                 GameEvent::BlockBroken { pos, .. } => {
                     self.sfx.play(Sound::Break, 1.0, Some(centro(*pos)));
+                    self.sentir(Padrao::Tap);
                 }
-                GameEvent::PropBroken { pos, .. } => self.tocar(Sound::Break, Some(*pos)),
+                GameEvent::PropBroken { pos, .. } => {
+                    self.tocar(Sound::Break, Some(*pos));
+                    self.sentir(Padrao::Tap);
+                }
                 GameEvent::BlockPlaced { pos, .. } => {
                     self.sfx.play(Sound::Place, 1.0, Some(centro(*pos)));
                 }
                 GameEvent::PropPlaced { kind, .. } if *kind == "solarPanel" => self.do_capacete(Sound::Equip),
-                GameEvent::ActionDenied { .. } | GameEvent::DrillWeak { .. } => self.do_capacete(Sound::Deny),
+                GameEvent::ActionDenied { .. } => self.do_capacete(Sound::Deny),
+                GameEvent::DrillWeak { .. } => {
+                    self.do_capacete(Sound::Deny);
+                    self.sentir(Padrao::Tap);
+                }
                 GameEvent::ItemCollected { .. } => {
                     self.pop_n = if tempo - self.pop_t < COMBO_S { (self.pop_n + 1).min(10) } else { 0 };
                     self.pop_t = tempo;
@@ -155,18 +179,33 @@ impl Sons {
                     }
                 }
                 GameEvent::InventorySelected { .. } | GameEvent::BuildMode { .. } => self.do_capacete(Sound::Ui),
-                GameEvent::MissionCompleted { .. } => self.do_capacete(Sound::Chime),
+                GameEvent::MissionCompleted { .. } => {
+                    self.do_capacete(Sound::Chime);
+                    self.sentir(Padrao::Success);
+                }
                 GameEvent::SuitWarning { meter, level } if jogando => match (meter, level) {
-                    (Meter::O2, 1) => self.do_capacete(Sound::Beep),
-                    (Meter::O2, 2) => self.do_capacete(Sound::Alarm),
+                    (Meter::O2, 1) => {
+                        self.do_capacete(Sound::Beep);
+                        self.sentir(Padrao::Tap);
+                    }
+                    (Meter::O2, 2) => {
+                        self.do_capacete(Sound::Alarm);
+                        self.sentir(Padrao::Medium);
+                    }
                     (Meter::Energy, 2) => self.do_capacete(Sound::Alarm),
                     (Meter::Energy, 1) => self.do_capacete(Sound::Beep),
                     (Meter::Battery, 1) => self.do_capacete(Sound::PowerDown),
                     _ => {}
                 },
-                GameEvent::SuitAsphyxia { on: true } if jogando => self.do_capacete(Sound::Alarm),
+                GameEvent::SuitAsphyxia { on: true } if jogando => {
+                    self.do_capacete(Sound::Alarm);
+                    self.sentir(Padrao::Heavy);
+                }
                 GameEvent::SuitRecharge { on: true } if jogando => self.carga = 0.0,
-                GameEvent::PlayerDamaged { .. } => self.do_capacete(Sound::Hurt),
+                GameEvent::PlayerDamaged { .. } => {
+                    self.do_capacete(Sound::Hurt);
+                    self.sentir(Padrao::Medium);
+                }
                 _ => {}
             }
         }
@@ -176,17 +215,20 @@ impl Sons {
 
     pub fn morreu(&self) {
         self.do_capacete(Sound::Death);
+        self.sentir(Padrao::Death);
         self.sfx.set_muffled(0.85);
     }
 
     pub fn renasceu(&self) {
         self.sfx.set_muffled(0.0);
         self.do_capacete(Sound::Respawn);
+        self.sentir(Padrao::Success);
     }
 
     /// o cilindro de O₂ de reserva conectou
     pub fn reserva_de_o2(&self) {
         self.sfx.play(Sound::Pressurize, 1.3, None);
+        self.sentir(Padrao::Success);
     }
 
     /// Respiração que acelera, batimento do coração e o som de carga no módulo; abafa quando falta ar.
@@ -206,6 +248,7 @@ impl Sons {
                     // o coração dispara perto do fim
                     self.batida = 0.45 + (t.integrity / 100.0) * 0.5;
                     self.do_capacete(Sound::Heartbeat);
+                    self.sentir(Padrao::Tick);
                 }
             }
             if t.em_pressao && t.o2.min(t.battery).min(t.integrity) < 99.5 {
@@ -220,6 +263,7 @@ impl Sons {
             // itens caídos: avisa quando recolheu tudo
             if self.tinha_loot && loot_vazio {
                 self.do_capacete(Sound::PickupBig);
+                self.sentir(Padrao::Success);
             }
         }
         self.tinha_loot = !loot_vazio;
@@ -249,7 +293,7 @@ impl Sons {
     // ---------- meteoros (MeteorDirector) ----------
 
     /// A voz de cada meteoro em voo acompanha a cabeça dele; cada impacto estronda no ponto de queda.
-    pub fn meteoros(&mut self, ativos: &[Meteor], impactos: &[Impact]) {
+    pub fn meteoros(&mut self, ativos: &[Meteor], impactos: &[Impact], dentro: bool) {
         for m in ativos {
             match self.voos.get(&m.id) {
                 Some(voz) => self.sfx.move_voice(*voz, v(m.head)),
@@ -265,6 +309,10 @@ impl Sons {
         for i in impactos {
             // um tremor grave que chega pelo casco, se estiver dentro da base, é só mais abafado: o mixer já faz
             self.sfx.play(Sound::Boom, 1.0, Some(v(i.pos)));
+            // perto, o chão treme no aparelho; dentro da base, mais leve
+            if i.distance < VIBRA_METEORO_M {
+                self.sentir(if dentro { Padrao::Medium } else { Padrao::Heavy });
+            }
         }
     }
 
@@ -289,6 +337,9 @@ impl Sons {
     pub fn telas(&mut self, aberta: bool, mapa: bool) {
         if mapa != self.mapa_aberto {
             self.do_capacete(if mapa { Sound::TabletOpen } else { Sound::TabletClose });
+            if mapa {
+                self.sentir(Padrao::Tap);
+            }
         } else if aberta != self.ui_aberta {
             self.do_capacete(Sound::Ui);
         }

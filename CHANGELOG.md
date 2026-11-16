@@ -7,6 +7,11 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Adicionado
 
+- **Vibração no jogo nativo (Rust)** ([design/AUDIO_NATIVO.md](docs/design/AUDIO_NATIVO.md)). Os mesmos seis padrões do jogo web, junto
+  com os sons: golpe e bloco quebrado, recusa da broca, aviso e alarme de ar, asfixia, dano, morte, renascer, missão, comer, recolher
+  os itens caídos, meteoro perto, porta e câmara de pressão, descanso, tablet, bancada e estufa. Chama o `Vibrator` do Android por
+  JNI numa thread própria (permissão `VIBRATE`); **Vibração** nas configurações liga e desliga. O roteiro ganhou 4 conferências (65 no total).
+
 - **Som no jogo nativo (Rust)** ([design/AUDIO_NATIVO.md](docs/design/AUDIO_NATIVO.md)). Todo o som do jogo web foi portado para a caixa
   `spacing-audio`: sons sintetizados (nada de arquivo), com direção, distância e eco da cratera, abafamento no capacete, fundo da
   cratera, da base e vento de Marte, zumbido do módulo e laser da bancada. O jogo liga cada fato ao som certo (passos, golpes, coleta

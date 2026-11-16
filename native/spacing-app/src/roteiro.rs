@@ -3,6 +3,7 @@
 //! missões da Lua (o meteorito da missão cai de verdade e é minerado), salva, abre o menu e o mapa, morre sem oxigênio,
 //! renasce, recolhe os itens caídos, carrega o salvamento de novo e abre um salvamento antigo do jogo web. Cada etapa diz
 //! OK ou FALHOU; no fim sai com erro se alguma falhou. As capturas ficam na pasta.
+use crate::vibracao::{Padrao, Vibra};
 use spacing_audio::{Sfx, Sound};
 use spacing_core::planet::{planet, PlanetId};
 use spacing_core::rules::{Counts, EquipId, Events, ItemId};
@@ -26,6 +27,7 @@ struct Run {
     game: Game,
     /// registra os sons que o jogo pede (não toca): o roteiro confere que cada ação faz o som certo
     sfx: Sfx,
+    vib: Vibra,
     store: Store,
     dir: String,
     results: Vec<String>,
@@ -187,6 +189,11 @@ impl Run {
         self.sfx.take_log().into_iter().map(|p| p.som).collect()
     }
 
+    /// as vibrações pedidas desde a última vez que perguntou
+    fn felt(&self) -> Vec<Padrao> {
+        self.vib.pedidos()
+    }
+
     fn mission(&self) -> &'static str {
         &self.game.missions.current().id
     }
@@ -227,8 +234,9 @@ pub fn run(dir: &str) {
     let seed = crate::DEFAULT_SEED;
     let mut game = Game::load(PlanetId::Lua, store.load(PlanetId::Lua, seed).as_ref(), seed, 3);
     let sfx = Sfx::recording();
-    game.set_sfx(sfx.clone());
-    let mut t = Run { r, models, egui, c, meter: hud::Meter::default(), stats: Default::default(), game, sfx, store, dir: dir.into(), results: Vec::new(), failed: 0, ui_t: 0.0, pending: Default::default() };
+    let vib = Vibra::registrando();
+    game.set_sfx(sfx.clone(), vib.clone());
+    let mut t = Run { r, models, egui, c, meter: hud::Meter::default(), stats: Default::default(), game, sfx, vib, store, dir: dir.into(), results: Vec::new(), failed: 0, ui_t: 0.0, pending: Default::default() };
     t.game.meteors.auto_spawn = false;
 
     // ---- começo ----
@@ -272,6 +280,7 @@ pub fn run(dir: &str) {
     t.wait(3.0, |g| g.missions.current().id == "ice" && !g.missions.waiting());
     t.check("primeira missão concluída, segunda começou", t.mission() == "ice", t.mission());
     t.check("som: missão cumprida toca o acorde", t.heard().contains(&Sound::Chime), "");
+    t.check("vibração: missão cumprida vibra (sucesso)", t.felt().contains(&Padrao::Success), "");
     t.collect(&[("ice", 3)]);
     t.wait(3.0, |g| g.missions.current().id == "iron" && !g.missions.waiting());
     t.collect(&[("iron", 4)]);
@@ -353,6 +362,8 @@ pub fn run(dir: &str) {
     let died = t.wait(30.0, |g| g.death.is_some());
     t.check("sem oxigênio, o astronauta morre", died, "");
     let s = t.heard();
+    let v = t.felt();
+    t.check("vibração: a morte vibra o padrão longo", v.contains(&Padrao::Death) && v.contains(&Padrao::Tick), format!("{v:?}"));
     t.check("som: sem ar o coração dispara e a morte soa", s.contains(&Sound::Heartbeat) && s.contains(&Sound::Death), format!("{} batidas", s.iter().filter(|x| **x == Sound::Heartbeat).count()));
     t.check("não salva morto", !t.game.can_save(), "");
     let loot = {
@@ -373,6 +384,7 @@ pub fn run(dir: &str) {
     let (o2, hp) = (g.survival.o2, g.survival.integrity);
     t.check("renasce jogando", t.game.death.is_none(), "");
     t.check("som: renascer toca o jingle", t.heard().contains(&Sound::Respawn), "");
+    t.check("vibração: renascer vibra (sucesso)", t.felt().contains(&Padrao::Success), "");
     t.check("traje cheio ao renascer", o2 == 100.0 && hp == 100.0, format!("O₂ {o2}, integridade {hp}"));
     t.check("renasce dentro da área pressurizada", dist < 4.5, format!("{dist:.1} blocos do módulo"));
     t.check("itens continuam no chão", !t.game.loot.pieces.is_empty(), "");
@@ -386,6 +398,7 @@ pub fn run(dir: &str) {
     }
     t.check("passar por cima recolhe os itens", t.game.loot.pieces.is_empty(), format!("{} restam", t.game.loot.pieces.len()));
     t.check("som: recolher tudo do chão toca o acorde grande", t.heard().contains(&Sound::PickupBig), "");
+    t.check("vibração: recolher tudo vibra (sucesso)", t.felt().contains(&Padrao::Success), "");
     let back_in = t.wait(10.0, |g| same(&g.inv.totals(), &before));
     t.check("inventário voltou ao que era", back_in, fmt(&t.game.inv.totals()));
 

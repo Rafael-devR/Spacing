@@ -68,7 +68,10 @@ Todo som é sintetizado (nada de arquivo), com direção, distância e eco da cr
 No Android sai pelo AAudio e no Windows pelo WASAPI (cpal); sem placa de som o jogo segue mudo. **No Linux precisa do ALSA para compilar:**
 `sudo apt-get install libasound2-dev`. A configuração **Som** liga e desliga tudo; a pausa e o app no fundo congelam o áudio.
 `spacing --som /tmp/som` grava um `.wav` de cada som (e de cenas: direita e esquerda, módulo, base, Marte, meteoro, traje) e mostra o
-volume de cada um. A vibração ainda não existe no nativo.
+volume de cada um. 
+**Vibração:** `spacing-app/src/vibracao.rs`, os mesmos seis padrões do jogo web (tick, tap, medium, heavy, success, death), disparados junto com
+os sons em `sons.rs`. No Android chama o `Vibrator` do sistema por JNI (crate `jni` 0.22, thread própria; permissão `VIBRATE` no manifesto);
+no computador não faz nada. A configuração **Vibração** liga e desliga.
 
 ### Salvamento
 

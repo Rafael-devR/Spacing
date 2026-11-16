@@ -56,8 +56,11 @@ Pausa **congela** o áudio; ir para o fundo (Android) também.
 ## Configurações
 
 - **Som** (`prefs.json`, já existia): liga e desliga tudo (volume vai a zero em 50 ms).
-- **Vibração**: ainda **não** existe no nativo (precisa de ponte com o Android/JNI). Fica para depois; a escolha
-  continua guardada.
+- **Vibração** (`spacing-app/src/vibracao.rs`): os mesmos seis padrões do jogo web (`haptics.ts`: tick 6 ms, tap 12 ms, medium 28 ms,
+  heavy 60-30-90, success 20-40-20, death 120-60-200-80-300). Dispara junto com o som, no mesmo lugar (`Sons::sentir`). No Android chama
+  `Vibrator.vibrate(VibrationEffect.createWaveform)` por JNI (crate `jni`, contexto do `ndk_context`), numa thread própria para não
+  atrasar o quadro; precisa da permissão `VIBRATE` (no manifesto). Pedidos juntos viram só o último. No computador não faz nada. A
+  escolha **Vibração** vale na hora (`Vibra::ativa`).
 
 ## Testes
 
@@ -66,13 +69,13 @@ Pausa **congela** o áudio; ir para o fundo (Android) também.
   o zumbido do módulo some de longe; pausa congela; nada passa de ±1; sem `NaN`.
 - `spacing --som <pasta>`: grava um `.wav` de cada som (perto, longe, direita, esquerda, dentro da base) para ouvir no
   computador e imprime o volume de cada um.
-- `spacing --roteiro`: 12 etapas de som (61 no total): andar, pular, minerar, missão, meteoro, tablet, morte, mochila, forno… O `Sfx` de teste registra o que o jogo pediu.
+- `spacing --roteiro`: 12 etapas de som e 4 de vibração (65 no total): andar, pular, minerar, missão, meteoro, tablet, morte, mochila, forno… O `Sfx` de teste registra o que o jogo pediu.
 - No título e no carregamento **só se ouvem os cliques**: o fundo (cratera, ventilação, vento) liga junto com o jogo (`set_world`).
 - **No celular** (só o dono confere): se os sons estão no ponto, se o zumbido do módulo incomoda, se há estalos ou
   atraso entre o gesto e o som.
 
 ## Em aberto
 
-Os mesmos do [AUDIO.md](AUDIO.md) (HRTF, som do domo, trilha) e: **vibração** (JNI), latência no celular (hoje o
+Os mesmos do [AUDIO.md](AUDIO.md) (HRTF, som do domo, trilha) e: latência no celular (hoje o
 tamanho do buffer é o padrão da placa; se houver atraso, pedir buffer mínimo), pausa automática do som ao receber
 uma ligação (foco de áudio do Android).

@@ -1,6 +1,7 @@
 //! A base no jogo (porte de `src/app/BaseDirector.ts` e da parte de desenho de `src/render/baseModel.ts`, docs/design/BASE.md):
 //! entrar pela câmara de pressurização, a vista de dentro (só a base, luz própria, mundo de fora travado), sair, descansar
 //! no beliche (traje cheio e renascer na base) e o botão de ação dos móveis.
+use crate::vibracao::Padrao;
 use glam::{Mat4, Vec3};
 use spacing_core::base::{hab_layout, ModuleLayout, Side};
 use spacing_core::fx::signal_lamp;
@@ -263,6 +264,7 @@ impl Game {
                 self.set_door(true);
                 let door = self.base.door_point();
                 self.sons.tocar(Sound::Door, Some(door));
+                self.sons.sentir(Padrao::Tap);
                 let inside = self.base.layout.inside;
                 let d = spacing_core::js::hypot(self.player.pos[0] - door[0], self.player.pos[2] - door[2]);
                 self.walk_to(vec![(door, (d / 3.0).max(0.35)), ([inside[0], inside[1] + 0.02, inside[2]], 0.5)], Then::Airlock);
@@ -289,6 +291,7 @@ impl Game {
                 match self.greenhouse.open_chest(&mut self.inv, &mut ev) {
                     Ok(_) => {
                         self.sons.do_capacete(Sound::Equip);
+                        self.sons.sentir(Padrao::Success);
                         self.toast("Baú aberto: o kit da estufa e do cultivo foi para a mochila")
                     }
                     Err("full") => {
@@ -350,6 +353,7 @@ impl Game {
                 let door = self.base.door_point();
                 self.sons.tocar(Sound::Door, Some(door));
                 self.sons.sfx.play_after(Sound::Pressurize, 1.0, None, 0.3);
+                self.sons.sentir(Padrao::Medium);
                 self.base.airlock = Some(("Câmara de pressurização", "Equalizando pressão", 0.0));
             }
             Mode::Entering if self.base.step == 2 => {
@@ -368,6 +372,7 @@ impl Game {
                     self.player.frozen = false;
                     self.base.mode = Mode::Inside;
                     self.base.visited = true;
+                    self.sons.sentir(Padrao::Success);
                     self.toast("Base pressurizada. Traje recarregando.");
                 }
             }
@@ -376,6 +381,7 @@ impl Game {
                 self.base.seq_t = 0.0;
                 self.player.frozen = true;
                 self.sons.sfx.play_after(Sound::Depressurize, 1.0, None, 0.3);
+                self.sons.sentir(Padrao::Medium);
                 self.base.airlock = Some(("Despressurizando", "Liberando o ar", 1.0));
             }
             Mode::Exiting if self.base.step == 2 => {
@@ -409,6 +415,7 @@ impl Game {
                     self.base.fade = None;
                     self.player.frozen = false;
                     self.base.mode = Mode::Inside;
+                    self.sons.sentir(Padrao::Success);
                     self.toast("Traje recarregado. Se algo der errado, você acorda aqui na base.");
                 }
             }

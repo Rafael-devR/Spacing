@@ -352,5 +352,5 @@ A tela de itens atual é uma versão de trabalho (commit `2ce9076`), não a fina
 abafamento, ambiente da cratera/base/vento e pausa (`mixer.rs`), e a saída pela placa com **cpal** (AAudio no Android, WASAPI no
 Windows). O `spacing-app` liga cada fato do jogo ao som certo (`sons.rs`) e a configuração **Som** liga e desliga tudo. Testes sem
 placa de som (43 no `spacing-audio`, 10 no `sons.rs`), `spacing --som <pasta>` grava os `.wav` e o roteiro jogado confere os sons
-(61 etapas). **Falta:** a vibração (precisa de ponte com o Android), conferir no celular (direção, volume, latência) e o que sobrar do
+(65 etapas). **Vibração (2026-11-16):** `vibracao.rs`, JNI no Android. **Falta:** conferir no celular (direção, volume, latência) e o que sobrar do
 M6 (teste de desempenho nativo, Windows, ícone e versão).

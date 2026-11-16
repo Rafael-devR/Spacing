@@ -1,6 +1,7 @@
 //! A estufa no jogo (porte de `src/app/GreenhouseDirector.ts`, `src/render/greenhouseModel.ts` e `farmModel.ts`,
 //! docs/design/ESTUFA.md): o projeto na barra mostra o holograma (verde cabe, vermelho não), tocar assenta a obra e nivela o
 //! chão, o botão de ação entrega as peças uma de cada vez e finaliza; depois, canteiros, solo, batata, água e colheita.
+use crate::vibracao::Padrao;
 use spacing_audio::Sound;
 use glam::{Mat4, Vec3};
 use spacing_core::blocks::{BlockId, AIR, ICE, LAVA, MARS_DUST, REGOLITH};
@@ -127,6 +128,7 @@ impl Game {
             self.gh_structure_sync();
             let fy = self.greenhouse.site.as_ref().map_or(0, |s| s.floor_y) as f64;
             self.sons.tocar(Sound::Place, Some([x as f64 + 0.5, fy + 1.5, z as f64 + 0.5]));
+            self.sons.sentir(Padrao::Tap);
             self.toast("Canteiro no lugar. Encha de solo fértil, plante uma batata e mantenha úmido.");
             return;
         }
@@ -146,6 +148,7 @@ impl Game {
         let c = [chk.x as f64 + n / 2.0, chk.floor_y as f64 + 1.0, chk.z as f64 + n / 2.0];
         spacing_core::interaction::dust(&mut self.particles, c[0], c[1], c[2], 14, n / 2.0);
         self.sons.sfx.play(Sound::Place, 0.8, Some(spacing_audio::Vec3::de(c)));
+        self.sons.sentir(Padrao::Success);
         self.toast("Holograma assentado. Chegue perto e entregue o material, uma peça de cada vez.");
     }
 
@@ -220,6 +223,7 @@ impl Game {
                 if self.greenhouse.complete() {
                     if self.greenhouse.finish() {
                         self.sons.tocar(Sound::CraftDone, centro);
+                        self.sons.sentir(Padrao::Success);
                         self.toast("Estufa pronta: cápsula de vidro finalizada");
                     }
                     return;
@@ -227,6 +231,7 @@ impl Game {
                 match self.greenhouse.deliver(&mut self.inv, &mut ev) {
                     Ok(id) => {
                         self.sons.tocar(Sound::Equip, centro);
+                        self.sons.sentir(Padrao::Tap);
                         let name = &rules().greenhouse.parts.iter().find(|p| p.id == id).expect("peça").name;
                         self.toast(format!("{name} entregue"));
                         if self.greenhouse.complete() {
@@ -246,11 +251,13 @@ impl Game {
                 match self.greenhouse.use_bed(i, &mut self.inv, &mut ev) {
                     Some((BedAction::Harvest, n)) => {
                         self.sons.tocar(Sound::PickupBig, cama);
+                        self.sons.sentir(Padrao::Success);
                         self.toast(format!("+{} batatas", n.unwrap_or(0)))
                     }
                     Some((a, _)) => {
                         let (som, pitch) = if a == BedAction::Water { (Sound::Pressurize, 1.6) } else { (Sound::Place, 1.1) };
                         self.sons.sfx.play(som, pitch, cama.map(spacing_audio::Vec3::de));
+                        self.sons.sentir(Padrao::Tap);
                         self.toast(match a {
                         BedAction::Soil => "Solo no canteiro",
                         BedAction::Plant => "Batata plantada",
@@ -286,6 +293,8 @@ impl Game {
         }
         let mut ev = Events::new();
         self.inv.remove_selected(1, &mut ev);
+        self.sons.sfx.play(Sound::Pop, 0.8, None);
+        self.sons.sentir(Padrao::Success);
         self.toast(format!("{}: +{:.0} de energia", it.data().name, it.data().food.unwrap_or(0.0)));
     }
 

@@ -1,6 +1,7 @@
 //! O jogo do M2 (docs/design/PORTE_RUST.md): andar na Lua (ou em Marte). Mundo em chunks com threads, astronauta com física e
 //! animação, câmera isométrica, módulo de pouso. Mesmas regras do `src/app/Game.ts` para o que existe aqui.
 use glam::{Mat4, Vec3, Vec4};
+use crate::vibracao::{Padrao, Vibra};
 use spacing_core::camera::{base_fov, IsoRig};
 use spacing_core::planet::{planet, PlanetId};
 use spacing_core::fx::{dust_of, signal_lamp, takes_footprint, DustFx, Footprints, Particles, Puffs, Rng, Sprite};
@@ -349,10 +350,10 @@ impl Game {
     }
 
     /// Liga o jogo ao som (o app abre a placa de som uma vez e empresta o `Sfx` a cada jogo).
-    pub fn set_sfx(&mut self, sfx: Sfx) {
+    pub fn set_sfx(&mut self, sfx: Sfx, vib: Vibra) {
         // o zumbido do módulo sai de cima dele (TS: lander.y + 1,2)
         let modulo = [LANDER.0 + 0.5, self.lander_y + 1.2, LANDER.1 + 0.5];
-        self.sons.liga(sfx, self.planet == PlanetId::Marte, modulo);
+        self.sons.liga(sfx, vib, self.planet == PlanetId::Marte, modulo);
         self.sons.sfx.set_indoors(self.base.inside());
     }
 
@@ -442,6 +443,7 @@ impl Game {
                         let onde = self.base.station_point(r.data().station, self.player.pos);
                         self.sons.sfx.play(Sound::Pressurize, 1.4, Some(spacing_audio::Vec3::de(onde)));
                     }
+                    self.sons.sentir(Padrao::Tap);
                     self.toast(format!("{}: {n}", r.data().station.data().name));
                 }
             }
@@ -592,6 +594,7 @@ impl Game {
                     // dentro da base o som sai da estação; fora, é só um aviso no capacete
                     let onde = self.base.inside().then(|| self.base.station_point(station, self.player.pos));
                     self.sons.sfx.play(Sound::CraftDone, 1.0, onde.map(spacing_audio::Vec3::de));
+                    self.sons.sentir(Padrao::Success);
                     let name = crate::hud::output_name(recipe.data().outputs[0]);
                     self.toast(if self.base.inside() { format!("{} pronto: {name}", station.data().name) } else { format!("{} terminou: {name} espera na base", station.data().name) });
                 }
@@ -868,7 +871,7 @@ impl Game {
             self.sons.marte(fase, nivel, self.base.inside(), self.death.is_none(), devil, erupcao);
         }
         let impacts = self.meteors.update(dt, &mut self.world, self.player.pos, self.rig.yaw, &mut self.puffs, &mut self.particles);
-        self.sons.meteoros(&self.meteors.active, &impacts);
+        self.sons.meteoros(&self.meteors.active, &impacts, self.base.inside());
         for e in impacts {
             self.survival.on_meteor(e.distance, self.base.inside(), self.player.pos, &mut ev);
             self.impact(e);

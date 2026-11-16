@@ -21,6 +21,7 @@ pub mod roteiro;
 pub mod sons;
 pub mod storage;
 pub mod telas;
+pub mod vibracao;
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -131,6 +132,9 @@ struct App {
     /// a saída de som (a placa); `None` se não abriu: o jogo segue mudo. Fica com o app: o `Sfx` é emprestado a cada jogo
     saida: Option<spacing_audio::Saida>,
     sfx: spacing_audio::Sfx,
+    /// a vibração do aparelho (só no Android; em outros sistemas não faz nada)
+    vib: vibracao::Vibra,
+    vib_aberta: bool,
     store: storage::Store,
     save_t: f64,
     /// a hora (ms) do último salvamento que deu certo
@@ -151,6 +155,8 @@ impl App {
             store,
             saida: None,
             sfx: spacing_audio::Sfx::silent(),
+            vib: vibracao::Vibra::silenciosa(),
+            vib_aberta: false,
             fase: Fase::Titulo,
             load_t: 0.0,
             fade: 0.0,
@@ -228,6 +234,7 @@ impl App {
     fn aplicar_prefs(&mut self) {
         self.controls.aim_above = self.prefs.mira_acima;
         self.sfx.set_muted(!self.prefs.som);
+        self.vib.ativa(self.prefs.vibracao);
         self.scaler.reset();
         let s = self.escala_cena();
         if let Some(r) = &mut self.renderer {
@@ -281,7 +288,7 @@ impl App {
         }
         log::info!("{}: {}", planet(p).name, if save.is_some() { "salvamento carregado" } else { "jogo novo" });
         let mut g = Game::load(p, save.as_ref(), fresh, threads());
-        g.set_sfx(self.sfx.clone());
+        g.set_sfx(self.sfx.clone(), self.vib.clone());
         if renewed {
             g.toast("O mundo foi gerado de novo. Seus itens e equipamentos continuam com você.");
         }
@@ -633,6 +640,15 @@ impl ApplicationHandler for App {
                 }
             }
         }
+        // a vibração também precisa da atividade (JNI)
+        if !self.vib_aberta {
+            self.vib_aberta = true;
+            self.vib = vibracao::Vibra::abrir();
+            self.vib.ativa(self.prefs.vibracao);
+            if let Some(g) = &mut self.game {
+                g.set_sfx(self.sfx.clone(), self.vib.clone());
+            }
+        }
         // o som abre uma vez (no Android, depois que a atividade existe) e acompanha o ciclo de vida do app
         match &self.saida {
             Some(s) => s.ativa(true),
@@ -642,7 +658,7 @@ impl ApplicationHandler for App {
                     self.sfx = s.sfx();
                     self.sfx.set_muted(!self.prefs.som);
                     if let Some(g) = &mut self.game {
-                        g.set_sfx(self.sfx.clone());
+                        g.set_sfx(self.sfx.clone(), self.vib.clone());
                     }
                 }
             }
