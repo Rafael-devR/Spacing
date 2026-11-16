@@ -100,9 +100,9 @@ pub struct Death {
 const FIXED_STEP: f64 = 1.0 / 60.0;
 const MAX_STEPS: u32 = 5;
 
-static ASTRONAUT_GLB: &[u8] = include_bytes!("../../../src/assets/models/astronaut.glb");
-static LANDER_GLB: &[u8] = include_bytes!("../../../src/assets/models/lander.glb");
-static METEOR_GLB: &[u8] = include_bytes!("../../../src/assets/models/meteor.glb");
+static ASTRONAUT_GLB: &[u8] = include_bytes!("../../assets/models/astronaut.glb");
+static LANDER_GLB: &[u8] = include_bytes!("../../assets/models/lander.glb");
+static METEOR_GLB: &[u8] = include_bytes!("../../assets/models/meteor.glb");
 
 /// os modelos já na GPU (refeitos quando o Android recria a superfície)
 pub struct Models {

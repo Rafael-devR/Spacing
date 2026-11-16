@@ -7,5 +7,5 @@ resultado em [docs/design/NATIVO.md](../../docs/design/NATIVO.md).
 cargo test --lib        # a rampa, a cena e a fonte
 ./build-web.sh          # web/pkg (WebAssembly)
 ./build-android.sh      # APK (precisa do NDK; no dia a dia, o GitHub faz)
-npm run proto:web       # (na raiz do projeto) páginas na porta 5174
+# a página Three.js (web/three.ts) só roda na branch `web` (tem o npm): `npm run proto:web` lá, porta 5174
 ```

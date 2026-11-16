@@ -8,8 +8,6 @@ on:
   push:
     paths:
       - 'native/**'
-      - 'src/assets/models/astronaut.glb'
-      - 'src/assets/models/lander.glb'
       - '.github/workflows/native-apk.yml'
 
 concurrency:

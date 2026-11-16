@@ -68,8 +68,9 @@ O jogo abre no título: "Continuar missão" (só com salvamento do planeta escol
 toque: apaga o progresso daquele planeta), o planeta e as configurações. Um jogo novo tem semente sorteada; no computador,
 `spacing lua 12345` escolhe o planeta do título e a semente de um jogo novo. As configurações ficam em `prefs.json`, na mesma pasta.
 
-Na raiz do projeto, `npm run golden` refaz os vetores dourados a partir do TS. Mudou o gerador, a malha ou a animação no TS?
-Rode de novo e faça o Rust passar.
+Os vetores dourados (`golden/`, `assets/rules.json`, `assets/props.bin`) vêm do jogo web e **já estão commitados**. Mudou o
+gerador, a malha, a animação ou as regras no TS (branch `web`)? Refaça lá com `npm run golden` e copie para cá (passo a passo no
+`CLAUDE.md`); o Rust precisa passar de novo. Os modelos `.glb` (`assets/models/`) são gerados no Blender na branch `web`.
 
 O APK de teste sai do GitHub Actions (`.github/workflows/native-apk.yml`), artefato `spacing-nativo`.
 

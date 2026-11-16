@@ -12,12 +12,12 @@ use spacing_render::model::{MeshData, ModelData, ModelVertex, Node};
 
 use crate::game::Game;
 
-static HABITAT_GLB: &[u8] = include_bytes!("../../../src/assets/models/habitat.glb");
-static INTERIOR_GLB: &[u8] = include_bytes!("../../../src/assets/models/habitat_interior.glb");
-static FURNITURE_GLB: &[u8] = include_bytes!("../../../src/assets/models/furniture.glb");
-pub(crate) static WORKBENCH_GLB: &[u8] = include_bytes!("../../../src/assets/models/workbench.glb");
-pub(crate) static FURNACE_GLB: &[u8] = include_bytes!("../../../src/assets/models/furnace.glb");
-pub(crate) static ELECTROLYZER_GLB: &[u8] = include_bytes!("../../../src/assets/models/electrolyzer.glb");
+static HABITAT_GLB: &[u8] = include_bytes!("../../assets/models/habitat.glb");
+static INTERIOR_GLB: &[u8] = include_bytes!("../../assets/models/habitat_interior.glb");
+static FURNITURE_GLB: &[u8] = include_bytes!("../../assets/models/furniture.glb");
+pub(crate) static WORKBENCH_GLB: &[u8] = include_bytes!("../../assets/models/workbench.glb");
+pub(crate) static FURNACE_GLB: &[u8] = include_bytes!("../../assets/models/furnace.glb");
+pub(crate) static ELECTROLYZER_GLB: &[u8] = include_bytes!("../../assets/models/electrolyzer.glb");
 
 const DOOR_RED: [f32; 3] = [2.2, 0.25, 0.15];
 const DOOR_GREEN: [f32; 3] = [0.4, 2.4, 0.8];

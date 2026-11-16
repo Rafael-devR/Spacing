@@ -12,8 +12,8 @@ use spacing_render::{load_glb, Material, MeshId, PartDraw, Renderer};
 
 use crate::game::Game;
 
-static GREENHOUSE_GLB: &[u8] = include_bytes!("../../../src/assets/models/greenhouse.glb");
-static FARM_GLB: &[u8] = include_bytes!("../../../src/assets/models/farm.glb");
+static GREENHOUSE_GLB: &[u8] = include_bytes!("../../assets/models/greenhouse.glb");
+static FARM_GLB: &[u8] = include_bytes!("../../assets/models/farm.glb");
 
 const PARTS: [&str; 7] = ["floor", "wallS", "wallW", "wallE", "wallN", "frame", "glass"];
 

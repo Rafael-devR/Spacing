@@ -1,260 +1,77 @@
-# Estado atual do projeto
+# Estado atual: porte para Rust nativo (branch `snapshot`)
 
-> **Para quem abre uma sessão nova:** leia este arquivo, depois o [CLAUDE.md](../CLAUDE.md) (regras e mapa do código), o
-> [README](../README.md) e o que o assunto da vez pedir em [`docs/design/`](design). Este arquivo é um retrato de
-> **2026-11-12** (menos a seção de retomada do porte nativo, de 2026-11-16); atualize-o quando uma etapa grande terminar.
+> **Para quem abre uma sessão nova:** leia este arquivo, depois o [CLAUDE.md](../CLAUDE.md) (regras, comandos, mapa do código) e o
+> [plano do porte](design/PORTE_RUST.md). Retrato de **2026-11-16**; atualize quando uma etapa grande terminar.
+> O estado do **site** (jogo web) está na branch `web`, no arquivo `docs/ESTADO_ATUAL.md` de lá.
 
-## Retomada rápida: o porte nativo (2026-11-16, leia primeiro)
+## O projeto em uma frase
 
-O trabalho vivo hoje é o **porte para Rust nativo** (`native/`), não o jogo web. Resumo para quem chega agora:
+Spacing: jogo de exploração espacial em mundo de blocos (astronauta numa Lua, depois Marte; minera, constrói, fabrica,
+sobrevive). O dono decidiu (2026-11-14) **portar para Rust nativo** (Android primeiro, Windows depois), pelo produto e pela pilha,
+não só pelo desempenho ([ADR 0023](adr/0023-porte-para-rust-nativo.md)). O jogo web (Three.js) continua como **referência** e
+fica na branch `web`.
 
-- **Onde está:** M0 a M4 feitos (mundo, física, render, sombra e bloom, base, estações, energia, estufa, missões, mapa, salvar e
-  carregar em formato v12). Do **M5** (interface) estão feitos título, configurações, pausa, controles e carregamento
-  (`native/spacing-app/src/telas.rs`, fonte Pixelify Sans, `prefs.json`). **Falta:** mochila e estações redesenhadas
-  (`items_screen.rs`, ainda WIP), medidores, objetivo no mundo, ícones flutuantes e a arte de pixel própria dos ícones (grade,
-  paleta e formato ainda por decidir). **M6 não começou:** som (hoje "Som" e "Vibração" são só guardados), teste de desempenho
-  nativo, Windows, ícone do app, versão e docs finais.
-- **Direção de interface (importante):** telas **minimalistas, em paisagem**, pixel art só em detalhes. O dono (2026-11-15) disse que
-  não gosta de menus: quer **interface diegética** (HUD dentro do mundo, o **tablet** como único lugar de opções, medidores no
-  traje, pino de objetivo, o primeiro jogo como pouso). **Ainda é só ideia: planejar em `docs/design/INTERFACE_NATIVA.md` antes
-  de codar, e só quando ele mandar.** Referência de estilo: Garbage Country.
-- **Trocar de planeta é só para teste** (a viagem entre planetas é da história). O "Planeta ‹ Lua ›" do título e a tecla M devem
-  virar um modo de teste (`--teste`); isso ainda não foi feito.
-- **Como validar sem celular:** `spacing --telas <pasta>` (capturas das telas), `spacing --captura <pasta> [lua|marte]`,
-  `spacing --roteiro <pasta>` (jogo jogado por script, 49/49 etapas). Precisa de `VK_ICD_FILENAMES` apontando para o SwiftShader do
-  Chromium do Playwright. Testes: `cargo test -p spacing-core --release`; `cargo clippy` limpo; `npm run golden` se mexer no TS.
-- **O dono ainda não validou o APK nativo** (fluxo `native-apk.yml`, artefato `spacing-nativo`) com as telas novas. Pedir retorno.
-- **Regras que valem:** a branch de trabalho é **`snapshot`** (a `main` é só de versões testadas; PR de uma para a outra quando o dono aprovar) (push na branch de trabalho já autorizado
-  em definitivo; PR, release e apagar branch pedem confirmação). Explicar decisões em português simples; ele corrige o rumo no
-  meio, então **confirme o entendimento antes de tarefas grandes de interface**.
-- **Próximo passo sugerido (o dono ainda não escolheu):** som no nativo, ou mochila e estações, ou o caminho diegético. Perguntar.
+## Branches e APKs
 
-## O jogo em uma frase
+| Branch     | Conteúdo                              | APK (GitHub Actions, artefato)                        |
+| ---------- | ------------------------------------- | ----------------------------------------------------- |
+| `snapshot` | só o Rust (`native/`, protótipo, docs) | **Spacing nativo (Rust)**, `native-apk.yml` → `spacing-nativo` |
+| `web`      | só o site                             | `android-apk.yml` → `spacing-apk`                    |
+| `main`     | versões testadas pelo dono (v0.3.0)   | sem APK                                              |
 
-Spacing: jogo web (Three.js 0.160.0 fixado, TypeScript, Vite) de exploração espacial num mundo de blocos. Você é um
-astronauta num módulo de pouso: minera, constrói, sobrevive (oxigênio, bateria, integridade do traje), fabrica coisas na
-base e, no futuro, deixa a Lua rumo a um planeta com vida. Visual cartoon low poly com shaders próprios. O dono joga e
-testa **no celular** (Android, tela adaptativa 60/120 Hz, GPU Adreno 710, densidade 2,81).
+Trabalhe só na `snapshot` para o Rust. Push nela já autorizado; PR, release e apagar branch pedem confirmação. Ficaram
+no GitHub branches antigas que o ambiente não consegue apagar (`beta-0.4`, `desenvolvimento`, `ccr-b3471d6f-0kqfdm`,
+`codespace-glowing-eureka-...`): o dono apaga na página de branches.
 
 ## Quem é o dono e como trabalhar com ele
 
-- Fala **português do Brasil**. Responda, escreva documentação e textos de interface em português, em linguagem simples.
-- Quer um projeto **profissional, planejado e documentado**, não uma pilha de recursos soltos. Coisa grande: escreva o
-  design em `docs/design/` (e um ADR em `docs/adr/` se mudar uma decisão técnica) **antes** de implementar.
-- **Faça tudo numa branch só** (ele pediu explicitamente: várias branches "bagunçam"). Hoje é `snapshot`.
-- **Push na branch de trabalho: já autorizado.** PR, release e apagar branch só se ele pedir. Nada de publicar o jogo como artifact ou site.
-- Antes de cada commit: `npm run lint && npm run typecheck && npm test && npm run build`. Commits convencionais, uma coisa
-  por commit, com os trailers de atribuição que o ambiente pedir.
-- **Meça antes de otimizar.** Ele roda o teste de desempenho no celular e manda o JSON; você analisa.
-- Depois de mudança visual, **olhe o jogo** com `tools/visual-check` (Chromium headless; o FPS dali **não vale** para o
-  celular). Estética e desempenho no celular são do dono: descreva o que viu e peça para conferir.
-- Ele gosta de receber, ao fim de cada tarefa: o que mudou em português simples e **o que conferir no celular**.
+- Fala **português do Brasil**; linguagem simples. Quer projeto **profissional, planejado e documentado**.
+- Joga **só no celular**. Corrige o rumo no meio da conversa: **confirme o entendimento antes de tarefa grande de interface**.
+- Quer, ao fim de cada tarefa: o que mudou em português simples e **o que conferir no celular**.
 
-## Como subir o jogo para ele testar
+## Onde o porte está
 
-```bash
-npm run dev            # servidor em 5173 (já deve estar de pé: confira com `ss -ltn | grep 5173`)
-```
+| Etapa | O quê | Estado |
+| ----- | ----- | ------ |
+| M0 | workspace, CI, vetores dourados | feito |
+| M1 | núcleo (mundo, malha, luz, física, regras, salvamento) com paridade provada contra o TS | feito |
+| M2 | andar na Lua: render, threads, toque, astronauta, HUD | feito (150 a 250 FPS sem limite, testado pelo dono) |
+| M3 | visual: sombra, bloom, pedras, poeira, Marte vivo, meteoros | feito (40 a 60 FPS com tudo ligado; MSAA 4x) |
+| M4 | regras, mineração/construção, base, estações, energia, estufa, missões, mapa, salvar/carregar (v12), roteiro jogado | feito |
+| M5 | interface | **parcial**: título, configurações, pausa, controles, carregamento feitos |
+| M6 | som, teste de desempenho nativo, Windows, ícone, versão, docs finais | **não começou** |
 
-Endereço no celular: `https://glowing-eureka-q7r7jgxqxrq9c4r5p-5173.app.github.dev` (`$CODESPACE_NAME`). Se o celular
-mostrar **404** (já aconteceu): o registro da porta no túnel do GitHub se perdeu. Soluções que funcionaram: ele parar e
-reiniciar o Codespace em github.com/codespaces; ou subir o Vite em outra porta (`npx vite --host --port 5174`, depois
-`gh codespace ports visibility 5174:private`) e dar o endereço da 5174. O `vite.config.ts` já libera `.app.github.dev`.
-O harness bloqueou `gh codespace stop` (não contorne; peça a ele).
+**Falta no M5:** mochila e estações redesenhadas (`items_screen.rs` está em WIP), medidores, objetivo no mundo, ícones flutuantes e
+a arte de pixel própria dos ícones (grade, paleta e formato **ainda por decidir**). **Falta no M6:** som (hoje "Som" e
+"Vibração" só são guardados em `prefs.json`), teste de desempenho, Windows, ícone do app, versão.
 
-## Git: onde está tudo
+## Direção de interface (importante)
 
-Repositório privado `Rafael-devR/Spacing`. **`main` = v0.3.0** (PR #6, sem tag). Todo o resto é **local, nunca enviado**,
-empilhado em ordem: `main` → `feat/brocas` → `feat/benchmark` → `bench/desempenho-completo` → **`perf/bloom-e-efeitos`**
-(branch de trabalho, contém tudo). `backup/antes-sombra-msaa-nevoa` é o ponto para voltar se a sombra e o MSAA da Alta
-ficarem ruins no visual. As branches antigas são só marcadores do caminho (a de trabalho já as contém); podem ser apagadas
-quando ele quiser. Quando ele pedir o PR, será de `perf/bloom-e-efeitos` para `main`, e o [CHANGELOG](../CHANGELOG.md)
-(seção "Não lançado") já está em dia.
+Telas **minimalistas, em paisagem**, pixel art só em detalhes (fonte Pixelify Sans, aprovada). Referência de estilo:
+Garbage Country. Em 2026-11-15 o dono disse que **não gosta de menus** e quer **interface diegética**: HUD dentro do mundo, o
+**tablet** como único lugar de opções, medidores no traje, pino de objetivo, o primeiro jogo como pouso. **É só ideia: planejar
+em [design/INTERFACE_NATIVA.md](design/INTERFACE_NATIVA.md) antes de codar e só quando ele mandar.**
 
-## O que existe (além do que a v0.3.0 já tinha)
+**Trocar de planeta é só para teste** (a viagem entre planetas é da história). O "Planeta ‹ Lua ›" do título e a tecla M devem
+virar um modo de teste (`--teste`); ainda não foi feito.
 
-Em ordem de execução, tudo com testes e documentação:
+## O que o dono ainda não viu
 
-1. **Brocas evolutivas, microgravidade dos pedaços, mapa do tablet em blocos** (`feat/brocas`; o dono testou e gostou).
-   [design/BROCAS.md](design/BROCAS.md), [design/MAPA.md](design/MAPA.md), [design/FISICA.md](design/FISICA.md).
-2. **Teste de desempenho completo** no menu de pausa (`src/bench/`, `src/data/bench.ts`): rápido (~2 min) e completo
-   (~16 min, com 10 min de aquecimento). Mede fluidez contra 120 e 60 Hz, CPU por subsistema, custo de cada efeito,
-   curva de resolução, calor, taxa real da tela durante o teste; histórico dos últimos 10 e exportação JSON. O astronauta
-   é imortal durante o teste; cada etapa começa sem itens soltos da anterior. [design/BENCHMARK.md](design/BENCHMARK.md),
-   ADR 0007.
-3. **Otimização da GPU** (a Alta foi de ~30 para ~60 FPS no celular): bloom somado na passada final e tons+cor numa só
-   passada, sombra só nas faces voltadas para o sol, sombra do mapa refeita só quando muda, **MSAA 2×** na Média e na
-   Alta. O celular é limitado por **pixels** (GPU), não por CPU nem por chamadas de desenho.
-4. **Gráficos avançados** (menu de pausa → "Gráficos avançados…"): resolução (0,5× a 2× e nativa), MSAA, sombras, bloom,
-   aberração, vinheta, ruído, brilho dos cristais, limite de FPS, contador de FPS. [design/GRAFICOS.md](design/GRAFICOS.md).
-5. **Marte** (tela inicial → "Planeta (provisório)", ou `?planeta=marte`): terreno, gravidade, clima (tempestades de
-   poeira), redemoinhos, lava que queima o traje, vulcão com erupções, minerais novos, duas luas, missões próprias, salvamento
-   próprio. A **lava ativa é ficção que o dono pediu** (registrada no design). [design/MARTE.md](design/MARTE.md), ADR 0008.
-6. **Fabricação em estações** (pedido do dono em 2026-11-12): forno solar e eletrolisador ao lado da bancada, 10 itens
-   fabricados com química real (ISRU), estações que trabalham sozinhas e guardam o resultado, tempo pelo calor, peso e
-   raridade (±12%), tela técnica com diagrama ao vivo, selo no HUD, cilindro de O₂ de reserva, salvamento v7.
-   [design/CRAFTING.md](design/CRAFTING.md), [design/ITENS.md](design/ITENS.md), ADR 0009. **Marte ainda não fabrica**
-   (próxima fase: hematita, gipsita, olivina).
-7. **Energia e telas novas** (segunda rodada, depois de o dono testar): regra "nada vem do nada" (painéis solares livres
-   no mundo, bateria da base, forno pelo sol), vagas e lotes nas estações, telas cheias em Canvas (estações e energia no
-   console), salvamento v8. [design/ENERGIA.md](design/ENERGIA.md), ADR 0010. Falta aplicar a regra ao oxigênio.
-8. **Terceira rodada da fabricação:** tempos ~10× menores, pegar por unidade, pausar e cancelar, receitas à direita,
-   painel técnico no estilo do jogo Idle CPU (referência do dono). Salvamento v9.
+- O **APK nativo com as telas novas** (título, configurações, pausa, controles, carregamento): a última build é do commit
+  `a9411c1` (15/11); ele ainda não deu retorno. Peça.
+- O fluxo completo no celular (título → carregar → jogar → pausa → salvar → sair).
 
-9. **Mundo novo** (pedido do dono em 2026-11-12): semente sorteada por jogo, 96 blocos de altura, terras altas, seis
-   blocos novos, **cavernas na Lua** (tubos de lava, túneis, salões, rampas, claraboias), escuro com lanterna do capacete,
-   câmera que aproxima e corta a rocha dentro da caverna. Salvamento v10 (mundo antigo é refeito, progresso fica).
-   [design/MUNDO.md](design/MUNDO.md), ADR 0011. **Marte ainda não tem cavernas.**
+## Como validar sem celular
 
-10. **Chunks em worker e resolução dinâmica** (ADR 0012), feitos a partir do teste de desempenho do dono depois do mundo novo
-   (~40 FPS efetivos na Alta; quadros de 50 a 100 ms ao andar). Terreno e malha dos chunks novos em Web Workers; a resolução
-   baixa um degrau sozinha quando a GPU não acompanha. A sombra ainda é mais da metade dos triângulos (próximo alvo).
-   **Medido no celular do dono:** Alta de ~40 para ~56 FPS efetivos; caminhada sem nenhum quadro ≥ 50 ms; o que sobra (6% a 14%
-   dos quadros em 33 ms) é da GPU, e a 85% da resolução chega a 97% a 99% no ritmo de 60 Hz (tabela no ADR 0012).
+`spacing --telas <pasta>`, `--captura`, `--roteiro` (49 de 49 etapas passam) e os testes; veja o [CLAUDE.md](../CLAUDE.md).
+O SwiftShader do Chromium do Playwright serve de Vulkan por software.
 
-11. **Modelos 3D no Blender** (ADR 0013): o Claude modela por script no Blender sem janela e o jogo carrega `.glb` com os
-   próprios materiais. Prontos: o módulo de pouso, a base por fora e por dentro (maior: 11×9), os móveis e as três
-   estações com animação feita no Blender; luzes de sinalização com halo (`render/lamps.ts`). [design/MODELOS.md](design/MODELOS.md).
+## Próximo passo sugerido (o dono ainda não escolheu)
 
-12. **Meteoros cinematográficos** ([design/METEOROS.md](design/METEOROS.md), ADR 0014): rocha do Blender, rastro de chamas, onda de
-   choque que entorta a imagem (passada final, opção no menu Gráficos), bola de fogo, blocos que quebram, câmera lenta curta.
-   O dono já testou no celular e aprovou (funcionou). Os meteoros sorteados caem mais perto e dentro da tela.
-
-13. **Modo de teste** ([design/TESTE.md](design/TESTE.md), ADR 0015), pedido do dono para testar rápido: `?teste` (ou o botão na tela
-   inicial) liga um painel de depuração com salvamento próprio. **Use-o para testar o que você mexer**; o `testmode.mjs` roda tudo em
-   menos de 1 minuto.
-
-## Estufa (objetivo de longo prazo do jogo: a comida)
-
-Pronta em 2026-11-13 ([design/ESTUFA.md](design/ESTUFA.md), ADR 0016): baú na base, holograma no terreno, construção peça por peça
-(baixa → alta qualidade) com modelos do Blender, cápsula sólida com porta, **canteiros, solo, rega, batata em 5 estágios, colheita** e
-**a fome ligada** (medidor de energia, comer batata). O dono aprovou a primeira parte (com as caixas provisórias); os modelos do
-Blender, o cultivo e a fome ainda não foram vistos no celular. **Atenção:** com a fome ligada, todo jogo passa a precisar de comida
-(cheia dura ~80 min).
-
-## Personagem (2026-11-13)
-
-Astronauta novo do Blender em estilo voxel chibi, com animação procedural e item na mão; poeira dos pés refeita
-([design/PERSONAGEM.md](design/PERSONAGEM.md), ADR 0017). O dono acompanhou as prévias do Blender (pediu "mais fofinho", braços mais
-naturais e "mais voxel"), mas **ainda não viu as animações no celular**.
-
-## Inventário e estações refeitos (2026-11-13)
-
-O dono pediu para refazer **inventário, barra, mochila e todas as estações** e deixou o design livre ("minimalista, mais espacial,
-simples"; ergonomia de Minecraft: arrastar, dividir pilha). Feito numa tela só em HTML ([design/INVENTARIO.md](design/INVENTARIO.md),
-[design/ESTACOES.md](design/ESTACOES.md), ADR 0019, que substitui o forno em PixiJS do ADR 0018): `ui/inventory/` (tela, grade, mão),
-`ui/Bag.ts`, `ui/station/` (StationScreen, câmara, calor), `ui/PowerPanel.ts`. **As regras de fabricação não mudaram** (nada de
-salvamento novo). Antes disso o dono viu o forno em Pixi e pediu "menos cartoon, mais interface espacial"; essa direção seguiu aqui.
-A branch local `backup/teclas-bancada` (tentativa antiga em Canvas) não serve mais.
-
-## Tela de título e carregamento (2026-11-13)
-
-Pedido do dono: título de jogo de verdade com o planeta voxel (Blender) no fundo, escolha do planeta nas configurações e carregamento
-certinho depois de "Jogar" ([design/TITULO.md](design/TITULO.md), ADR 0020). Depois ele pediu a **pausa refeita** (Salvar, Sair, configurações únicas no título e na pausa):
-[design/PAUSA.md](design/PAUSA.md), ADR 0021.
-
-## App Android (2026-11-13)
-
-O dono pediu o jogo num APK (Capacitor) e escolheu gerar pelo GitHub Actions: [design/APK.md](design/APK.md), ADR 0022. O APK compila e
-assina aqui, mas **nunca rodou num aparelho**.
-
-## Protótipo nativo (2026-11-14)
-
-O dono acha o jogo pesado no celular e quer saber se vale reescrever nativo (Rust). Antes de reescrever, a régua: [design/NATIVO.md](design/NATIVO.md).
-Resultado (versão 2, mesmo celular, tela cheia, 118 Hz): o nativo ganha de ~1,2x a ~2x em chamadas de desenho; em triângulos os três empatam (a GPU limita).
-
-**Decisão do dono (2026-11-14): portar para Rust nativo no Android (Windows depois).** Pelo produto e pela pilha, não só por desempenho. Só há plano: [design/PORTE_RUST.md](design/PORTE_RUST.md) e [ADR 0023](adr/0023-porte-para-rust-nativo.md). Esperando o dono responder 3 escolhas (motor, destino da versão web, Windows); sem resposta, valem as recomendadas.
-
-**Porte, 2026-11-14 (o dono mandou fazer até o M2):** `native/` tem o núcleo em Rust com paridade **provada** contra o TS (gerador da Lua e de Marte, cavernas, malha, luz do céu, animação: `npm run golden` + `cargo test -p spacing-core --release`), o renderizador wgpu e o app (andar na Lua/Marte com toque ou teclado, HUD com medidor). APK pelo fluxo `native-apk.yml` (artefato `spacing-nativo`). M2 testado pelo dono: 150 a 250 FPS sem limite. M4a (regras), M4b (minerar, construir, pedaços, itens, dano, morte), M4c (base, estações, energia, estufa) e M4d (missões, mapa do tablet visto de cima, salvar e carregar no formato v12 do jogo web, roteiro jogado `--roteiro`) feitos em 2026-11-15: o M4 está completo; o próximo é o M5 (telas completas), só quando o dono mandar. **M3 feito** (sombra, bloom e pós, pedras, poeira e pegadas, Marte vivo, meteoros, teste de efeitos no botão B) e testado pelo dono em 2026-11-15: 40 a 60 FPS com tudo ligado; depois disso a cena passou a sair na densidade 2 com resolução dinâmica, como a qualidade Alta do web (o MSAA 2x foi tentado e desfeito: o app fechava; ficou o 4x). Falta o M5 (telas completas: mochila com arrastar, pausa e configurações, tablet 3D) e o M6. Capturas sem janela: `./target/release/spacing --captura <pasta> [lua|marte] [semente]` com `VK_ICD_FILENAMES` apontando para o SwiftShader do Chromium (`/opt/pw-browsers/chromium-*/chrome-linux64/vk_swiftshader_icd.json`). 
-## O que o dono ainda **não viu** no celular
-
-- **O protótipo nativo** (as três telas de RESULTADO: Three.js, Rust no navegador, APK nativo).
-- **O app Android** (instalar o APK do GitHub; barras escondidas, Voltar, pausa ao sair, som, desempenho).
-- **A pausa nova** (Salvar, Sair para o título, configurações únicas) e **a tela de título e o carregamento** (o planeta low poly com blocos no fundo, os botões, as configurações, o tempo de carregar no celular).
-- **A tela de itens nova** (mochila e estações): arrastar com o dedo, segurar para metade, toque duplo, soltar na entrada da máquina,
-  arrastar a saída; tamanho dos espaços e das letras no celular deitado e em pé.
-
-- **O astronauta novo animado** (correr, pular, cair, pousar, minerar, item na mão, gestos à toa) e a **poeira nova**.
-- **O interior novo da base** (maior, móveis novos) e **as estações do Blender com animação**. Antes disso o dono viu o casco
-  de fora e as luzes com halo (sem retorno ainda). Já aprovou o módulo de pouso novo.
-
-- **A resolução dinâmica no jogo de verdade:** o limite caiu para 10% dos quadros lentos; ver se o tamanho no menu de gráficos oscila demais.
-
-- **O mundo novo**: cavernas, câmera com corte, escuro e lanterna, montanhas, e principalmente o **desempenho** (gerar
-  chunk ficou ~2,5× mais caro; o material do corte desenha os dois lados das faces).
-
-- As **telas cheias em Canvas** das estações e da energia (legibilidade, toque, rolagem da lista), vagas e lotes, o
-  painel solar colocado no chão, e o ritmo com a energia (eletrolisador fica lento sem painéis).
-
-- **Marte inteiro** (cores, gravidade, tempestade, vulcão, desempenho dos efeitos novos).
-- O **menu de gráficos avançados** (tocar nos botões, a Nativa, o limite de FPS em 60 com o dedo na tela).
-- A sombra só nas faces ao sol e o MSAA 2× na Alta (conferir bordas e sombras do mapa).
-- O teste completo na Alta **com o dedo na tela** o tempo todo (só rodou o rápido).
-
-## Fatos de desempenho (celular do dono)
-
-- Alta hoje: ~60 FPS estáveis com a tela em 60 Hz; com o dedo (tela em 120 Hz) o jogo entrega ~60 FPS **irregulares**
-  (quadros de 8, 16 e 25 ms). **Meta do dono: Alta em 60 FPS estável.** O limite de FPS = 60 resolve a irregularidade.
-- Custo por efeito (GPU, ~): MSAA 4× 5 ms, sombra 4,6 ms, névoa 2,7 ms, bloom 2,6 ms (era ~20), brilho 1,4 ms, resto < 1 ms.
-- **A tela só vai a 120 Hz enquanto o dedo mexe nela**; toque simulado por JavaScript é ignorado pelo Android. Por isso
-  o teste mostra o tempo em cada taxa e avisa quando ficou em 60 Hz.
-- Baixa: ~110 FPS em 120 Hz. Média: 60 fixos.
-- Eu não consigo medir o FPS do celular: sempre peça o JSON do teste.
-
-## Armadilhas conhecidas
-
-- Editar arquivos em `src/` **enquanto** um script do `tools/visual-check` roda recarrega o Vite e derruba o script.
-- Não use `pgrep -f` em Monitor (casa com ele mesmo); espere por PID.
-- Cuidado ao encadear verificações com `| tail`: esconde a falha. Rode `lint`, `typecheck`, `test` e `build` em laço, sem pipe.
-- Os testes do Vitest rodam sempre **na Lua** (`PLANET` é lido no carregamento); Marte é testado gerando `MarsTerrain`
-  direto e no navegador com `mars.mjs`.
-- Mudar o gerador de terreno de um planeta pede subir `WORLD_GEN` (o mundo dos salvamentos é refeito; o progresso fica).
-  Testes e scripts não podem depender de uma semente: use `?semente=` ou confira em várias. Mudou um cenário do teste de desempenho? Suba
-  `BENCH_VERSION`. Mudou o formato do salvamento? Nova versão, migração e teste.
-- O Three.js 0.160.0 está fixado: o material dos blocos injeta GLSL nos nomes internos dos shaders.
-
-## Bugs para corrigir (anotados pelo dono, 2026-11-13)
-
-Vamos um por vez. Ainda sem detalhes do dono; a investigação começa quando ele mandar.
-
-1. **[Parcialmente feito, 2026-11-13] Blocos invisíveis na frente do personagem.** O recorte foi desligado (`CUT_SWITCH`) e o modo
-   caverna só liga debaixo da terra. Falta o dono conferir no celular se a superfície e a entrada de caverna ficaram boas.
-   Texto original: blocos transparentes atrás do personagem (cavernas e relevo). O personagem não fica atrás dos blocos e eles aparecem
-   transparentes. Acontece dentro de cavernas e também fora delas: o relevo do chão some atrás de uma cratera. Provável ligação
-   com o corte da câmera (`src/render/cutaway.ts`) e com o material de corte dos chunks.
-2. **[Feito, 2026-11-13] Escada da base.** Plataforma plana nivelada pelo gerador e degrau de blocos de metal com colisão
-   (`world/basePad.ts`, design/BASE.md). Falta o dono conferir no celular (e que mundos antigos foram refeitos).
-
-## Desempenho: quadros que oscilam (levantado pelo dono, 2026-11-13)
-
-**Feito (precisa de teste no celular):** o limite de FPS agora anda numa grade fixa (`core/framecap.ts`) e o medidor virou um overlay
-estilo RTSS com 1% low e gráfico dos tempos de quadro. O escalonador de resolução ainda não foi mexido: ver os números primeiro.
-
-Com o limite em 30 FPS o jogo oscila entre 25 e 30. Com o limite em 60 ele fica entre 40 e 60 e parece instável. Sem limite, o
-mesmo. Hipóteses a verificar: o gate do limite (`Game.frame`) acumula desvio, pois `lastCapAt = now` em vez de avançar pela
-grade; o `ResolutionScaler` muda a resolução para cima e para baixo, o que também faz o FPS oscilar; e o jogo está perto do
-orçamento de quadro no celular. A medida certa é a distribuição dos tempos de quadro (p95 e p99), não a média.
-
-## Testes que existem
-
-`npm test` (Vitest, ~240 testes) e, em `tools/visual-check/` (precisa de `npm run dev`; veja o README da pasta):
-`testmode.mjs` (modo de teste, o mais rápido), `meteors.mjs` (meteoros), `play.mjs` (jogabilidade), `ui.mjs` (HUD), `audio.mjs`, `base.mjs`, `drill.mjs`, `tablet.mjs` (mapa), `bench.mjs` (teste
-de desempenho), `gfx.mjs` (gráficos avançados), `mars.mjs` (Marte), `stations.mjs` (estações e energia), `caves.mjs` (cavernas e câmera), `shot.mjs <url> <pasta> <largura> <altura> <qualidade>`
-(capturas). Rode o que combina com a mudança; para mexer em shader/pós-processamento, compare capturas antes e depois.
-
-## Próximos passos possíveis (o dono decide)
-
-1. Ele jogar Marte e o menu de gráficos e dar o retorno (cores, gravidade, tempestade, desempenho).
-2. Rodar o teste completo na Alta com o dedo na tela e mandar o JSON.
-3. **v0.4 Sobrevivência II** ([ROADMAP](ROADMAP.md)): Gerador de Domo, painéis solares, eletrolisador, escuridão e frio nas
-   crateras, trajes. Ainda **não começou**; precisa de design (receitas, máquinas, regras do domo) e de conversa com ele.
-4. A **viagem Lua → Marte** de verdade (hoje a escolha é provisória). Ideias já anotadas em [design/MARTE.md](design/MARTE.md):
-   percloratos tóxicos, gelo de CO₂, gêiseres, dia e noite de Marte.
-5. Ajustar os números da sobrevivência (oxigênio, danos) depois de jogar.
-6. Quando ele pedir: push, PR de `snapshot` para `main`, versão nova e tag (a v0.3.0 está sem tag).
+Som no nativo, mochila e estações, ou o caminho diegético. **Pergunte antes de começar.**
 
 ## Onde ler mais
 
-[README](../README.md) · [Arquitetura](ARCHITECTURE.md) · [Game design](GAME_DESIGN.md) · [Roadmap](ROADMAP.md) ·
-[História](STORY.md) · [Direção de arte](ART_DIRECTION.md) · [CHANGELOG](../CHANGELOG.md) · [ADRs](adr) ·
-[design/](design) (cada sistema tem o seu documento).
+[README](../README.md) · [native/README.md](../native/README.md) · [PORTE_RUST](design/PORTE_RUST.md) ·
+[INTERFACE_NATIVA](design/INTERFACE_NATIVA.md) · [NATIVO](design/NATIVO.md) · [ADRs](adr) · [design/](design)
+(os `design/` dos sistemas do jogo descrevem as regras que o Rust porta).
