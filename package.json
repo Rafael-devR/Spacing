@@ -16,7 +16,6 @@
     "format:check": "prettier --check .",
     "android:sync": "npm run build && cap sync android",
     "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug",
-    "proto:web": "vite prototypes/nativo/web --config vite.config.ts --host --port 5174",
     "golden": "vitest run --config tools/golden/vitest.config.ts"
   },
   "dependencies": {
