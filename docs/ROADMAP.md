@@ -44,17 +44,21 @@ Detalhes em [design/SOBREVIVENCIA.md](design/SOBREVIVENCIA.md) e [design/GAME_JU
 
 ## v0.4: Sobrevivência II
 
-- [ ] Crafting com receitas e tela de crafting (bancada e primeira receita prontas na base inicial).
+- [x] Crafting em estações que trabalham sozinhas (bancada, forno solar, eletrolisador), itens com propósito e química
+      real, tempo pelo material e tela técnica ([design/CRAFTING.md](design/CRAFTING.md), ADR 0009).
+- [ ] Fabricação em Marte (hematita, gipsita, olivina; reator de CO₂).
 - [ ] Gerador de Domo (esfera de atmosfera, ficção).
 - [ ] Painéis solares e eletrolisador (gelo vira O₂ e H₂).
 - [ ] Escuridão e frio nas crateras; lanterna e aquecimento.
+- [x] Brocas evolutivas: de ferro e de cristal, com nível e velocidade ([design/BROCAS.md](design/BROCAS.md)).
 - [ ] Trajes e equipamentos, visíveis no astronauta.
 - [ ] Kit de reparo e tempestade solar.
 
 ## v0.5: Veículos e exploração
 
 - [ ] Rover dirigível.
-- [ ] Mapa e marcadores.
+- [x] Mapa no tablet em blocos, descoberto ao explorar, com sonda, base, objetivo, itens e minérios ([design/MAPA.md](design/MAPA.md)).
+- [ ] Marcadores do jogador no mapa.
 - [ ] Novos minérios e regiões distantes.
 
 ## v0.6: História e missões
@@ -65,6 +69,10 @@ Detalhes em [design/SOBREVIVENCIA.md](design/SOBREVIVENCIA.md) e [design/GAME_JU
 
 ## v0.7: Desempenho e distribuição
 
+- [x] Teste de desempenho completo no menu de pausa (rápido e completo), com fluidez em 120 e 60 Hz, CPU por subsistema,
+      custo de cada efeito, curva de resolução, aquecimento, histórico dos últimos 10 resultados e exportação em JSON
+      ([design/BENCHMARK.md](design/BENCHMARK.md), [ADR 0007](adr/0007-teste-de-desempenho-completo.md)).
+- [ ] Rodar o teste no celular de 120 Hz e escolher o que otimizar a partir dos números.
 - [ ] Geração e malha de chunks em Web Worker.
 - [ ] PWA instalável com funcionamento offline.
 - [ ] Teste em aparelhos reais e ajuste do orçamento de desempenho.

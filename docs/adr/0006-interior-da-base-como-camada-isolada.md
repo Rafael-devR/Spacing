@@ -47,3 +47,27 @@ Opção 3 (`src/render/indoors.ts`):
   instantânea.
 - Objetos novos que precisem aparecer dentro da base devem passar por `showIndoors`.
 - Se um dia a base virar um lugar grande (vários módulos com corredores), a opção 1 pode voltar à mesa.
+
+## Adendo (2026-11-12): casco de fora separado do interior
+
+O lado de fora da base passou a ser um modelo do Blender (ADR 0013), só na camada do mundo. As paredes montadas em código
+ficaram só na camada do interior (`interiorOnly` em `indoors.ts`). Com isso a base já tem os "dois modelos" que a opção 1
+pedia. O dono sugeriu levar o interior para uma área separada, com tela de carregamento, quando o interior detalhado for
+feito; a separação em camadas deixa esse passo mais fácil, mas ele ainda não foi decidido.
+
+## Adendo (2026-11-12): interior do Blender
+
+O interior também passou a ser modelo do Blender (paredes em peças de baixo e de cima por lado, para o corte continuar
+funcionando), e a base cresceu para 11×9. A sugestão do dono de levar o interior para uma cena à parte, com carregamento,
+continua em aberto: por enquanto o interior segue no mesmo lugar, na camada de dentro.
+
+## Adendo (2026-11-12): cena de dentro e corte sem meia parede
+
+- **Cena à parte.** Dentro da base, a câmera desenha outra `THREE.Scene` (`IndoorView.interior`, `src/render/indoors.ts`),
+  com luz e sombra próprias e o mesmo fundo e neblina. Ao entrar, só três raízes mudam de cena: o grupo da base, o
+  astronauta e as partículas. A cena de fora não é desenhada lá dentro, então o terreno e os meteoros não custam nada.
+  A câmera de camadas continua valendo, para o casco do Blender (só de fora) não aparecer dentro.
+  Fica de fora da cena à parte: o tablet (tem a própria cena de sobreposição) e o que ainda é colocado no mundo.
+- **Corte sem meia parede.** A parede viradas para a câmera, ao entrar, **some inteira** (a de baixo também), em vez de
+  abaixar a parte de cima. A porta some junto com a parede da frente. Motivo do dono: a parede pela metade ficava
+  esquisita de ver.

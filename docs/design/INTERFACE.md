@@ -48,14 +48,24 @@ pouco vai para os cantos de cima.**
 
 - **Canto superior esquerdo:** medidores do traje e objetivo. No celular, o objetivo fica compacto (título
   e progresso); ele abre o texto completo por 7 s ao começar e quando o objetivo muda. Um toque abre ou fecha.
+  Abaixo do objetivo, um **selo por estação trabalhando** (ícone do produto e tempo que falta, ou "Pronto"), para o
+  jogador saber lá fora quando voltar à base ([CRAFTING.md](CRAFTING.md)).
 - **Topo, no centro:** bússola e mensagens (IA do traje, avisos). Saíram de cima do joystick.
 - **Canto superior direito:** tela cheia, pausa e câmera (girar e zoom), que se usam pouco. O zoom também
   funciona com pinça.
 - **Embaixo:** joystick no polegar esquerdo; pular (botão grande, no canto) e minerar/construir (ao lado,
   em arco) no polegar direito; barra de itens no centro.
 - **Em pé (retrato):** a barra de itens fica na borda de baixo e os polegares logo acima dela.
+- **Telas de itens** (mochila e estações) e **energia da base**: tela inteira em HTML, minimalista e espacial, com o inventário ao
+  lado e arrastar e soltar ([INVENTARIO.md](INVENTARIO.md), [ESTACOES.md](ESTACOES.md), ADR 0019). Voltar no canto de cima à esquerda.
+  Energia: sol → geração → bateria → consumo ([ENERGIA.md](ENERGIA.md)). Regra: poucos números; cor, barra, palavra e movimento que
+  significa algo de verdade.
 - Nome do lugar e coordenadas saíram do HUD e foram para o cabeçalho do menu de pausa.
 - O HUD fica escondido no menu inicial e na pausa. Na tela de morte só ficam os medidores.
+- **Menu de pausa, Teste de desempenho:** logo abaixo de **Continuar** está o botão **Teste de desempenho**. Ele abre a
+  escolha entre **Rápido** e **Completo** e os **Resultados guardados** ([design/BENCHMARK.md](BENCHMARK.md)). Durante o
+  teste um cartão no alto mostra o cenário, a etapa, o tempo que falta, o FPS e o botão **Cancelar**; o HUD do jogo fica
+  escondido. O resultado ocupa a tela, rola, e tem **Exportar JSON**, **Copiar resumo** e **Voltar ao jogo**.
 
 ## Tela cheia e orientação
 
@@ -63,7 +73,7 @@ pouco vai para os cantos de cima.**
   só permite isso logo depois de um toque, então a tela cheia entra quando o dedo solta.
 - **Botão de tela cheia** no canto superior direito, que liga e desliga. Desligar pelo botão também desliga
   a entrada automática.
-- **Tela deitada:** em tela cheia o jogo trava a tela na horizontal (preferência "Tela em tela cheia:
+- **Tela deitada:** em tela cheia o jogo trava a tela na horizontal (preferência "Orientação:
   Deitada" ou "Livre").
 - **iPhone:** o Safari do iPhone não tem tela cheia para páginas nem trava de orientação. Lá o botão some,
   o layout de retrato continua funcionando e a tela inicial sugere deitar o celular.

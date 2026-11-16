@@ -1,78 +1,25 @@
-# Spacing
+# Spacing (branch `snapshot`: jogo nativo em Rust)
 
-> Jogo de exploração espacial em mundo de blocos, em 3D isométrico, com visual low poly cartoon.
-> Sobreviva com oxigênio e bateria limitados, minere, construa, crafte e escape da Lua rumo a um planeta com vida.
+Jogo de exploração espacial em mundo de blocos, visual low poly cartoon. Você é um astronauta que cai na Lua, minera,
+constrói, fabrica e sobrevive, rumo a um planeta com vida.
 
-**Status:** protótipo jogável `v0.3.0`. Nome provisório. Veja o [roadmap](docs/ROADMAP.md).
+Esta branch tem **só o porte para Rust nativo** (Android e computador). O jogo do navegador está na branch **`web`**; a `main`
+guarda só as versões já testadas. Estado e decisões: [docs/ESTADO_ATUAL.md](docs/ESTADO_ATUAL.md). Plano:
+[docs/design/PORTE_RUST.md](docs/design/PORTE_RUST.md).
 
-## O jogo
+## O que tem aqui
 
-Você é um astronauta cujo módulo de pouso caiu no polo sul da Lua. Para sobreviver e partir, precisa
-explorar o terreno, minerar regolito, gelo e minérios, e transformar tudo em ferramentas, bases, rovers e,
-no fim, um foguete capaz de levá-lo a um mundo melhor.
+- `native/`: o jogo (núcleo, desenho com wgpu, app com egui) e o projeto Android. Veja o [native/README.md](native/README.md).
+- `prototypes/nativo/`: o protótipo que mediu o desempenho (Rust × WASM × Three.js).
+- `docs/`: design, ADRs, arte, história.
 
-- Mundo de **blocos** gerado por **chunks**, infinito em todas as direções, com crateras e planícies de basalto.
-- Mineração satisfatória: destroços com física, faíscas, tremor de câmera e itens que voam até você.
-- Sobrevivência: oxigênio, bateria e integridade do traje. Morrer custa todos os itens, que ficam no chão
-  esperando você voltar para buscá-los.
-- Construção livre com blocos.
-- Visual com **shaders próprios**: sombras suaves, oclusão ambiente nos cantos, névoa nas crateras,
-  brilho nos cristais e correção de cor.
-- Feito para **celular** e computador: joystick na tela, toque para andar, pinça para zoom.
-
-## Como rodar
-
-Requisitos: **Node.js 22 ou mais novo** e npm.
+## Rodar
 
 ```bash
-npm install
-npm run dev          # servidor de desenvolvimento em http://localhost:5173
+cd native
+cargo test -p spacing-core --release      # núcleo + paridade com o jogo web
+cargo run --release -p spacing-app        # roda no computador
 ```
 
-No celular onde o Termux roda, abra `http://localhost:5173` no navegador. Em outro aparelho na mesma rede,
-use o endereço de rede que o Vite mostra no terminal.
-
-Outros comandos:
-
-| Comando             | O que faz                                              |
-| ------------------- | ------------------------------------------------------ |
-| `npm run build`     | Checa os tipos e gera a versão de produção em `dist/`  |
-| `npm run preview`   | Serve a versão de produção para teste                  |
-| `npm test`          | Roda os testes (Vitest)                                |
-| `npm run lint`      | Análise estática (ESLint)                              |
-| `npm run typecheck` | Verificação de tipos (TypeScript)                      |
-| `npm run format`    | Formata o código (Prettier)                            |
-
-## Controles
-
-| Ação                      | Computador          | Celular                                     |
-| ------------------------- | ------------------- | ------------------------------------------- |
-| Andar                     | WASD ou setas       | Joystick                                    |
-| Pular                     | Espaço              | Botão de seta                               |
-| Minerar                   | Segurar o clique    | Segurar o dedo no bloco                     |
-| Construir                 | Clique direito      | Botão do cubo e toque no bloco              |
-| Andar até um ponto        | Clique longe        | Toque rápido                                |
-| Girar a câmera (90°)      | Q / E               | Setas curvas                                |
-| Zoom                      | Roda do mouse       | Pinça ou botões + e −                       |
-| Escolher item             | 1 a 8               | Toque na barra de itens                     |
-| Pausar e configurações    | Esc ou P            | Botão Pausa                                 |
-
-## Documentação
-
-| Documento                                    | Conteúdo                                                   |
-| -------------------------------------------- | ---------------------------------------------------------- |
-| [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md)   | Visão, pilares, loop de jogo, sistemas e progressão        |
-| [docs/STORY.md](docs/STORY.md)               | História, personagens e como as missões são escritas       |
-| [docs/design/SOBREVIVENCIA.md](docs/design/SOBREVIVENCIA.md) | Oxigênio, bateria, integridade, morte e o Gerador de Domo |
-| [docs/design/GAME_JUICE.md](docs/design/GAME_JUICE.md) | Princípios e catálogo de retorno de cada ação             |
-| [docs/ART_DIRECTION.md](docs/ART_DIRECTION.md) | Direção de arte, paleta, shaders e referências           |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Arquitetura do código, módulos e estrutura alvo            |
-| [docs/ROADMAP.md](docs/ROADMAP.md)           | Marcos e próximas versões                                  |
-| [docs/adr/](docs/adr)                        | Registro das decisões técnicas e o porquê                  |
-| [CONTRIBUTING.md](CONTRIBUTING.md)           | Fluxo de trabalho, branches, commits e versões             |
-| [CHANGELOG.md](CHANGELOG.md)                 | Histórico de versões                                       |
-
-## Tecnologias
-
-Three.js · TypeScript · Vite · Vitest · ESLint · Prettier. As escolhas e os motivos estão em
-[docs/adr/](docs/adr).
+O APK de teste para o celular sai do GitHub Actions: fluxo **Spacing nativo (Rust)** (`.github/workflows/native-apk.yml`),
+artefato `spacing-nativo`.

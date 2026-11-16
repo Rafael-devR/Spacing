@@ -1,0 +1,10 @@
+[package]
+name = "spacing-core"
+description = "Regras, dados, gerador de mundo e malha do Spacing: sem gráficos e sem janela (testável sozinho)"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

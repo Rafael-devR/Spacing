@@ -23,6 +23,8 @@ legível, mesmo no espaço. A base é ciência real, com uma camada de ficção 
 5. **Bonito com poucos polígonos.** Cor, luz e shader fazem o trabalho, não a quantidade de geometria.
 6. **Ciência de verdade, ficção onde encanta.** O que existe na Lua real entra como é; a ficção aparece em
    poucos elementos marcantes.
+7. **Nada vem do nada.** Toda matéria vem de um minério e toda energia vem de uma fonte (o sol, por painéis e espelhos,
+   guardado na bateria). Antes de criar algo no jogo, dizer de onde vem ([design/ENERGIA.md](design/ENERGIA.md)).
 
 ## Loop de jogo
 
@@ -40,13 +42,13 @@ limitada pelo oxigênio. Loop longo (horas): cumprir a cadeia de missões até o
 
 | Recurso       | Onde aparece                         | Uso                                                     |
 | ------------- | ------------------------------------ | ------------------------------------------------------- |
-| Regolito      | Superfície                           | Construção, base de várias receitas                     |
+| Regolito      | Superfície                           | Construção; tijolo, vidro e silício                     |
 | Rocha lunar   | Subsolo                              | Construção, reparos                                     |
-| Basalto       | Mares escuros e camadas profundas    | Construção resistente                                   |
+| Basalto       | Mares escuros e camadas profundas    | Construção; fibra de basalto                            |
 | Gelo          | Fundo de crateras escuras            | Água, oxigênio e hidrogênio (combustível) por eletrólise |
 | Ferro         | Veios no subsolo                     | Ferramentas, estruturas, veículos                       |
-| Ilmenita      | Pedras escuras soltas                | Titânio e oxigênio **(proposta)**                       |
-| Ouro          | Pedras com pepitas                   | Eletrônicos e painéis **(proposta)**                    |
+| Ilmenita      | Pedras escuras soltas                | Com H₂ no forno: ferro, óxido de titânio e água; titânio |
+| Ouro          | Pedras com pepitas                   | Contatos da placa de circuito (e painéis, depois)       |
 | Cristal lunar | Subsolo e aglomerados na superfície  | Núcleo do Gerador de Domo e tecnologia avançada         |
 
 ## Sistemas
@@ -65,7 +67,7 @@ limitada pelo oxigênio. Loop longo (horas): cumprir a cadeia de missões até o
 | Menu de pausa e configurações             | v0.2                                      |
 | Oxigênio, bateria e integridade           | v0.3                                      |
 | Morte com itens no chão                   | v0.3                                      |
-| Crafting e receitas                       | v0.4                                      |
+| Crafting em estações (bancada, forno, eletrolisador) | Pronto na Lua ([CRAFTING](design/CRAFTING.md)) |
 | Gerador de Domo                           | v0.4                                      |
 | Painéis solares e eletrolisador           | v0.4                                      |
 | Trajes e equipamentos                     | v0.4                                      |

@@ -19,18 +19,27 @@ do `MeshLambertMaterial` (`src/render/materials.ts`). Atualizar exige revisar es
 
 ```
 src/
-  main.ts            ponto de entrada: cria o renderizador e o Game
+  main.ts            ponto de entrada: cria o renderizador, mostra o título e, depois de "Jogar", importa e carrega o Game em etapas
   app/               Game (laço, estados, ligação dos sistemas), SurvivalDirector (resposta à sobrevivência),
-                     BaseDirector (entrada na base, bancada, descanso),
-                     eventos do jogo, configuração, passo fixo
-  core/              barramento de eventos, entrada, salvamento, preferências, tela cheia, ruído, cor, vibração
-  data/              conteúdo como dados: blocos, itens, objetos, missões, base, receitas, equipamentos
-  world/             terreno, chunks (World), mesher, registro de blocos, estruturas da base (ADR 0005)
+                     BaseDirector (entrada na base, bancada, descanso), MarsDirector (clima, lava e vulcão de
+                     Marte), MeteorDirector (som, câmera e ondas de choque do meteoro), TestMode (executor do modo
+                     de teste), eventos do jogo, configuração, passo fixo
+  core/              barramento de eventos, entrada, salvamento, preferências, escolha do planeta e chaves lidas pelo título, tela cheia, ruído, cor, vibração,
+  data/              conteúdo como dados: blocos, itens, objetos, missões, base, estações, receitas, equipamentos e os
+                     cenários do teste de desempenho
+  bench/             teste de desempenho: estatísticas puras, sondas de CPU, observadores, GPU, efeitos só na
+                     memória, condutor dos cenários, resultado, histórico, gráfico e telas (ADR 0007)
+  world/             terreno, cavernas, chunks (World), mesher e luz do céu (chunkMesher), worker dos chunks (chunkJobs,
+                     workerPool), registro de blocos, estruturas da base (ADR 0005, 0011, 0012)
   entities/          jogador, destroços, meteoros, itens soltos, itens caídos na morte (LootPiles)
-  systems/           interação (minerar/construir), inventário, missões, sobrevivência, fabricação, equipamento
-  render/            materiais e shaders, céu, luzes, pós-processamento, partículas, modelos, câmera, ícones,
-                     modelo da base, bancada com laser (Fabricator) e camada do interior (indoors)
-  ui/                HUD, menu de pausa, mochila, bancada, botão de ação e transições da base, estilos
+  systems/           interação (minerar/construir), inventário, missões, sobrevivência, fabricação, energia, equipamento
+  assets/models/     modelos .glb gerados pelos scripts de tools/models (ADR 0013)
+  render/            modelos do Blender (gltfModels), materiais e shaders, céu, luzes, pós-processamento, partículas, modelos, câmera, ícones,
+                     modelo da base, bancada com laser (Fabricator), forno e eletrolisador (stationModels),
+                     itens fabricados (craftedModels) e camada do interior (indoors)
+  ui/                tela de título e carregamento (title/), HUD, menu de pausa, tela de itens (inventory/: tela, grade e a mão de arrastar) com a mochila (Bag) e as
+                     estações (station/: StationScreen, câmara animada, calor), energia (PowerPanel), selo dos trabalhos (JobsChip),
+                     botão de ação e transições da base, estilos
   audio/             sons sintetizados e áudio posicional (design/AUDIO.md)
   i18n/              textos da interface (pt-BR)
 tests/               testes automatizados (Vitest)
@@ -41,6 +50,12 @@ docs/                documentação e referências de arte
 
 Convenção de nomes: arquivo cuja exportação principal é uma classe usa PascalCase (`World.ts`, `Player.ts`);
 os demais usam camelCase (`terrain.ts`, `materials.ts`).
+
+## Planetas
+
+O planeta (Lua ou Marte) é escolhido **antes** de o jogo montar o mundo e fica fixo na sessão; trocar recarrega a página
+(ADR 0008). `src/data/planets.ts` guarda o que muda (semente, salvamento, céu, luz, física, som, pegadas) e
+`src/core/planet.ts` diz qual é o planeta desta sessão. Cada terreno implementa `TerrainGen`.
 
 ## Como as peças conversam
 
@@ -103,23 +118,25 @@ a aba, o jogo salva e pausa sozinho.
 
 ## Salvamento
 
-Chave `spacing.save` no `localStorage`, em JSON, formato **versão 5** (`src/core/save.ts`):
+Chave `spacing.save` no `localStorage`, em JSON, formato **versão 6** (`src/core/save.ts`):
 
 ```
-{ version: 5, seed, savedAt,
+{ version: 6, seed, savedAt,
   world: { edits: { "cx,cz": [[índice, bloco], ...] }, removedProps: [...], extraProps: [...] },
   inventory: { slots: [{ item, n } | null, ...32], selected },
   player: { x, y, z },
   missions: { step, count },
   suit: { suit, o2, battery, integrity },
   loot: [{ item, amount, x, y, z, pile }],
-  equipment: { map: "map" },
-  base: { inside, respawn: "lander" | "base", visited } }
+  equipment: { map: "map", drill: "drill_iron" },
+  base: { inside, respawn: "lander" | "base", visited },
+  explored: { "cx,cz": máscara de 16 bits dos ladrilhos 4×4 vistos } }
 ```
 
 - O salvamento da v0.1 (chave `spacing.save.v1`, sem versão) é migrado na primeira carga e apagado.
 - Da versão 2 para a 3: o traje começa cheio e não há itens no chão.
 - Da versão 4 para a 5: sem equipamento, fora da base, renasce no módulo de pouso.
+- Da versão 5 para a 6: mapa ainda não descoberto; o jogo revela em volta do astronauta ao carregar ([design/MAPA.md](design/MAPA.md)).
 - Da versão 3 para a 4: as quantidades viram espaços do inventário ([design/INVENTARIO.md](design/INVENTARIO.md)).
 - Dados inválidos são limpos (itens desconhecidos, quantidades negativas); versões futuras são recusadas.
 - Salva a cada 5 segundos jogando, ao pausar, ao esconder a aba e ao sair.
@@ -138,6 +155,7 @@ Chave `spacing.save` no `localStorage`, em JSON, formato **versão 5** (`src/cor
 | `tests/data.test.ts`          | Consistência do conteúdo e dos textos                               |
 | `tests/survival.test.ts`      | Gasto e recarga do traje, avisos, dano, morte, itens caídos         |
 | `tools/visual-check/play.mjs` | Jogo real no navegador: começar, minerar, coletar, pausar, salvar, recarregar, morrer, renascer, recolher os itens |
+| `tests/testmode.test.ts`, `tools/visual-check/testmode.mjs` | Modo de teste: catálogo, executor e todas as ações no navegador (docs/design/TESTE.md) |
 
 ## Dívidas técnicas conhecidas
 

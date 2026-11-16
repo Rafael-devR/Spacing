@@ -2,43 +2,31 @@
 
 Vale para quem programa à mão e para sessões com o Claude Code.
 
-## Rodar e testar
+## Rodar e testar (branch `snapshot`, Rust)
 
 ```bash
-npm install
-npm run dev        # http://localhost:5173
+cd native
+cargo test -p spacing-core --release
+cargo test -p spacing-render -p spacing-app --release
+cargo clippy --release
 ```
 
-O jogo **não é publicado em nenhum site para teste**. Para testar, sobe-se o servidor local e abre-se no
-navegador do mesmo aparelho (`localhost:5173`) ou de outro na mesma rede (o endereço aparece no terminal).
-
-Para conferir o jogo de verdade, com o servidor rodando:
-
-```bash
-cd tools/visual-check && npm install           # uma vez
-node play.mjs http://localhost:5173/ /tmp       # teste jogado: começa, minera, pausa, salva
-node shot.mjs http://localhost:5173/ /tmp 390 844 medio mobile   # capturas de tela
-```
-
-Antes de cada commit, tudo isto precisa passar:
-
-```bash
-npm run lint && npm run typecheck && npm test && npm run build
-```
-
-O GitHub Actions roda os mesmos comandos em cada push e pull request.
+Antes de cada commit, os três precisam passar, e o app precisa **compilar para o Android** (o GitHub Actions faz isso no APK).
+Para o site (`npm run lint && npm run typecheck && npm test && npm run build`), use a branch `web`.
 
 ## Branches
 
 | Branch          | Uso                                                          |
 | --------------- | ------------------------------------------------------------ |
-| `main`          | Sempre funcionando. Só recebe mudanças que passaram no CI     |
+| `main`          | Só versões **já testadas** pelo dono (cada uma vira release). Só recebe merge de `snapshot` |
+| `snapshot`      | **Só o Rust** (`native/`, protótipo, docs): branch de trabalho permanente do porte nativo, como os snapshots do Minecraft. Todo commit do Rust vai aqui. Não é apagada: a versão nova é só um release na `main` |
+| `web`           | **Só o site** (jogo do navegador e APK Capacitor). Sem `native/` nem o protótipo. Todo commit do site vai aqui |
 | `feat/<nome>`   | Funcionalidade nova                                          |
 | `fix/<nome>`    | Correção de bug                                              |
 | `refactor/<nome>` | Mudança interna sem mudar comportamento                    |
 | `docs/<nome>`   | Só documentação                                              |
 
-Mudanças entram na `main` por **pull request**, mesmo trabalhando sozinho: o histórico fica organizado e o
+Um arquivo de cada projeto fica na sua branch. Quando o dono testar e aprovar, ela entra na `main` por **pull request**, mesmo trabalhando sozinho: o histórico fica organizado e o
 CI valida antes.
 
 ## Commits
