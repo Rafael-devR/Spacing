@@ -96,9 +96,9 @@ impl Tremor {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Prefs {
     pub qualidade: Qualidade,
-    /// ainda não há som no nativo: a escolha fica guardada para quando houver
+    /// liga e desliga todo o som (docs/design/AUDIO_NATIVO.md)
     pub som: bool,
-    /// ainda não há vibração no nativo: idem
+    /// ainda não há vibração no nativo (precisa de ponte com o Android): a escolha fica guardada
     pub vibracao: bool,
     pub tremor: Tremor,
     /// mira ao segurar o dedo: acima dele (true, o padrão do jogo web) ou embaixo dele

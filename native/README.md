@@ -10,7 +10,8 @@ O jogo em TypeScript (`src/`) continua sendo a referência de comportamento.
 | ---------------- | ---------------------------------------------------------------------------------------------- |
 | `spacing-core/`  | Regras sem gráficos: ruído, blocos, gerador da Lua e de Marte, cavernas, malha e luz do céu, mundo em chunks com threads, física e animação do astronauta, câmera. Cada arquivo diz de qual arquivo TS é porte. |
 | `spacing-render/`| Desenho com wgpu: sombra do sol, cena em HDR com MSAA (blocos com um buffer por chunk e descarte pela câmera, pedras instanciadas, modelos do Blender, sprites), bloom e passada final (post.rs), egui por cima. Shaders em `src/shaders/`. |
-| `spacing-app/`   | O jogo: laço com passo fixo, controles de toque e teclado, HUD com medidor; entrada do Android (`android_main`) e do computador. |
+| `spacing-audio/` | Som: contas posicionais, as receitas dos sons, a mesa de som (posição, eco, abafamento, ambiente) e a saída pela placa (cpal: AAudio no Android). Roda sozinha nos testes. |
+| `spacing-app/`   | O jogo: laço com passo fixo, controles de toque e teclado, HUD com medidor; entrada do Android (`android_main`) e do computador. O mapa evento→som está em `sons.rs`. |
 | `android/`       | Projeto Gradle mínimo (NativeActivity, sem Java) que empacota `libspacing.so`.                 |
 | `golden/`        | Vetores dourados: resultados do código TS que o Rust precisa reproduzir.                        |
 | `assets/`        | Malhas que o TS gera em código, exportadas para o Rust (pedras soltas: `props.bin`).             |
@@ -20,6 +21,8 @@ O jogo em TypeScript (`src/`) continua sendo a referência de comportamento.
 ```bash
 cd native
 cargo test -p spacing-core --release   # inclui a paridade com o TS (tests/golden.rs)
+cargo test -p spacing-audio --release  # o som inteiro, sem placa de som
+./target/release/spacing --som /tmp/som  # grava um .wav de cada som e de cenas (ouça no computador)
 cargo run -p spacing-app --release -- lua 12345   # no computador (planeta e semente opcionais)
 ./build-android.sh                     # APK (precisa de Android SDK, NDK, cargo-ndk e Java 21)
 ```
@@ -58,6 +61,14 @@ Começa um jogo novo e confere, etapa por etapa (OK ou FALHOU), o que um jogador
 (o meteorito da missão cai de verdade e é minerado), salvar no arquivo, abrir o menu e o mapa, morrer sem oxigênio, renascer,
 recolher os itens, carregar de novo e abrir um salvamento antigo (v5) do jogo web. Sai com erro se alguma etapa falhou; as capturas
 ficam na pasta. Rode depois de mudar jogabilidade ou salvamento.
+
+### Som
+
+Todo som é sintetizado (nada de arquivo), com direção, distância e eco da cratera ([docs/design/AUDIO_NATIVO.md](../docs/design/AUDIO_NATIVO.md)).
+No Android sai pelo AAudio e no Windows pelo WASAPI (cpal); sem placa de som o jogo segue mudo. **No Linux precisa do ALSA para compilar:**
+`sudo apt-get install libasound2-dev`. A configuração **Som** liga e desliga tudo; a pausa e o app no fundo congelam o áudio.
+`spacing --som /tmp/som` grava um `.wav` de cada som (e de cenas: direita e esquerda, módulo, base, Marte, meteoro, traje) e mostra o
+volume de cada um. A vibração ainda não existe no nativo.
 
 ### Salvamento
 

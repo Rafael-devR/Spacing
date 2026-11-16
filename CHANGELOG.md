@@ -7,6 +7,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Adicionado
 
+- **Som no jogo nativo (Rust)** ([design/AUDIO_NATIVO.md](docs/design/AUDIO_NATIVO.md)). Todo o som do jogo web foi portado para a caixa
+  `spacing-audio`: sons sintetizados (nada de arquivo), com direção, distância e eco da cratera, abafamento no capacete, fundo da
+  cratera, da base e vento de Marte, zumbido do módulo e laser da bancada. O jogo liga cada fato ao som certo (passos, golpes, coleta
+  que sobe de tom, alarmes do traje, meteoro que assobia e estronda…); **Som** nas configurações liga e desliga; a pausa e o app no
+  fundo congelam o áudio. Novo comando `spacing --som <pasta>` grava os `.wav`; o roteiro jogado ganhou 12 etapas de som (61 no total).
+
 - **App Android (APK)** ([design/APK.md](docs/design/APK.md), [ADR 0022](docs/adr/0022-app-android-com-capacitor-e-apk-pelo-github.md)).
   O jogo embalado com o Capacitor: o mesmo código numa janela nativa, sem internet, com a barra do Android escondida, tela deitada,
   tela sempre ligada, botão Voltar do Android (fecha a camada de cima, abre a pausa) e pausa ao ir para o segundo plano. O **APK de teste

@@ -33,14 +33,15 @@ branch `web`**.
 | Comando                                        | O que faz                                          |
 | ---------------------------------------------- | -------------------------------------------------- |
 | `cargo test -p spacing-core --release`         | Núcleo e **paridade com o TS** (vetores dourados)  |
-| `cargo test -p spacing-render -p spacing-app --release` | Desenho e app                              |
+| `cargo test -p spacing-render -p spacing-audio -p spacing-app --release` | Desenho, som e app                |
 | `cargo clippy --release`                       | Precisa passar limpo antes de commitar            |
 | `cargo run --release -p spacing-app`           | Roda no computador (winit)                         |
 | `spacing --telas <pasta>`                      | Capturas de cada tela de menu (1688×780)           |
 | `spacing --captura <pasta> [lua\|marte] [semente]` | Captura do mundo sem janela                    |
-| `spacing --roteiro <pasta>`                    | Jogo jogado por script (49 etapas)                 |
+| `spacing --roteiro <pasta>`                    | Jogo jogado por script (61 etapas)                 |
+| `spacing --som <pasta>`                        | Grava um `.wav` de cada som e de cenas, e mede o volume |
 
-Sem GPU aqui: para capturar, aponte `VK_ICD_FILENAMES` para o SwiftShader do Chromium do Playwright
+O som usa o ALSA no Linux: instale `libasound2-dev` (`sudo apt-get install libasound2-dev`) para compilar no computador. Sem GPU aqui: para capturar, aponte `VK_ICD_FILENAMES` para o SwiftShader do Chromium do Playwright
 (`/opt/pw-browsers/chromium-*/chrome-linux64/vk_swiftshader_icd.json`). Antes de enviar, **compile para o Android**
 (`cargo ndk`; o APK já quebrou por módulo de captura fora de `#[cfg(not(target_os = "android"))]`; ver `native/README.md`).
 
@@ -49,11 +50,13 @@ Sem GPU aqui: para capturar, aponte `VK_ICD_FILENAMES` para o SwiftShader do Chr
 - `spacing-core`: lógica pura (mundo, malha, luz, física, regras, salvamento v12), **igual ao TS**, provada por vetores
   dourados em `native/golden/` e `native/assets/` (`rules.json`, `props.bin`).
 - `spacing-render`: wgpu 30 (HDR, MSAA 4x, sombra, bloom, render headless para PNG).
+- `spacing-audio`: som sintetizado (porte de `src/audio/` da `web`): contas posicionais, receitas dos sons, mixer, saída pela
+  placa (cpal). Veja `docs/design/AUDIO_NATIVO.md`. O jogo só usa o `Sfx`; o mapa evento→som fica em `spacing-app/src/sons.rs`.
 - `spacing-app`: jogo, controles, HUD e telas em egui 0.37 (`lib.rs`, `game.rs`, `hud.rs`, `telas.rs`, `controls.rs`,
-  `prefs.rs`, `storage.rs`, `fontes.rs` com a Pixelify Sans).
+  `prefs.rs`, `storage.rs`, `fontes.rs` com a Pixelify Sans, `sons.rs`).
 - Modelos 3D (`.glb` do Blender) em `native/assets/models/`; fonte em `native/assets/fonts/`.
-- Etapas: M0 a M4 feitas; do M5, título, configurações, pausa, controles e carregamento; M6 (som, desempenho, Windows,
-  acabamento) não começou. Detalhe em `docs/design/PORTE_RUST.md`. Próximas etapas só com o dono mandando.
+- Etapas: M0 a M4 feitas; do M5, título, configurações, pausa, controles e carregamento; do M6, o **som** (2026-11-16);
+  faltam vibração, desempenho, Windows e acabamento. Detalhe em `docs/design/PORTE_RUST.md`. Próximas etapas só com o dono mandando.
 
 ## Vetores dourados (o TS é a fonte)
 

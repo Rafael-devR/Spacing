@@ -3,6 +3,7 @@
 //! missões da Lua (o meteorito da missão cai de verdade e é minerado), salva, abre o menu e o mapa, morre sem oxigênio,
 //! renasce, recolhe os itens caídos, carrega o salvamento de novo e abre um salvamento antigo do jogo web. Cada etapa diz
 //! OK ou FALHOU; no fim sai com erro se alguma falhou. As capturas ficam na pasta.
+use spacing_audio::{Sfx, Sound};
 use spacing_core::planet::{planet, PlanetId};
 use spacing_core::rules::{Counts, EquipId, Events, ItemId};
 use spacing_core::terrain::LANDER;
@@ -23,6 +24,8 @@ struct Run {
     meter: hud::Meter,
     stats: spacing_render::FrameStats,
     game: Game,
+    /// registra os sons que o jogo pede (não toca): o roteiro confere que cada ação faz o som certo
+    sfx: Sfx,
     store: Store,
     dir: String,
     results: Vec<String>,
@@ -179,6 +182,11 @@ impl Run {
         self.game.react(ev);
     }
 
+    /// os sons pedidos desde a última vez que perguntou
+    fn heard(&self) -> Vec<Sound> {
+        self.sfx.take_log().into_iter().map(|p| p.som).collect()
+    }
+
     fn mission(&self) -> &'static str {
         &self.game.missions.current().id
     }
@@ -217,8 +225,10 @@ pub fn run(dir: &str) {
     c.layout(w as f32, h as f32, 1.0);
     c.touched = true;
     let seed = crate::DEFAULT_SEED;
-    let game = Game::load(PlanetId::Lua, store.load(PlanetId::Lua, seed).as_ref(), seed, 3);
-    let mut t = Run { r, models, egui, c, meter: hud::Meter::default(), stats: Default::default(), game, store, dir: dir.into(), results: Vec::new(), failed: 0, ui_t: 0.0, pending: Default::default() };
+    let mut game = Game::load(PlanetId::Lua, store.load(PlanetId::Lua, seed).as_ref(), seed, 3);
+    let sfx = Sfx::recording();
+    game.set_sfx(sfx.clone());
+    let mut t = Run { r, models, egui, c, meter: hud::Meter::default(), stats: Default::default(), game, sfx, store, dir: dir.into(), results: Vec::new(), failed: 0, ui_t: 0.0, pending: Default::default() };
     t.game.meteors.auto_spawn = false;
 
     // ---- começo ----
@@ -226,6 +236,21 @@ pub fn run(dir: &str) {
     t.check("jogo novo começa na primeira missão", t.mission() == "regolith", t.mission());
     t.check("jogo novo traz a placa de circuito", t.game.inv.count(ItemId::of("circuit")) == 1, "");
     t.check("o mapa em volta do pouso já foi descoberto", t.game.exploration.revealed > 0, format!("{} ladrilhos", t.game.exploration.revealed));
+
+    // ---- som: andar, pular e pousar ----
+    let _ = t.heard();
+    t.c.key("d", true);
+    t.steps(90);
+    t.c.key("d", false);
+    let s = t.heard();
+    t.check("som: andar faz passos", s.contains(&Sound::Step), format!("{} passos", s.iter().filter(|x| **x == Sound::Step).count()));
+    t.steps(30);
+    t.c.key(" ", true);
+    t.steps(3);
+    t.c.key(" ", false);
+    t.steps(90);
+    let s = t.heard();
+    t.check("som: pular e pousar", s.contains(&Sound::Jump) && s.contains(&Sound::Land), format!("{s:?}"));
 
     // ---- minerar um bloco do chão à frente, com a mira ----
     let p = t.game.player.pos;
@@ -236,6 +261,8 @@ pub fn run(dir: &str) {
     t.check("bloco minerado", broke, format!("bloco {id} em {bx},{by},{bz}"));
     let got = t.wait(10.0, |g| g.inv.totals().total() > 1);
     t.check("item chegou ao inventário", got, fmt(&t.game.inv.totals()));
+    let s = t.heard();
+    t.check("som: a broca bate, o bloco quebra e o item faz pop", s.contains(&Sound::Hit) && s.contains(&Sound::Break) && s.contains(&Sound::Pop), format!("{} golpes", s.iter().filter(|x| **x == Sound::Hit).count()));
     t.shot("r1-minerado");
 
     // ---- missões: coletar ----
@@ -244,6 +271,7 @@ pub fn run(dir: &str) {
     t.check("coletar regolito conta para a missão", t.game.missions.waiting() || t.game.missions.serialize().count > before, "");
     t.wait(3.0, |g| g.missions.current().id == "ice" && !g.missions.waiting());
     t.check("primeira missão concluída, segunda começou", t.mission() == "ice", t.mission());
+    t.check("som: missão cumprida toca o acorde", t.heard().contains(&Sound::Chime), "");
     t.collect(&[("ice", 3)]);
     t.wait(3.0, |g| g.missions.current().id == "iron" && !g.missions.waiting());
     t.collect(&[("iron", 4)]);
@@ -254,6 +282,8 @@ pub fn run(dir: &str) {
     let fell = t.wait(20.0, |g| g.world.find_prop("meteorite").is_some());
     let m = t.game.world.find_prop("meteorite");
     t.check("a missão soltou um meteoro com meteorito", fell, format!("{m:?}"));
+    let s = t.heard();
+    t.check("som: o meteoro assobia na queda e estronda no impacto", s.contains(&Sound::Whoosh) && s.contains(&Sound::Boom), format!("{:?}", s.iter().filter(|x| matches!(x, Sound::Whoosh | Sound::Boom)).collect::<Vec<_>>()));
     t.steps(20);
     t.shot("r2-meteorito-marcador");
     if let Some(m) = m {
@@ -293,6 +323,7 @@ pub fn run(dir: &str) {
     t.c.modal = false;
 
     // ---- mapa do tablet ----
+    let _ = t.heard();
     t.game.toggle_map();
     t.check("sem o Mapa equipado o tablet não abre", t.game.screen_open.is_none(), "");
     t.game.equip.equip(EquipId::of("map"), &mut Events::new());
@@ -300,9 +331,12 @@ pub fn run(dir: &str) {
     t.check("com o Mapa equipado o tablet abre", t.game.screen_open == Some(Screen::Map), "");
     t.c.modal = true;
     t.steps(30);
+    t.check("som: o tablet liga", t.heard().contains(&Sound::TabletOpen), "");
     t.shot("r5-mapa");
     t.game.screen_open = None;
     t.c.modal = false;
+    t.steps(5);
+    t.check("som: o tablet desliga", t.heard().contains(&Sound::TabletClose), "");
 
     // ---- sobrevivência: recarregar, morrer sem oxigênio, itens no chão, renascer, recolher ----
     t.teleport(LANDER.0 + 0.5 + 1.0, LANDER.1 + 0.5);
@@ -318,6 +352,8 @@ pub fn run(dir: &str) {
     t.game.survival.integrity = 3.0;
     let died = t.wait(30.0, |g| g.death.is_some());
     t.check("sem oxigênio, o astronauta morre", died, "");
+    let s = t.heard();
+    t.check("som: sem ar o coração dispara e a morte soa", s.contains(&Sound::Heartbeat) && s.contains(&Sound::Death), format!("{} batidas", s.iter().filter(|x| **x == Sound::Heartbeat).count()));
     t.check("não salva morto", !t.game.can_save(), "");
     let loot = {
         let mut c = Counts::new();
@@ -336,6 +372,7 @@ pub fn run(dir: &str) {
     let dist = spacing_core::js::hypot(g.player.pos[0] - (LANDER.0 + 0.5), g.player.pos[2] - (LANDER.1 + 0.5));
     let (o2, hp) = (g.survival.o2, g.survival.integrity);
     t.check("renasce jogando", t.game.death.is_none(), "");
+    t.check("som: renascer toca o jingle", t.heard().contains(&Sound::Respawn), "");
     t.check("traje cheio ao renascer", o2 == 100.0 && hp == 100.0, format!("O₂ {o2}, integridade {hp}"));
     t.check("renasce dentro da área pressurizada", dist < 4.5, format!("{dist:.1} blocos do módulo"));
     t.check("itens continuam no chão", !t.game.loot.pieces.is_empty(), "");
@@ -348,6 +385,7 @@ pub fn run(dir: &str) {
         t.steps(40);
     }
     t.check("passar por cima recolhe os itens", t.game.loot.pieces.is_empty(), format!("{} restam", t.game.loot.pieces.len()));
+    t.check("som: recolher tudo do chão toca o acorde grande", t.heard().contains(&Sound::PickupBig), "");
     let back_in = t.wait(10.0, |g| same(&g.inv.totals(), &before));
     t.check("inventário voltou ao que era", back_in, fmt(&t.game.inv.totals()));
 
@@ -356,6 +394,7 @@ pub fn run(dir: &str) {
     t.ui(Vec::new(), 0.03);
     t.ui(Vec::new(), 0.03);
     t.check("o botão da mochila abre a tela de itens", t.game.screen_open == Some(Screen::Bag), format!("{:?}", t.game.screen_open));
+    t.check("som: abrir a mochila faz clique", t.heard().contains(&Sound::Ui), "");
     t.shot("r8-mochila");
     let first = (0..8).find(|&i| t.game.inv.slot(i).is_some()).unwrap_or(0);
     let what = t.game.inv.slot(first);
@@ -414,6 +453,7 @@ pub fn run(dir: &str) {
         t.steps(90);
         t.ui(Vec::new(), 0.5);
         t.check("a estação trabalha", t.game.crafting.working(StationId::of("furnace")), "");
+        t.check("som: o forno liga com chiado de pressão", t.heard().contains(&Sound::Pressurize), "");
         t.shot("r10-forno");
         t.game.screen_open = None;
         t.c.modal = false;

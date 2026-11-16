@@ -18,6 +18,7 @@ pub mod map;
 pub mod prefs;
 #[cfg(not(target_os = "android"))]
 pub mod roteiro;
+pub mod sons;
 pub mod storage;
 pub mod telas;
 
@@ -127,6 +128,9 @@ struct App {
     egui_events: Vec<egui::Event>,
     /// por que o desenho não subiu (fica no log; a tela só mostra preto)
     failed: Option<String>,
+    /// a saída de som (a placa); `None` se não abriu: o jogo segue mudo. Fica com o app: o `Sfx` é emprestado a cada jogo
+    saida: Option<spacing_audio::Saida>,
+    sfx: spacing_audio::Sfx,
     store: storage::Store,
     save_t: f64,
     /// a hora (ms) do último salvamento que deu certo
@@ -145,6 +149,8 @@ impl App {
         let prefs = prefs::Prefs::ler(store.prefs_path().as_deref());
         Self {
             store,
+            saida: None,
+            sfx: spacing_audio::Sfx::silent(),
             fase: Fase::Titulo,
             load_t: 0.0,
             fade: 0.0,
@@ -221,6 +227,7 @@ impl App {
     /// Aplica as configurações ao que já existe: escala da cena, mira, tremor (no quadro) e tela cheia.
     fn aplicar_prefs(&mut self) {
         self.controls.aim_above = self.prefs.mira_acima;
+        self.sfx.set_muted(!self.prefs.som);
         self.scaler.reset();
         let s = self.escala_cena();
         if let Some(r) = &mut self.renderer {
@@ -274,6 +281,7 @@ impl App {
         }
         log::info!("{}: {}", planet(p).name, if save.is_some() { "salvamento carregado" } else { "jogo novo" });
         let mut g = Game::load(p, save.as_ref(), fresh, threads());
+        g.set_sfx(self.sfx.clone());
         if renewed {
             g.toast("O mundo foi gerado de novo. Seus itens e equipamentos continuam com você.");
         }
@@ -374,6 +382,7 @@ impl App {
             self.menus = telas::Menus::default();
         }
         self.pausado = paused;
+        self.sfx.set_paused(paused);
         game.rig.shake_scale = self.prefs.tremor.escala();
         game.update(if paused { 0.0 } else { dt }, &mut self.controls);
         game.sync(r);
@@ -506,6 +515,8 @@ impl App {
             telas::CfgAcao::Mudou => {
                 self.prefs.gravar(self.store.prefs_path().as_deref());
                 self.aplicar_prefs();
+                // a pausa congela o som; no título o clique confirma a mudança (ligar o som também)
+                self.sfx.play(spacing_audio::Sound::Ui, 1.0, None);
             }
             telas::CfgAcao::Voltar => {
                 self.menus.pagina = telas::Pagina::Principal;
@@ -517,6 +528,7 @@ impl App {
 
     /// Título (e as configurações dele) e carregamento: sem jogo rodando, só a tela.
     fn frame_menu(&mut self, dt: f64) {
+        self.sfx.set_paused(false);
         // carregando: o primeiro quadro já mostra a tela; o jogo é montado no seguinte (Game::load trava enquanto gera o
         // começo do mundo)
         if self.fase == Fase::Carregando && self.game.is_none() && self.load_t > 0.0 {
@@ -581,6 +593,9 @@ impl App {
         if let Some(a) = cfg_acao {
             self.config_acao(a);
         }
+        if titulo_acao.is_some() {
+            self.sfx.play(spacing_audio::Sound::Ui, 1.0, None);
+        }
         match titulo_acao {
             Some(telas::TituloAcao::Continuar) => self.carregar(),
             Some(telas::TituloAcao::NovoJogo) => {
@@ -618,6 +633,20 @@ impl ApplicationHandler for App {
                 }
             }
         }
+        // o som abre uma vez (no Android, depois que a atividade existe) e acompanha o ciclo de vida do app
+        match &self.saida {
+            Some(s) => s.ativa(true),
+            None => {
+                self.saida = spacing_audio::Saida::abrir();
+                if let Some(s) = &self.saida {
+                    self.sfx = s.sfx();
+                    self.sfx.set_muted(!self.prefs.som);
+                    if let Some(g) = &mut self.game {
+                        g.set_sfx(self.sfx.clone());
+                    }
+                }
+            }
+        }
         if self.renderer.is_none() {
             self.create_renderer(event_loop);
         }
@@ -626,6 +655,10 @@ impl ApplicationHandler for App {
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
         // o Android derruba a superfície quando o app vai para o fundo (e pode matar o app lá): grava antes
         self.persist();
+        // no fundo não toca nada (e a placa descansa)
+        if let Some(s) = &self.saida {
+            s.ativa(false);
+        }
         // o jogo continua na memória
         self.renderer = None;
         self.models = None;
@@ -755,6 +788,10 @@ pub fn run_desktop() {
     }
     if let Some(dir) = args.iter().position(|a| a == "--telas").and_then(|i| args.get(i + 1)) {
         telas::capturas(dir);
+        return;
+    }
+    if let Some(dir) = args.iter().position(|a| a == "--som").and_then(|i| args.get(i + 1)) {
+        sons::gravar(dir);
         return;
     }
     if let Some(dir) = args.iter().position(|a| a == "--roteiro").and_then(|i| args.get(i + 1)) {

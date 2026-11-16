@@ -1,5 +1,7 @@
 # Áudio
 
+> **No nativo (Rust):** o som foi portado em [AUDIO_NATIVO.md](AUDIO_NATIVO.md) (`native/spacing-audio`). O que está aqui descreve a ideia e o jogo web.
+
 Todo som do jogo é sintetizado com WebAudio, sem arquivos (`src/audio/Sfx.ts`). Este documento explica
 como o som se espalha pelo mundo.
 

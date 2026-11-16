@@ -39,11 +39,13 @@ no GitHub branches antigas que o ambiente não consegue apagar (`beta-0.4`, `des
 | M3 | visual: sombra, bloom, pedras, poeira, Marte vivo, meteoros | feito (40 a 60 FPS com tudo ligado; MSAA 4x) |
 | M4 | regras, mineração/construção, base, estações, energia, estufa, missões, mapa, salvar/carregar (v12), roteiro jogado | feito |
 | M5 | interface | **parcial**: título, configurações, pausa, controles, carregamento feitos |
-| M6 | som, teste de desempenho nativo, Windows, ícone, versão, docs finais | **não começou** |
+| M6 | som, teste de desempenho nativo, Windows, ícone, versão, docs finais | **em andamento**: o **som está feito** (2026-11-16, falta o dono ouvir no celular); vibração, desempenho, Windows, ícone e versão faltam |
 
 **Falta no M5:** mochila e estações redesenhadas (`items_screen.rs` está em WIP), medidores, objetivo no mundo, ícones flutuantes e
-a arte de pixel própria dos ícones (grade, paleta e formato **ainda por decidir**). **Falta no M6:** som (hoje "Som" e
-"Vibração" só são guardados em `prefs.json`), teste de desempenho, Windows, ícone do app, versão.
+a arte de pixel própria dos ícones (grade, paleta e formato **ainda por decidir**). **Falta no M6:** vibração (hoje só guardada em `prefs.json`; precisa de ponte com o Android), teste de desempenho, Windows,
+ícone do app, versão. **Som (feito):** caixa `spacing-audio` com tudo do `Sfx.ts` do jogo web, ligada ao jogo (passos, golpes,
+coleta, alarmes do traje, meteoro, Marte, base, tablet…); a configuração **Som** liga e desliga; pausa e app no fundo congelam.
+Detalhes e diferenças do WebAudio em [design/AUDIO_NATIVO.md](design/AUDIO_NATIVO.md).
 
 ## Direção de interface (importante)
 
@@ -57,18 +59,19 @@ virar um modo de teste (`--teste`); ainda não foi feito.
 
 ## O que o dono ainda não viu
 
+- O **som**: nenhum humano ouviu ainda (foi medido por teste e por `.wav`). **Peça para ele conferir no celular, de preferência com fone:** direção (esquerda/direita batem com a tela?), volume, o zumbido do módulo, estalos ou atraso, e se o botão **Som** nas configurações liga e desliga.
 - O **APK nativo com as telas novas** (título, configurações, pausa, controles, carregamento): a última build é do commit
   `a9411c1` (15/11); ele ainda não deu retorno. Peça.
 - O fluxo completo no celular (título → carregar → jogar → pausa → salvar → sair).
 
 ## Como validar sem celular
 
-`spacing --telas <pasta>`, `--captura`, `--roteiro` (49 de 49 etapas passam) e os testes; veja o [CLAUDE.md](../CLAUDE.md).
+`spacing --telas <pasta>`, `--captura`, `--roteiro` (61 de 61 etapas passam), `--som <pasta>` (grava os `.wav` do som) e os testes; veja o [CLAUDE.md](../CLAUDE.md).
 O SwiftShader do Chromium do Playwright serve de Vulkan por software.
 
 ## Próximo passo sugerido (o dono ainda não escolheu)
 
-Som no nativo, mochila e estações, ou o caminho diegético. **Pergunte antes de começar.**
+O som está feito. Faltam, por ordem do painel: ouvir no celular, depois mochila e estações ou o caminho diegético (M5), e do M6 a vibração, o teste de desempenho, o Windows, o ícone e a versão. **Pergunte antes de começar.**
 
 ## Onde ler mais
 

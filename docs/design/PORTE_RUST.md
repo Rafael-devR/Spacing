@@ -346,3 +346,11 @@ em [INTERFACE_NATIVA.md](INTERFACE_NATIVA.md) ("Telas feitas"): o app abre no t�
 tem Sair para o título. Mochila, estações e medidores seguem no plano. **Em planejamento:** o estilo das telas do nativo (fonte de pixel, ícones flutuantes, telas refeitas) está em
 [INTERFACE_NATIVA.md](INTERFACE_NATIVA.md), decidido em [ADR 0024](../adr/0024-interface-nativa-em-egui-com-estilo-proprio.md).
 A tela de itens atual é uma versão de trabalho (commit `2ce9076`), não a final.
+
+**M6 (som, 2026-11-16):** o som do jogo foi portado ([AUDIO_NATIVO.md](AUDIO_NATIVO.md)). Caixa nova `spacing-audio`: contas posicionais
+(`spatial.rs`, as mesmas do `spatial.ts`), as 35 receitas de som do `Sfx.ts` (`sounds.rs`), a mesa de som com posição, eco da cratera,
+abafamento, ambiente da cratera/base/vento e pausa (`mixer.rs`), e a saída pela placa com **cpal** (AAudio no Android, WASAPI no
+Windows). O `spacing-app` liga cada fato do jogo ao som certo (`sons.rs`) e a configuração **Som** liga e desliga tudo. Testes sem
+placa de som (43 no `spacing-audio`, 10 no `sons.rs`), `spacing --som <pasta>` grava os `.wav` e o roteiro jogado confere os sons
+(61 etapas). **Falta:** a vibração (precisa de ponte com o Android), conferir no celular (direção, volume, latência) e o que sobrar do
+M6 (teste de desempenho nativo, Windows, ícone e versão).

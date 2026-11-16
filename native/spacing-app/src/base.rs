@@ -5,6 +5,7 @@ use glam::{Mat4, Vec3};
 use spacing_core::base::{hab_layout, ModuleLayout, Side};
 use spacing_core::fx::signal_lamp;
 use spacing_core::rules::rules;
+use spacing_audio::Sound;
 use spacing_core::rules::StationId;
 use spacing_render::astronaut::{AnimatedModel, NamedModel};
 use spacing_render::{load_glb, Material, MeshId, PartDraw, Renderer};
@@ -187,6 +188,11 @@ impl BaseState {
         matches!(self.mode, Mode::Entering | Mode::Exiting | Mode::Resting)
     }
 
+    /// onde fica uma estação (para o som sair dela); sem ela, o `fallback`
+    pub fn station_point(&self, s: spacing_core::rules::StationId, fallback: [f64; 3]) -> [f64; 3] {
+        self.layout.furniture.iter().find(|f| f.def.kind == s.key()).map_or(fallback, |f| [f.center[0], f.center[1] + 1.2, f.center[2]])
+    }
+
     fn door_point(&self) -> [f64; 3] {
         let (x, z, _) = self.layout.door;
         [x as f64 + 0.5, self.layout.floor_y as f64 + 1.02, z as f64 + 0.5]
@@ -246,6 +252,7 @@ impl Game {
             return;
         }
         let Some(kind) = self.base.use_kind else { return };
+        self.sons.do_capacete(Sound::Ui);
         match kind {
             UseKind::Enter => {
                 self.base.mode = Mode::Entering;
@@ -255,6 +262,7 @@ impl Game {
                 self.base.outside_zoom = self.rig.dist_target;
                 self.set_door(true);
                 let door = self.base.door_point();
+                self.sons.tocar(Sound::Door, Some(door));
                 let inside = self.base.layout.inside;
                 let d = spacing_core::js::hypot(self.player.pos[0] - door[0], self.player.pos[2] - door[2]);
                 self.walk_to(vec![(door, (d / 3.0).max(0.35)), ([inside[0], inside[1] + 0.02, inside[2]], 0.5)], Then::Airlock);
@@ -272,14 +280,21 @@ impl Game {
                 self.base.mode = Mode::Resting;
                 self.base.seq_t = 0.0;
                 self.player.frozen = true;
+                self.sons.do_capacete(Sound::Rest);
                 self.base.fade = Some("Descansando…");
             }
             UseKind::Console => self.screen_open = Some(crate::game::Screen::Power),
             UseKind::Chest => {
                 let mut ev = Vec::new();
                 match self.greenhouse.open_chest(&mut self.inv, &mut ev) {
-                    Ok(_) => self.toast("Baú aberto: o kit da estufa e do cultivo foi para a mochila"),
-                    Err("full") => self.toast("Mochila cheia: abra espaço para pegar o kit do baú"),
+                    Ok(_) => {
+                        self.sons.do_capacete(Sound::Equip);
+                        self.toast("Baú aberto: o kit da estufa e do cultivo foi para a mochila")
+                    }
+                    Err("full") => {
+                        self.sons.do_capacete(Sound::Deny);
+                        self.toast("Mochila cheia: abra espaço para pegar o kit do baú")
+                    }
                     Err(_) => self.toast("O baú está vazio"),
                 }
             }
@@ -315,6 +330,8 @@ impl Game {
                         Some(Then::Outside) => {
                             self.player.frozen = false;
                             self.set_door(false);
+                            let porta = self.base.door_point();
+                            self.sons.tocar(Sound::Door, Some(porta));
                             self.base.mode = Mode::Outside;
                             self.toast("Traje em modo externo. Oxigênio em uso.");
                         }
@@ -329,6 +346,10 @@ impl Game {
                 self.base.seq_t = 0.0;
                 self.player.frozen = true;
                 self.set_door(false);
+                // a porta fecha e, um instante depois, o ar entra
+                let door = self.base.door_point();
+                self.sons.tocar(Sound::Door, Some(door));
+                self.sons.sfx.play_after(Sound::Pressurize, 1.0, None, 0.3);
                 self.base.airlock = Some(("Câmara de pressurização", "Equalizando pressão", 0.0));
             }
             Mode::Entering if self.base.step == 2 => {
@@ -354,6 +375,7 @@ impl Game {
                 self.base.step = 2;
                 self.base.seq_t = 0.0;
                 self.player.frozen = true;
+                self.sons.sfx.play_after(Sound::Depressurize, 1.0, None, 0.3);
                 self.base.airlock = Some(("Despressurizando", "Liberando o ar", 1.0));
             }
             Mode::Exiting if self.base.step == 2 => {
@@ -369,6 +391,8 @@ impl Game {
                     self.base.step = 3;
                     self.base.airlock = None;
                     self.set_door(true);
+                    let porta = self.base.door_point();
+                    self.sons.tocar(Sound::Door, Some(porta));
                     let o = self.base.layout.outside;
                     let gy = self.world.top_y(o[0].floor() as i32, o[2].floor() as i32) as f64 + 1.02;
                     let door = self.base.door_point();

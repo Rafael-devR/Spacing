@@ -23,6 +23,8 @@ use spacing_render::{camera_matrix, item_mesh, load_glb, prop_mesh, Frame, PartD
 
 use crate::base::{BaseModels, BaseState};
 use crate::controls::{Controls, Pointer};
+use crate::sons::{Sons, Traje};
+use spacing_audio::{Sfx, Sound};
 use spacing_core::rules::crafting::Crafting;
 use spacing_core::rules::greenhouse::Greenhouse;
 use spacing_core::rules::power::{Load, PanelSpot, Power, PowerWorld};
@@ -208,6 +210,8 @@ pub struct Game {
     pub map: crate::map::MapSurface,
     /// chunks perto do jogador que ainda não têm malha (a tela de carregamento espera chegar a zero)
     pub chunks_left: usize,
+    /// os sons do jogo (mudo até o app ligar o `Sfx`; docs/design/AUDIO_NATIVO.md)
+    pub sons: Sons,
 }
 
 /// versão do gerador de mundo de cada planeta (WORLD_GEN do TS)
@@ -339,8 +343,17 @@ impl Game {
             map: Default::default(),
             // ainda não se sabe: o primeiro `update` conta
             chunks_left: usize::MAX,
+            sons: Sons::default(),
         }
         .placed(save.is_some_and(|s| s.base.inside))
+    }
+
+    /// Liga o jogo ao som (o app abre a placa de som uma vez e empresta o `Sfx` a cada jogo).
+    pub fn set_sfx(&mut self, sfx: Sfx) {
+        // o zumbido do módulo sai de cima dele (TS: lander.y + 1,2)
+        let modulo = [LANDER.0 + 0.5, self.lander_y + 1.2, LANDER.1 + 0.5];
+        self.sons.liga(sfx, self.planet == PlanetId::Marte, modulo);
+        self.sons.sfx.set_indoors(self.base.inside());
     }
 
     /// salvo dentro da base: volta dentro, sem transição
@@ -424,6 +437,11 @@ impl Game {
                 if self.crafting.start(r, batch, &mut self.inv, &self.equip, &mut || rng.f(), &mut ev) {
                     let name = crate::hud::output_name(r.data().outputs[0]);
                     let n = if batch > 1 { format!("{batch}× {name}") } else { name };
+                    // a bancada imprime com laser (zumbido em laço, ligado no quadro); as outras estações pressurizam
+                    if r.data().station != StationId::of("workbench") {
+                        let onde = self.base.station_point(r.data().station, self.player.pos);
+                        self.sons.sfx.play(Sound::Pressurize, 1.4, Some(spacing_audio::Vec3::de(onde)));
+                    }
                     self.toast(format!("{}: {n}", r.data().station.data().name));
                 }
             }
@@ -531,6 +549,7 @@ impl Game {
 
     /// as respostas aos fatos (Game.wireEvents, SurvivalDirector)
     fn respond(&mut self, ev: Events) {
+        self.sons.eventos(&ev, self.time, self.death.is_none());
         for e in ev {
             match e {
                 GameEvent::MissionStarted { hint: Some(h), .. } => self.toast(h),
@@ -570,6 +589,9 @@ impl Game {
                     }
                 }
                 GameEvent::CraftReady { station, recipe, .. } => {
+                    // dentro da base o som sai da estação; fora, é só um aviso no capacete
+                    let onde = self.base.inside().then(|| self.base.station_point(station, self.player.pos));
+                    self.sons.sfx.play(Sound::CraftDone, 1.0, onde.map(spacing_audio::Vec3::de));
                     let name = crate::hud::output_name(recipe.data().outputs[0]);
                     self.toast(if self.base.inside() { format!("{} pronto: {name}", station.data().name) } else { format!("{} terminou: {name} espera na base", station.data().name) });
                 }
@@ -588,6 +610,7 @@ impl Game {
         let lost = !items.is_empty();
         self.loot.drop(self.player.pos, &items);
         self.death = Some(Death { t: 0.0, cause, lost });
+        self.sons.morreu();
         self.rig.shake(0.5);
         self.slow_mo = (1.1, 0.3);
     }
@@ -608,6 +631,7 @@ impl Game {
         }
         self.rig.snap(focus(self.player.pos));
         self.draw_pos = self.player.pos;
+        self.sons.renasceu();
         let c = self.player.pos;
         for _ in 0..46 {
             let g = &mut self.particles.rng;
@@ -654,6 +678,7 @@ impl Game {
             self.inv.remove(o2, 1, ev);
             self.survival.o2 = (self.survival.o2 + r.amount).min(100.0);
             let left = self.inv.count(o2);
+            self.sons.reserva_de_o2();
             self.toast(format!("Cilindro de O₂ conectado (+{:.0}%). Restam {left}", r.amount));
         }
         // lava (Marte): em pé em cima ou dentro
@@ -673,6 +698,7 @@ impl Game {
             }
         }
         self.burn_toast -= real_dt;
+        self.sons.queimando(real_dt, hot && playing);
         if hot && playing {
             self.survival.damage(LAVA_DPS * dt, DeathCause::Heat, true, p, ev);
             if self.burn_toast <= 0.0 {
@@ -688,6 +714,26 @@ impl Game {
             self.loot.drop(at, &spacing_core::rules::Counts::from_pairs(&[(item, n)]));
         }
         self.loot.update(dt, self.time, &mut self.world, self.player.center(), playing, &self.inv, &mut self.drops);
+        // destroços que batem no chão e pedaços chutados
+        let batidas: Vec<(bool, [f64; 3])> = self
+            .debris
+            .sounds
+            .iter()
+            .map(|s| match *s {
+                spacing_core::debris::DebrisSound::Clink { pos, .. } => (false, pos),
+                spacing_core::debris::DebrisSound::Kick { pos, .. } => (true, pos),
+            })
+            .collect();
+        self.sons.destrocos(&batidas);
+        // respiração, batimento, carga do traje, abafamento
+        let traje = Traje {
+            o2: self.survival.o2,
+            battery: self.survival.battery,
+            integrity: self.survival.integrity,
+            em_pressao: self.survival.in_pressure,
+            o2_critico: rules().survival.o2_warn[1],
+        };
+        self.sons.ciclos(real_dt, playing, &traje, self.loot.pieces.is_empty());
         self.hurt = (self.hurt - real_dt * 1.5).max(0.0);
         for t in &mut self.toasts {
             t.1 -= real_dt;
@@ -799,10 +845,13 @@ impl Game {
         self.draw_pos = self.player.animate(dt, alpha);
 
         let mut wind = 0.0;
+        let (mut devil, mut erupcao) = (false, false);
         if let Some(m) = &mut self.mars {
             let focus = self.rig.target;
             let ((push, hit), shake) = m.update(dt, &mut self.world, self.player.pos, focus, &mut self.puffs, &mut self.particles);
             self.player.push = push;
+            devil = hit.is_some();
+            erupcao = shake > 0.0;
             if let Some(h) = hit {
                 self.rig.shake(0.35);
                 self.player.vel[0] += h.vx * 1.2;
@@ -814,7 +863,12 @@ impl Game {
             }
             wind = m.dust() * 15.0;
         }
+        if let Some(m) = &self.mars {
+            let (fase, nivel) = (m.weather.phase, m.weather.level);
+            self.sons.marte(fase, nivel, self.base.inside(), self.death.is_none(), devil, erupcao);
+        }
         let impacts = self.meteors.update(dt, &mut self.world, self.player.pos, self.rig.yaw, &mut self.puffs, &mut self.particles);
+        self.sons.meteoros(&self.meteors.active, &impacts);
         for e in impacts {
             self.survival.on_meteor(e.distance, self.base.inside(), self.player.pos, &mut ev);
             self.impact(e);
@@ -858,6 +912,15 @@ impl Game {
                 self.exploration.reveal_around(self.player.pos[0], self.player.pos[2], REVEAL_RADIUS, &mut ev);
             }
         }
+        // o som: o ouvinte acompanha o astronauta e a câmera; dentro da base o fundo muda; as telas fazem clique
+        self.sons.ouvinte(self.draw_pos, self.rig.forward());
+        self.sons.sfx.set_indoors(self.base.inside());
+        let tela = self.screen_open.is_some_and(|s| !matches!(s, Screen::Menu | Screen::Map));
+        self.sons.telas(tela, self.screen_open == Some(Screen::Map));
+        let bench = StationId::of("workbench");
+        let bancada = self.crafting.is_built(bench) && self.crafting.working(bench) && !self.crafting.has_ready(bench);
+        let ponto = self.base.station_point(bench, self.player.pos);
+        self.sons.laser(bancada, ponto);
         self.respond(ev);
     }
 
@@ -926,6 +989,7 @@ impl Game {
             let dust = dust_of(self.ground());
             match e {
                 PlayerEvent::Step(p) => {
+                    self.sons.passo(p);
                     if let Some(d) = dust {
                         let v = self.player.vel;
                         let run = ((spacing_core::js::hypot(v[0], v[2]) - 2.0) / 2.4).clamp(0.0, 1.0);
@@ -934,6 +998,7 @@ impl Game {
                     self.footstep(false);
                 }
                 PlayerEvent::Land(p, speed) => {
+                    self.sons.pouso(p);
                     self.survival.on_land(speed, p, ev);
                     if let Some(d) = dust {
                         self.dust.land(&mut self.puffs, &mut self.particles, p, d, ((speed - 7.0) / 8.0).min(1.0));
@@ -942,6 +1007,7 @@ impl Game {
                     self.rig.shake(0.12);
                 }
                 PlayerEvent::Jump(p) => {
+                    self.sons.pulo(p);
                     if let Some(d) = dust {
                         self.dust.jump(&mut self.puffs, &mut self.rng, p, d);
                     }

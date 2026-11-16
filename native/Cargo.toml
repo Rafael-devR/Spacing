@@ -1,7 +1,7 @@
 # Porte do Spacing para Rust nativo (docs/design/PORTE_RUST.md, ADR 0023).
 [workspace]
 resolver = "2"
-members = ["spacing-core", "spacing-render", "spacing-app"]
+members = ["spacing-core", "spacing-render", "spacing-audio", "spacing-app"]
 
 [workspace.package]
 version = "0.1.0"

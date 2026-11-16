@@ -16,6 +16,7 @@ path = "src/main.rs"
 [dependencies]
 spacing-core = { path = "../spacing-core" }
 spacing-render = { path = "../spacing-render" }
+spacing-audio = { path = "../spacing-audio" }
 wgpu = { workspace = true }
 winit = { workspace = true }
 egui = { workspace = true }

@@ -26,10 +26,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: native
+      # o som (cpal) fala com o ALSA no Linux; no Android e no Windows não precisa de nada
+      - name: Biblioteca de som do Linux
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
       - name: Testes do núcleo (paridade com o TypeScript)
         run: cargo test -p spacing-core --release
-      - name: Testes do desenho e do app
-        run: cargo test -p spacing-render -p spacing-app --release
+      - name: Testes do desenho, do som e do app
+        run: cargo test -p spacing-render -p spacing-audio -p spacing-app --release
 
   apk:
     runs-on: ubuntu-latest

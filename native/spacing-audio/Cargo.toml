@@ -1,0 +1,16 @@
+[package]
+name = "spacing-audio"
+description = "Som do Spacing nativo: síntese, mixer posicional (porte de src/audio do jogo web) e saída pela placa (cpal)"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[features]
+# a saída pela placa de som (cpal); sem ela, só o mixer e o controle `Sfx` (testes, servidores sem ALSA)
+default = ["dispositivo"]
+dispositivo = ["dep:cpal"]
+
+[dependencies]
+log = { workspace = true }
+# versão fixa: a API do cpal muda entre versões (0.18 usa AAudio puro em Rust no Android, sem C++)
+cpal = { version = "=0.18.2", optional = true }
