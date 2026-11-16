@@ -47,22 +47,15 @@ quando a sessão termina.
 
 ## 5. Permissões e confirmações
 
-- Quando uma ferramenta pede confirmação, toque em **"Permitir uma vez"** (só aquele comando) ou **"Negar"**.
-- **Para não ser perguntado de novo:** o app não tem botão "sempre permitir". Use o **menu de modo** ao lado da caixa de
-  mensagem: **Accept edits**, **Plan** ou **Auto**. Em Auto, a maioria dos comandos roda sem perguntar (aparece só se a
-  organização permitir). Edição de arquivo já roda sem perguntar nos três modos.
-- **Regras fixas no projeto:** `permissions.allow` no `.claude/settings.json` do repositório. Só vale para sessões com **um
-  único repositório** ligado. A sessão "Desenvolvimento do jogo" tem dois (Spacing e Art-dev), então essa regra pode não
-  valer lá. Para isso, use o modo Auto.
-- O Supabase `execute_sql` já está nessa regra no Art-dev.
-
-## 4b. O cartão "Próximo passo" (tela Início)
-
-- Um passo fica como **atual** (o que você faz agora). Os demais ficam como **caminhos** para escolher.
-- Escolha um caminho e toque em "Marcar como próximo": ele vira o atual.
-- **Concluir:** o atual vai para "Concluídos" e aparecem outros caminhos para escolher.
-- **Trocar:** devolve o atual para a lista de caminhos.
-- Cada ação mostra um aviso com **Desfazer**. Em "Concluídos", a seta reabre o passo.
+- A confirmação do Supabase ("Execute SQL solicita permissão") vem das **permissões do conector**, não do repositório.
+- **Para tirar:** no app/site do Claude, abra https://claude.ai/customize/connectors, entre em **Supabase** e, em
+  permissões das ferramentas, deixe `Execute SQL` (e as que usar) como **permitida**. Vale para as sessões novas
+  (conectores são lidos quando a sessão começa). Se a opção não aparecer, o administrador da organização limitou.
+- "Permitir uma vez" só libera aquele comando.
+- **Modo da sessão:** o menu ao lado da caixa de mensagem tem **Accept edits**, **Plan** e **Auto**. Em Auto, a maioria dos
+  comandos roda sem perguntar (só aparece se a organização permitir). Não existe "sempre permitir" nem modo que ignora tudo.
+- A regra `permissions.allow` em `.claude/settings.json` do repositório só vale para sessão com **um único repositório**; a
+  sessão "Desenvolvimento do jogo" tem dois, então não conte com ela.
 
 ## 6. Notificações
 
