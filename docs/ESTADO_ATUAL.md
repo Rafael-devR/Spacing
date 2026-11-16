@@ -2,7 +2,32 @@
 
 > **Para quem abre uma sessão nova:** leia este arquivo, depois o [CLAUDE.md](../CLAUDE.md) (regras e mapa do código), o
 > [README](../README.md) e o que o assunto da vez pedir em [`docs/design/`](design). Este arquivo é um retrato de
-> **2026-11-12**; atualize-o quando uma etapa grande terminar.
+> **2026-11-12** (menos a seção de retomada do porte nativo, de 2026-11-16); atualize-o quando uma etapa grande terminar.
+
+## Retomada rápida: o porte nativo (2026-11-16, leia primeiro)
+
+O trabalho vivo hoje é o **porte para Rust nativo** (`native/`), não o jogo web. Resumo para quem chega agora:
+
+- **Onde está:** M0 a M4 feitos (mundo, física, render, sombra e bloom, base, estações, energia, estufa, missões, mapa, salvar e
+  carregar em formato v12). Do **M5** (interface) estão feitos título, configurações, pausa, controles e carregamento
+  (`native/spacing-app/src/telas.rs`, fonte Pixelify Sans, `prefs.json`). **Falta:** mochila e estações redesenhadas
+  (`items_screen.rs`, ainda WIP), medidores, objetivo no mundo, ícones flutuantes e a arte de pixel própria dos ícones (grade,
+  paleta e formato ainda por decidir). **M6 não começou:** som (hoje "Som" e "Vibração" são só guardados), teste de desempenho
+  nativo, Windows, ícone do app, versão e docs finais.
+- **Direção de interface (importante):** telas **minimalistas, em paisagem**, pixel art só em detalhes. O dono (2026-11-15) disse que
+  não gosta de menus: quer **interface diegética** (HUD dentro do mundo, o **tablet** como único lugar de opções, medidores no
+  traje, pino de objetivo, o primeiro jogo como pouso). **Ainda é só ideia: planejar em `docs/design/INTERFACE_NATIVA.md` antes
+  de codar, e só quando ele mandar.** Referência de estilo: Garbage Country.
+- **Trocar de planeta é só para teste** (a viagem entre planetas é da história). O "Planeta ‹ Lua ›" do título e a tecla M devem
+  virar um modo de teste (`--teste`); isso ainda não foi feito.
+- **Como validar sem celular:** `spacing --telas <pasta>` (capturas das telas), `spacing --captura <pasta> [lua|marte]`,
+  `spacing --roteiro <pasta>` (jogo jogado por script, 49/49 etapas). Precisa de `VK_ICD_FILENAMES` apontando para o SwiftShader do
+  Chromium do Playwright. Testes: `cargo test -p spacing-core --release`; `cargo clippy` limpo; `npm run golden` se mexer no TS.
+- **O dono ainda não validou o APK nativo** (fluxo `native-apk.yml`, artefato `spacing-nativo`) com as telas novas. Pedir retorno.
+- **Regras que valem:** branch de trabalho do porte nesta sessão foi `ccr-b3471d6f-0kqfdm` (push na branch de trabalho já autorizado
+  em definitivo; PR, release e apagar branch pedem confirmação). Explicar decisões em português simples; ele corrige o rumo no
+  meio, então **confirme o entendimento antes de tarefas grandes de interface**.
+- **Próximo passo sugerido (o dono ainda não escolheu):** som no nativo, ou mochila e estações, ou o caminho diegético. Perguntar.
 
 ## O jogo em uma frase
 
@@ -17,7 +42,7 @@ testa **no celular** (Android, tela adaptativa 60/120 Hz, GPU Adreno 710, densid
 - Quer um projeto **profissional, planejado e documentado**, não uma pilha de recursos soltos. Coisa grande: escreva o
   design em `docs/design/` (e um ADR em `docs/adr/` se mudar uma decisão técnica) **antes** de implementar.
 - **Faça tudo numa branch só** (ele pediu explicitamente: várias branches "bagunçam"). Hoje é `perf/bloom-e-efeitos`.
-- **Nada de push, PR ou release** sem ele pedir. Nada de publicar o jogo como artifact ou site.
+- **Push na branch de trabalho: já autorizado.** PR, release e apagar branch só se ele pedir. Nada de publicar o jogo como artifact ou site.
 - Antes de cada commit: `npm run lint && npm run typecheck && npm test && npm run build`. Commits convencionais, uma coisa
   por commit, com os trailers de atribuição que o ambiente pedir.
 - **Meça antes de otimizar.** Ele roda o teste de desempenho no celular e manda o JSON; você analisa.
