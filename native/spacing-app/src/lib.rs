@@ -4,6 +4,7 @@ pub mod base;
 #[cfg(not(target_os = "android"))]
 pub mod capture;
 pub mod controls;
+pub mod desempenho;
 pub mod effects;
 #[cfg(not(target_os = "android"))]
 pub mod fonte;
@@ -117,6 +118,12 @@ struct App {
     show_stats: bool,
     vsync: bool,
     bench: Option<effects::EffectBench>,
+    /// o teste de desempenho (cenários) em andamento; depois dele vem o custo dos efeitos (`bench`) e o jogo recarrega
+    teste: Option<desempenho::Teste>,
+    /// o custo dos efeitos que fecha o teste de desempenho está rodando
+    teste_efeitos: bool,
+    /// o resultado do último teste (fica no painel até tocar no botão de estatísticas)
+    relatorio: Vec<String>,
     /// resolução dinâmica (só fora do teste de efeitos)
     scaler: ResolutionScaler,
     /// escala da cena antes da dinâmica: densidade 2 como a qualidade Alta do jogo web (devicePixelRatio até 2)
@@ -179,6 +186,9 @@ impl App {
             show_stats: true,
             vsync: false,
             bench: None,
+            teste: None,
+            teste_efeitos: false,
+            relatorio: Vec::new(),
             scaler: ResolutionScaler::default(),
             base_scale: 1.0,
             cpu_ms: 0.0,
@@ -297,6 +307,10 @@ impl App {
 
     /// grava o jogo (Game.persist); não grava no meio de uma cena nem morto
     fn persist(&mut self) -> bool {
+        // durante o teste de desempenho o mundo é alterado de propósito: nada é gravado
+        if self.teste.is_some() || self.teste_efeitos {
+            return false;
+        }
         let Some(g) = &self.game else { return false };
         if !g.can_save() {
             return false;
@@ -306,6 +320,82 @@ impl App {
             self.saved_at = Some(storage::now_ms());
         }
         ok
+    }
+
+    /// Começa o teste de desempenho (Pausa): grava o progresso, silencia som e vibração e roda os cenários.
+    fn teste_comeca(&mut self) {
+        let Some(g) = &self.game else { return };
+        if g.base.inside() || g.base.busy() || g.death.is_some() {
+            if let Some(g) = &mut self.game {
+                g.toast("Saia da base e fique vivo para medir o desempenho.");
+            }
+            return;
+        }
+        self.persist();
+        self.bench = None;
+        self.relatorio.clear();
+        self.teste_efeitos = false;
+        self.teste = Some(desempenho::Teste::novo());
+        self.sfx.set_muted(true);
+        self.vib.ativa(false);
+        self.show_stats = false;
+    }
+
+    /// o ambiente de agora (vai no resultado)
+    fn teste_ambiente(&self) -> Option<desempenho::Ambiente> {
+        let (r, g) = (self.renderer.as_ref()?, self.game.as_ref()?);
+        Some(desempenho::Ambiente {
+            placa: r.backend.clone(),
+            tela: r.size(),
+            cena: r.scene_size(),
+            msaa: r.msaa(),
+            apresentacao: r.present_mode().to_string(),
+            planeta: planet(g.planet).name,
+        })
+    }
+
+    /// O teste acabou ou foi cancelado: som e vibração voltam, o progresso de antes é recarregado (o teste cavou blocos e
+    /// soltou meteoros) e o resultado fica no painel.
+    fn teste_termina(&mut self, linhas: Vec<String>) {
+        self.teste = None;
+        self.teste_efeitos = false;
+        self.bench = None;
+        self.controls.scripted = None;
+        self.sfx.set_muted(!self.prefs.som);
+        self.vib.ativa(self.prefs.vibracao);
+        self.relatorio = linhas;
+        self.carregar();
+    }
+
+    /// A cada quadro: cancela se a Pausa abriu, e passa dos cenários para o custo dos efeitos e deste para o fim.
+    fn teste_verifica(&mut self) {
+        if self.teste.is_none() && !self.teste_efeitos {
+            return;
+        }
+        let pausa = self.game.as_ref().is_none_or(|g| g.screen_open.is_some());
+        if pausa {
+            self.teste_termina(vec!["teste de desempenho cancelado".into()]);
+            return;
+        }
+        if self.teste.as_ref().is_some_and(|t| t.feito) {
+            let (Some(amb), Some(t)) = (self.teste_ambiente(), self.teste.take()) else { return };
+            let antes = self.store.ultimo_desempenho().map(|v| desempenho::ler_medidas(&v));
+            let agora = storage::now_ms();
+            self.store.gravar_desempenho(&t.json(&amb, agora), agora);
+            self.relatorio = t.linhas(&amb, antes.as_deref());
+            // o custo dos efeitos fecha o teste (o astronauta já está parado)
+            if let Some(r) = self.renderer.as_mut() {
+                self.bench = Some(effects::EffectBench::new(r));
+                self.teste_efeitos = true;
+            }
+            self.controls.scripted = None;
+        } else if self.teste_efeitos && self.bench.as_ref().is_some_and(|b| b.done) {
+            let mut linhas = std::mem::take(&mut self.relatorio);
+            if let Some(b) = &self.bench {
+                linhas.extend(b.report());
+            }
+            self.teste_termina(linhas);
+        }
     }
 
     fn switch_planet(&mut self) {
@@ -346,7 +436,10 @@ impl App {
         if self.controls.actions.toggle_stats {
             self.controls.actions.toggle_stats = false;
             self.show_stats = !self.show_stats;
+            // o resultado do teste de desempenho fica até este botão ser tocado
+            self.relatorio.clear();
         }
+        self.teste_verifica();
         let now = Instant::now();
         let dt = self.last.map(|l| (now - l).as_secs_f64()).unwrap_or(1.0 / 60.0);
         self.last = Some(now);
@@ -358,8 +451,8 @@ impl App {
                 // acabou: a resolução volta à de antes
                 r.set_scale(alvo);
             }
-        } else if let (Some(r), true) = (self.renderer.as_mut(), auto) {
-            // gráficos "Automática": alvo de 60 quadros, como o jogo web sem limite escolhido
+        } else if let (Some(r), true, true) = (self.renderer.as_mut(), auto, self.teste.is_none()) {
+            // (parada durante o teste de desempenho: a resolução tem de ficar a mesma) gráficos "Automática": alvo de 60 quadros, como o jogo web sem limite escolhido
             if let Some(s) = self.scaler.frame(dt * 1000.0, self.cpu_ms, 1000.0 / 60.0) {
                 r.set_scale(self.base_scale * s as f32);
             }
@@ -391,6 +484,9 @@ impl App {
         self.pausado = paused;
         self.sfx.set_paused(paused);
         game.rig.shake_scale = self.prefs.tremor.escala();
+        if let Some(t) = self.teste.as_mut().filter(|_| !paused) {
+            t.quadro(dt, self.cpu_ms, game, &mut self.controls);
+        }
         game.update(if paused { 0.0 } else { dt }, &mut self.controls);
         game.sync(r);
         let size = r.size();
@@ -417,6 +513,9 @@ impl App {
             chunks: game.world.chunk_count(),
             show_stats: self.show_stats,
             bench: match &self.bench {
+                _ if self.teste.is_some() => self.teste.iter().map(|t| t.rotulo()).collect(),
+                Some(b) if self.teste_efeitos && !b.done => vec![b.running_label(), "fique parado: o tempo do quadro é medido sem cada efeito".into()],
+                _ if !self.relatorio.is_empty() => self.relatorio.clone(),
                 Some(b) if b.done => {
                     let mut r = b.report();
                     if self.vsync {
@@ -500,7 +599,7 @@ impl App {
                 if let Some(g) = &mut self.game {
                     g.ui_action(hud::UiAction::Close);
                 }
-                self.controls.actions.bench = true;
+                self.teste_comeca();
             }
             P::Sair => {
                 // grava e volta ao título; o mundo sai da memória e do desenho

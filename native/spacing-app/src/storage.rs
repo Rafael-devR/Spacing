@@ -57,6 +57,33 @@ impl Store {
         self.dir.as_ref().map(|d| d.join(format!("save-{}.json", name(p))))
     }
 
+    /// Os resultados do teste de desempenho (`desempenho/`): o mais recente que está guardado.
+    pub fn ultimo_desempenho(&self) -> Option<serde_json::Value> {
+        let d = self.dir.as_ref()?.join("desempenho");
+        let mut nomes: Vec<_> = std::fs::read_dir(d.clone()).ok()?.filter_map(|e| e.ok()).map(|e| e.file_name()).collect();
+        nomes.sort();
+        let ultimo = nomes.last()?;
+        serde_json::from_str(&std::fs::read_to_string(d.join(ultimo)).ok()?).ok()
+    }
+
+    /// Guarda um resultado do teste de desempenho e apaga os mais velhos (ficam os 10 últimos).
+    pub fn gravar_desempenho(&self, v: &serde_json::Value, quando_ms: f64) -> bool {
+        let Some(d) = self.dir.as_ref().map(|d| d.join("desempenho")) else { return false };
+        if std::fs::create_dir_all(&d).is_err() {
+            return false;
+        }
+        let ok = std::fs::write(d.join(format!("desempenho-{:015}.json", quando_ms as u64)), serde_json::to_string_pretty(v).unwrap_or_default()).is_ok();
+        if let Ok(rd) = std::fs::read_dir(&d) {
+            let mut nomes: Vec<_> = rd.filter_map(|e| e.ok()).map(|e| e.file_name()).collect();
+            nomes.sort();
+            let sobra = nomes.len().saturating_sub(10);
+            for n in nomes.into_iter().take(sobra) {
+                let _ = std::fs::remove_file(d.join(n));
+            }
+        }
+        ok
+    }
+
     /// as configurações do jogador (prefs.rs)
     pub fn prefs_path(&self) -> Option<PathBuf> {
         self.dir.as_ref().map(|d| d.join("prefs.json"))

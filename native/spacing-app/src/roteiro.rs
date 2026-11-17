@@ -490,6 +490,26 @@ pub fn run(dir: &str) {
         t.check("carregar volta com a mesma semente", b.seed == a.seed, format!("{}", b.seed));
     }
 
+    // ---- teste de desempenho: os 7 cenários com o relógio acelerado (os números daqui não valem: só prova que roda) ----
+    {
+        use crate::desempenho::{Teste, CENAS};
+        let antes = (t.game.inv.totals(), t.game.survival.o2);
+        t.game.survival.o2 = 10.0;
+        let mut teste = Teste::com_escala(0.12);
+        let mut n = 0;
+        while !teste.feito && n < 3000 {
+            teste.quadro(DT, 4.0, &mut t.game, &mut t.c);
+            t.step();
+            n += 1;
+        }
+        t.check("teste de desempenho: roda os 7 cenários até o fim", teste.feito && teste.medidas.len() == CENAS.len(), format!("{} medidas em {n} quadros", teste.medidas.len()));
+        t.check("teste de desempenho: cada cenário mediu quadros", teste.medidas.iter().all(|m| m.quadros > 3), format!("{:?}", teste.medidas.iter().map(|m| m.quadros).collect::<Vec<_>>()));
+        t.check("teste de desempenho: o astronauta não morre", t.game.death.is_none() && t.game.survival.o2 > 99.0, format!("O₂ {}", t.game.survival.o2));
+        t.check("teste de desempenho: quebrar blocos de verdade", t.game.inv.totals() != antes.0 || !t.game.drops.drops.is_empty(), "");
+        t.check("teste de desempenho: devolve o joystick ao jogador", t.c.scripted.is_none(), "");
+        let _ = antes.1;
+    }
+
     // ---- um salvamento antigo do jogo web (v5, de antes do mapa e das estações) ----
     let old = serde_json::json!({
         "version": 5, "seed": 321, "savedAt": 1700000000000.0,

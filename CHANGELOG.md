@@ -7,6 +7,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Adicionado
 
+- **Teste de desempenho no jogo nativo (Rust)** ([design/BENCHMARK_NATIVO.md](docs/design/BENCHMARK_NATIVO.md)). **Pausa → Teste de
+  desempenho** roda sozinho 7 cenários (parado, andar em círculo, girar a câmera, zoom, 20 blocos quebrados por segundo, meteoros,
+  tudo junto) e depois o custo de cada efeito; mede FPS, 99%, máximo, jitter, quadros perdidos e CPU, diz se sustenta 60 e 120 FPS,
+  grava `desempenho/*.json` (10 últimos) e compara com o teste anterior. Não muda o jogo: o salvamento fica travado, o astronauta
+  não morre e o progresso de antes é recarregado no fim. O roteiro jogado ganhou 5 conferências (70 no total).
+
 - **Vibração no jogo nativo (Rust)** ([design/AUDIO_NATIVO.md](docs/design/AUDIO_NATIVO.md)). Os mesmos seis padrões do jogo web, junto
   com os sons: golpe e bloco quebrado, recusa da broca, aviso e alarme de ar, asfixia, dano, morte, renascer, missão, comer, recolher
   os itens caídos, meteoro perto, porta e câmara de pressão, descanso, tablet, bancada e estufa. Chama o `Vibrator` do Android por

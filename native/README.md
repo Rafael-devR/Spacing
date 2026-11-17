@@ -69,6 +69,9 @@ No Android sai pelo AAudio e no Windows pelo WASAPI (cpal); sem placa de som o j
 `sudo apt-get install libasound2-dev`. A configuração **Som** liga e desliga tudo; a pausa e o app no fundo congelam o áudio.
 `spacing --som /tmp/som` grava um `.wav` de cada som (e de cenas: direita e esquerda, módulo, base, Marte, meteoro, traje) e mostra o
 volume de cada um. 
+**Teste de desempenho:** Pausa → Teste de desempenho (`desempenho.rs`, [design](../docs/design/BENCHMARK_NATIVO.md)): 7 cenários de
+cerca de 50 s mais o custo dos efeitos; o resultado fica no painel e em `desempenho/*.json`. Só o celular mede de verdade.
+
 **Vibração:** `spacing-app/src/vibracao.rs`, os mesmos seis padrões do jogo web (tick, tap, medium, heavy, success, death), disparados junto com
 os sons em `sons.rs`. No Android chama o `Vibrator` do sistema por JNI (crate `jni` 0.22, thread própria; permissão `VIBRATE` no manifesto);
 no computador não faz nada. A configuração **Vibração** liga e desliga.

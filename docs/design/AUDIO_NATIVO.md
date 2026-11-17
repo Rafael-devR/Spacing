@@ -69,7 +69,7 @@ Pausa **congela** o áudio; ir para o fundo (Android) também.
   o zumbido do módulo some de longe; pausa congela; nada passa de ±1; sem `NaN`.
 - `spacing --som <pasta>`: grava um `.wav` de cada som (perto, longe, direita, esquerda, dentro da base) para ouvir no
   computador e imprime o volume de cada um.
-- `spacing --roteiro`: 12 etapas de som e 4 de vibração (65 no total): andar, pular, minerar, missão, meteoro, tablet, morte, mochila, forno… O `Sfx` de teste registra o que o jogo pediu.
+- `spacing --roteiro`: 12 etapas de som e 4 de vibração (65 no total; hoje 70 com o teste de desempenho): andar, pular, minerar, missão, meteoro, tablet, morte, mochila, forno… O `Sfx` de teste registra o que o jogo pediu.
 - No título e no carregamento **só se ouvem os cliques**: o fundo (cratera, ventilação, vento) liga junto com o jogo (`set_world`).
 - **No celular** (só o dono confere): se os sons estão no ponto, se o zumbido do módulo incomoda, se há estalos ou
   atraso entre o gesto e o som.

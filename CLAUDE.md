@@ -38,7 +38,7 @@ branch `web`**.
 | `cargo run --release -p spacing-app`           | Roda no computador (winit)                         |
 | `spacing --telas <pasta>`                      | Capturas de cada tela de menu (1688×780)           |
 | `spacing --captura <pasta> [lua\|marte] [semente]` | Captura do mundo sem janela                    |
-| `spacing --roteiro <pasta>`                    | Jogo jogado por script (65 etapas)                 |
+| `spacing --roteiro <pasta>`                    | Jogo jogado por script (70 etapas)                 |
 | `spacing --som <pasta>`                        | Grava um `.wav` de cada som e de cenas, e mede o volume |
 
 O som usa o ALSA no Linux: instale `libasound2-dev` (`sudo apt-get install libasound2-dev`) para compilar no computador. Sem GPU aqui: para capturar, aponte `VK_ICD_FILENAMES` para o SwiftShader do Chromium do Playwright
@@ -56,7 +56,7 @@ O som usa o ALSA no Linux: instale `libasound2-dev` (`sudo apt-get install libas
   `prefs.rs`, `storage.rs`, `fontes.rs` com a Pixelify Sans, `sons.rs`).
 - Modelos 3D (`.glb` do Blender) em `native/assets/models/`; fonte em `native/assets/fonts/`.
 - Etapas: M0 a M4 feitas; do M5, título, configurações, pausa, controles e carregamento; do M6, o **som**
-  e a **vibração** (2026-11-16); faltam desempenho, Windows e acabamento. Detalhe em `docs/design/PORTE_RUST.md`. Próximas etapas só com o dono mandando.
+  a **vibração** e o **teste de desempenho** (2026-11-17); faltam Windows e acabamento. Detalhe em `docs/design/PORTE_RUST.md`. Próximas etapas só com o dono mandando.
 
 ## Vetores dourados (o TS é a fonte)
 
