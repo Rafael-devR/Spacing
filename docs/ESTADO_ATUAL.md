@@ -6,6 +6,11 @@
 
 ## O projeto em uma frase
 
+> **⏸ PROJETO PAUSADO TEMPORARIAMENTE (2026-11-19).** O celular do dono está com a tela quebrada e não há como testar. **Não comece
+> etapa nova** até o dono avisar que voltou. Ao retomar: instalar o APK do GitHub Actions, rodar **Pausa → Teste de desempenho**,
+> conferir som e vibração, e então seguir com Windows, ícone e versão do M6.
+
+
 Spacing: jogo de exploração espacial em mundo de blocos (astronauta numa Lua, depois Marte; minera, constrói, fabrica,
 sobrevive). O dono decidiu (2026-11-14) **portar para Rust nativo** (Android primeiro, Windows depois), pelo produto e pela pilha,
 não só pelo desempenho ([ADR 0023](adr/0023-porte-para-rust-nativo.md)). O jogo web (Three.js) continua como **referência** e
